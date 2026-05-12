@@ -1,0 +1,1529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flimp Timeline Generator</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --dark:#08212D;
+  --lime:#67E74E;
+  --lime-dark:#4cc235;
+  --blue:#367ED4;
+  --blue-bg:#E9F0FB;
+  --red:#D83A31;
+  --red-bg:#FBECEB;
+  --green:#44A55D;
+  --green-bg:#F2F8F0;
+  --amber:#FFB21B;
+  --warm-white:#FEFBF5;
+  --border:#dde3ec;
+  --border-light:#edf0f5;
+  --text:#08212D;
+  --text-secondary:#3d5a68;
+  --text-tertiary:#7a96a3;
+  --surface:#ffffff;
+  --radius:8px;
+  --radius-lg:12px;
+}
+html{font-size:14px}
+body{font-family:Calibri,sans-serif;background:#F2F8F0;color:var(--text);min-height:100vh}
+
+/* ── Header ── */
+.app-header{background:var(--dark);padding:0 2rem;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:6px}
+.logo-wordmark{font-size:21px;font-weight:700;color:var(--lime);letter-spacing:-.01em}
+.logo-sub{font-size:12px;color:#ffffff45;margin-left:4px;letter-spacing:.02em}
+.header-right{font-size:12px;color:#ffffff40}
+
+/* ── Layout ── */
+.page{max-width:900px;margin:0 auto;padding:2rem 1.5rem 4rem}
+
+/* ── Section titles ── */
+.section-head{display:flex;align-items:center;gap:10px;margin-bottom:1rem;flex-wrap:wrap}
+.section-num{width:22px;height:22px;border-radius:50%;background:var(--dark);color:#fff;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.section-title{font-size:13px;font-weight:600;color:var(--text);letter-spacing:.03em;text-transform:uppercase}
+.section-hint{font-size:12px;color:var(--text-tertiary)}
+
+/* ── Cards ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:1.25rem}
+
+/* ── Form fields ── */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:11px;font-weight:600;color:var(--text-secondary);letter-spacing:.05em;text-transform:uppercase}
+.field input,.field select{font-family:Calibri,sans-serif;font-size:14px;height:38px;padding:0 12px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);color:var(--text);width:100%;transition:border-color .15s,box-shadow .15s}
+.field input:focus,.field select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(54,126,212,.12)}
+
+/* ── Net new checkbox ── */
+.net-new-wrap{margin:10px 0 0}
+.net-new-label{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .15s;user-select:none}
+.net-new-label:hover{border-color:#aab5d0}
+.net-new-label.active{border-color:var(--blue);background:var(--blue-bg)}
+.net-new-label input{width:14px;height:14px;accent-color:var(--blue);cursor:pointer}
+.net-new-label .nn-text{font-size:13px;color:var(--text)}
+.net-new-label .nn-hint{font-size:11px;color:var(--text-tertiary);margin-left:2px}
+.net-new-label.active .nn-hint{color:var(--blue)}
+
+/* ── Deliverable rows ── */
+.row-headers{display:grid;grid-template-columns:1fr 72px 108px 110px 36px 32px;gap:8px;margin-bottom:6px;padding:0 2px}
+.row-headers span{font-size:11px;font-weight:600;color:var(--text-tertiary);letter-spacing:.04em;text-transform:uppercase}
+.row-headers span:nth-child(2),.row-headers span:nth-child(3),.row-headers span:nth-child(4){text-align:center}
+.del-row{display:grid;grid-template-columns:1fr 72px 108px 110px 36px 32px;gap:8px;align-items:center;margin-bottom:8px}
+.del-row select{font-family:Calibri,sans-serif;font-size:13px;height:36px;padding:0 8px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);color:var(--text);width:100%;transition:border-color .15s}
+.del-row select:focus{outline:none;border-color:var(--blue)}
+.del-row input[type=number]{font-family:Calibri,sans-serif;font-size:14px;height:36px;padding:0 8px;border:1px solid var(--border);border-radius:var(--radius);background:#fff;color:var(--text);text-align:center;width:100%}
+.del-row input[type=number]:focus{outline:none;border-color:var(--blue)}
+.nr-toggle{display:flex;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;height:36px}
+.nr-btn{flex:1;border:none;background:#fff;color:var(--text-secondary);font-family:Calibri,sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:all .12s;border-right:1px solid var(--border)}
+.nr-btn:last-child{border-right:none}
+.nr-toggle.disabled{opacity:.35;pointer-events:none}
+.nr-toggle.disabled .nr-btn{background:#f5f5f5;color:#aaa}
+.nr-btn.n-active{background:var(--dark);color:var(--lime)}
+.nr-btn.r-active{background:var(--green);color:#fff}
+.rounds-stepper{display:flex;align-items:center;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;height:36px;background:#fff}
+.rounds-btn{width:28px;height:100%;border:none;background:transparent;color:var(--text-secondary);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;flex-shrink:0;font-family:Calibri,sans-serif}
+.rounds-btn:hover{background:var(--blue-bg);color:var(--blue)}
+.rounds-val{flex:1;text-align:center;font-size:14px;font-weight:600;color:var(--text);font-family:Calibri,sans-serif;border-left:1px solid var(--border);border-right:1px solid var(--border);height:100%;display:flex;align-items:center;justify-content:center;min-width:28px}
+.rm-btn{width:32px;height:32px;border:1px solid var(--border);border-radius:var(--radius);background:transparent;color:var(--text-tertiary);cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center;transition:all .15s;line-height:1;padding:0}
+.rm-btn:hover{border-color:var(--red);color:var(--red);background:var(--red-bg)}
+.add-row-btn{width:100%;height:36px;border:1px dashed var(--border);border-radius:var(--radius);background:transparent;color:var(--text-tertiary);font-family:Calibri,sans-serif;font-size:13px;cursor:pointer;margin-top:4px;transition:all .15s}
+.add-row-btn:hover{border-color:var(--blue);color:var(--text)}
+
+/* ── Pills ── */
+.pill-grid{display:flex;flex-wrap:wrap;gap:8px}
+.pill-item{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px solid var(--border);border-radius:20px;cursor:pointer;transition:all .18s;user-select:none;font-size:13px;color:var(--text-secondary);background:var(--surface);font-family:Calibri,sans-serif}
+.pill-item:hover{border-color:var(--blue);color:var(--text);background:var(--blue-bg)}
+.pill-item.checked{border-color:var(--dark);background:var(--dark);color:var(--lime);font-weight:600}
+.pill-check{width:14px;height:14px;border-radius:50%;border:1.5px solid currentColor;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .18s}
+.pill-item.checked .pill-check{background:var(--lime);border-color:var(--lime)}
+.pill-item.checked .pill-check::after{content:'';width:4px;height:7px;border:2px solid var(--dark);border-top:none;border-left:none;transform:rotate(45deg) translate(-1px,-1px);display:block}
+
+/* ── Buttons ── */
+.preview-btn{width:100%;height:44px;background:#fff;border:1.5px solid var(--dark);border-radius:var(--radius-lg);color:var(--dark);font-family:Calibri,sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:all .2s;margin-top:1.25rem}
+.preview-btn:hover{background:var(--green-bg)}
+.generate-wrap{margin-top:1.5rem}
+.generate-btn{width:100%;height:48px;background:var(--lime);border:none;border-radius:var(--radius-lg);color:var(--dark);font-family:Calibri,sans-serif;font-size:16px;font-weight:700;cursor:pointer;letter-spacing:.02em;transition:all .2s}
+.generate-btn:hover:not(:disabled){background:var(--lime-dark)}
+.generate-btn:active:not(:disabled){transform:scale(.99)}
+.generate-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ── Divider ── */
+.section-divider{height:1px;background:var(--border-light);margin:2rem 0}
+
+/* ── Phase preview ── */
+#phasePreviewSection{display:none}
+.pb-block{background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:.75rem;overflow:hidden}
+.pb-header{padding:.6rem 1.1rem;display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;transition:background .12s}
+.pb-header:hover{background:var(--warm-white)}
+.pb-confirm{width:18px;height:18px;border-radius:4px;border:2px solid var(--border);background:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;cursor:pointer}
+.pb-confirm.confirmed{background:var(--green);border-color:var(--green)}
+.pb-confirm.confirmed::after{content:'';width:5px;height:9px;border:2px solid #fff;border-top:none;border-left:none;transform:rotate(45deg) translate(-1px,-1px);display:block}
+.pb-chevron{width:16px;height:16px;flex-shrink:0;transition:transform .2s;color:var(--text-tertiary)}
+.pb-chevron.open{transform:rotate(180deg)}
+.pb-title-wrap{flex:1;min-width:0}
+.pb-title{font-size:13px;font-weight:600;color:var(--text);line-height:1.2}
+.pb-subtitle{font-size:11px;color:var(--text-tertiary);margin-top:0;line-height:1.3}
+.pb-dates{font-size:11px;line-height:1.3;margin-top:1px}
+.pb-body{border-top:1px solid var(--border-light);display:block;max-height:0;overflow:hidden;transition:max-height .35s ease}
+.pb-body.open{max-height:2000px}
+.confirm-wrap{display:flex;align-items:center;gap:6px;margin-left:12px;flex-shrink:0}
+.confirm-label{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-tertiary)}
+
+/* ── Phase table ── */
+.phase-table{width:100%;border-collapse:collapse}
+.phase-table th{padding:.5rem .9rem;font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.06em;text-transform:uppercase;text-align:left;border-bottom:1px solid var(--border-light);background:var(--warm-white)}
+.phase-table th:nth-child(2),.phase-table th:nth-child(3){text-align:center}
+.phase-table td{padding:.45rem .9rem;border-bottom:1px solid var(--border-light);vertical-align:middle}
+.phase-table tr:last-child td{border-bottom:none}
+.phase-table tr:hover td{background:#fafbfd}
+.pt-name{font-family:Calibri,sans-serif;font-size:13px;height:30px;padding:0 8px;border:1px solid transparent;border-radius:5px;color:var(--text);width:100%;background:transparent;transition:border-color .12s}
+.pt-name:hover{border-color:var(--border)}
+.pt-name:focus{outline:none;border-color:var(--blue);background:#fff}
+.pt-dur{font-family:Calibri,sans-serif;font-size:13px;height:30px;padding:0 6px;border:1px solid transparent;border-radius:5px;color:var(--text);width:62px;text-align:center;background:transparent;transition:border-color .12s}
+.pt-dur:hover{border-color:var(--border)}
+.pt-dur:focus{outline:none;border-color:var(--blue);background:#fff}
+.owner-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px;letter-spacing:.03em}
+.owner-flimp{background:var(--blue-bg);color:var(--blue)}
+.owner-client{background:var(--green-bg);color:var(--green)}
+.phase-rm-btn{width:22px;height:22px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text-tertiary);cursor:pointer;font-size:14px;display:inline-flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:all .12s}
+.phase-rm-btn:hover{border-color:var(--red);color:var(--red);background:var(--red-bg)}
+.add-phase-btn{width:100%;height:34px;border:1px dashed var(--border);border-top:none;border-radius:0 0 var(--radius-lg) var(--radius-lg);background:transparent;color:var(--text-tertiary);font-family:Calibri,sans-serif;font-size:13px;cursor:pointer;transition:all .15s}
+.add-phase-btn:hover{border-color:var(--blue);color:var(--text);background:var(--blue-bg)}
+
+/* ── Preview status & validation ── */
+.preview-status{display:flex;align-items:center;gap:8px;margin-top:.75rem;font-size:12px;color:var(--text-tertiary)}
+.preview-status .ps-count{font-weight:600;color:var(--green)}
+
+/* ── Feasibility panel ── */
+.feasibility-panel{display:none;margin-bottom:1rem;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.feasibility-header{background:var(--dark);padding:.65rem 1.25rem;display:flex;align-items:center;justify-content:space-between}
+.feasibility-title{font-size:11px;font-weight:700;color:#fff;letter-spacing:.06em;text-transform:uppercase}
+.feasibility-dates{font-size:11px;color:#ffffff60}
+.feasibility-grid{display:grid;grid-template-columns:1fr 1fr 1fr}
+.feasibility-cell{padding:.9rem 1.25rem}
+.feasibility-cell:not(:last-child){border-right:1px solid var(--border)}
+.feasibility-cell-label{font-size:11px;font-weight:600;color:var(--text-tertiary);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px}
+.feasibility-value{font-size:22px;font-weight:700;color:var(--text)}
+.feasibility-msg{font-size:11px;color:var(--text-tertiary);margin-top:2px}
+.feasibility-bar-track{height:6px;background:var(--border-light)}
+/* ── Per-block feasibility ── */
+.pb-feas{margin-top:5px}
+.pb-feas-bar-track{height:4px;background:var(--border-light);border-radius:2px;overflow:hidden;margin-bottom:3px}
+.pb-feas-bar-fill{height:100%;width:0%;border-radius:2px;transition:width .3s,background .3s}
+.pb-feas-diff{font-size:10px;font-weight:700;letter-spacing:.01em}
+.pb-feas-diff.ok{color:var(--green)}
+.pb-feas-diff.warn{color:var(--amber)}
+.pb-feas-diff.over{color:var(--red)}
+.feasibility-bar-fill{height:100%;width:0%;transition:width .4s ease,background .3s}
+/* ── Gantt ── */
+.gantt-row{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+.gantt-label{font-size:11px;color:rgba(255,255,255,.75);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:150px;flex-shrink:0;font-family:Calibri,sans-serif}
+.gantt-track{flex:1;height:22px;background:rgba(255,255,255,.08);border-radius:4px;position:relative;overflow:visible}
+.gantt-bar{position:absolute;top:0;height:100%;border-radius:4px;display:flex;align-items:center;justify-content:center;padding:0 6px;font-size:10px;font-weight:700;color:rgba(255,255,255,.9);white-space:nowrap;min-width:4px;transition:width .3s,left .3s}
+.gantt-bar.end-product{opacity:.8}
+.gantt-bar.total-bar{background:rgba(255,255,255,.15)!important;border:1px solid rgba(255,255,255,.2)}
+.gantt-due-line{position:absolute;top:-4px;bottom:-4px;width:2px;background:rgba(255,80,80,.7);border-radius:1px;z-index:2}
+.gantt-due-label{position:absolute;top:-17px;font-size:9px;color:rgba(255,120,120,.9);white-space:nowrap;transform:translateX(-50%);font-family:Calibri,sans-serif}
+.gantt-enddate{width:58px;flex-shrink:0;font-size:10px;color:rgba(255,255,255,.55);font-family:Calibri,sans-serif;padding-left:7px;white-space:nowrap;text-align:left}
+.gantt-axis-row{display:flex;align-items:flex-end;gap:10px;margin-bottom:5px}
+.gantt-axis-track{flex:1;height:16px;position:relative;margin-right:68px}
+.gantt-axis-tick{position:absolute;font-size:9px;color:rgba(255,255,255,.3);transform:translateX(-50%);font-family:Calibri,sans-serif;white-space:nowrap}
+
+/* ── Timeline output ── */
+#timelineOutput{display:none}
+.tl-actions{display:flex;gap:8px;margin-bottom:1.25rem}
+.tl-action-btn{height:34px;padding:0 16px;border:1px solid var(--border);border-radius:var(--radius);background:#fff;color:var(--text-secondary);font-family:Calibri,sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s}
+.tl-action-btn:hover{border-color:var(--blue);color:var(--text)}
+.tl-action-btn svg{width:14px;height:14px;flex-shrink:0}
+
+/* ── Unified timeline table ── */
+.unified-tl-wrap{background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem}
+.unified-tl-title{padding:1rem 1.5rem .75rem;font-size:16px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border-light)}
+.unified-tl-table{width:100%;border-collapse:collapse;font-family:Calibri,sans-serif}
+.unified-tl-table thead tr{background:var(--dark)}
+.unified-tl-table th{padding:.55rem 1rem;font-size:11px;font-weight:700;color:#ffffff90;letter-spacing:.06em;text-transform:uppercase;text-align:left}
+.unified-tl-table td{padding:.5rem 1rem;font-size:13px;color:var(--text);border-bottom:1px solid var(--border-light);vertical-align:top}
+.unified-tl-table tbody tr:last-child td{border-bottom:none}
+.unified-tl-table tbody tr:hover td{background:var(--warm-white)}
+.td-date{font-weight:600;white-space:nowrap;text-align:right}
+.td-deliverable{color:var(--text-secondary)}
+.unified-tl-footer{padding:.75rem 1.5rem;font-size:12px;color:var(--text-secondary);border-top:1.5px solid var(--border);background:var(--warm-white);display:flex;gap:1.5rem;flex-wrap:wrap}
+.unified-tl-footer span strong{color:var(--text);font-weight:700}
+
+/* ── Net new note ── */
+.nn-note{background:var(--blue-bg);border-left:3px solid var(--blue);border-radius:0 var(--radius) var(--radius) 0;padding:.85rem 1.1rem;margin-bottom:1rem;font-size:13px;color:#1a3d6a;line-height:1.6}
+.nn-note strong{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--blue);margin-bottom:4px}
+
+@media print{
+  .app-header,.generate-wrap,.tl-actions,.preview-btn,#phasePreviewSection{display:none!important}
+  body{background:#fff}
+  .card{border:none;padding:0}
+  #timelineOutput{display:block!important}
+}
+</style>
+</head>
+<body>
+<div id="loadingOverlay" style="position:fixed;inset:0;background:#F2F8F0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;font-family:Calibri,sans-serif">
+  <div style="width:48px;height:48px;border:4px solid #dde3ec;border-top-color:#08212D;border-radius:50%;animation:spin .8s linear infinite;margin-bottom:1.5rem"></div>
+  <div style="font-size:16px;font-weight:600;color:#08212D;margin-bottom:.4rem">Loading timeline data</div>
+  <div style="font-size:13px;color:#7a96a3">Connecting to Supabase…</div>
+</div>
+<div id="loadingError" style="position:fixed;inset:0;background:#F2F8F0;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:9999;font-family:Calibri,sans-serif">
+  <div style="font-size:32px;margin-bottom:1rem">⚠️</div>
+  <div style="font-size:16px;font-weight:600;color:#D83A31;margin-bottom:.4rem">Failed to load reference data</div>
+  <div style="font-size:13px;color:#7a96a3;margin-bottom:1.5rem">Check your connection and try again</div>
+  <button onclick="location.reload()" style="padding:10px 24px;background:#08212D;color:#67E74E;border:none;border-radius:8px;font-family:Calibri,sans-serif;font-size:14px;font-weight:700;cursor:pointer">Retry</button>
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
+<header class="app-header">
+  <div class="logo">
+    <span class="logo-wordmark">flimp</span>
+    <span class="logo-sub">/ Timeline Generator</span>
+  </div>
+  <a href="dashboard.html" style="height:32px;padding:0 14px;border-radius:8px;font-family:Calibri,sans-serif;font-size:13px;font-weight:500;cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:6px;background:transparent;border:1px solid #ffffff30;color:#ffffffcc;transition:all .15s" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">
+    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="4" height="4" rx=".5"/><rect x="8" y="1" width="4" height="4" rx=".5"/><rect x="1" y="8" width="4" height="4" rx=".5"/><rect x="8" y="8" width="4" height="4" rx=".5"/></svg>
+    Dashboard
+  </a>
+</header>
+
+<div class="page">
+
+  <!-- SECTION 1: PROJECT INFO -->
+  <div class="section-head">
+    <div class="section-num">1</div>
+    <span class="section-title">Project Information</span>
+  </div>
+  <div class="card">
+    <div class="grid2" style="margin-bottom:10px">
+      <div class="field"><label>Client name</label><input type="text" id="clientName" placeholder="e.g. Acme Corporation"></div>
+      <div class="field"><label>Project name</label><input type="text" id="projectName" placeholder="e.g. 2025 Benefits Communication"></div>
+    </div>
+    <div class="net-new-wrap">
+      <label class="net-new-label" id="nnLabel">
+        <input type="checkbox" id="netNewCb" onchange="toggleNetNew()">
+        <span class="nn-text">Net new client</span>
+        <span class="nn-hint">— adds additional context to export</span>
+      </label>
+    </div>
+    <div style="height:14px"></div>
+    <div class="grid3" style="margin-bottom:10px">
+      <div class="field"><label>Start date</label><input type="date" id="startDate"></div>
+      <div class="field"><label>Due date</label><input type="date" id="dueDate"></div>
+      <div class="field">
+        <label>Working days / week</label>
+        <select id="workingDaysSelect" onchange="setDays(this.value)">
+          <option value="5" selected>5 days (Mon–Fri)</option>
+          <option value="6">6 days (Mon–Sat)</option>
+          <option value="7">7 days (Mon–Sun)</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>PM name</label>
+      <select id="pmName" style="max-width:320px">
+        <option value="">Select PM…</option>
+        <option>Andrea Mendible</option>
+        <option>Andrew Willis</option>
+        <option>Ann-Marie Matzinger</option>
+        <option>Brady Miller</option>
+        <option>Bryna Blosch Veltum</option>
+        <option>Catherine Dreiss</option>
+        <option>Deborah Henrichs</option>
+        <option>Ebony Loyal</option>
+        <option>Emily Dorn</option>
+        <option>Heather Stephenson</option>
+        <option>Helen Harwood</option>
+        <option>Jamie Dupuis</option>
+        <option>Jeff Fritts</option>
+        <option>Jenny Haarsma</option>
+        <option>Jessica Munoz</option>
+        <option>Jordan Wassell</option>
+        <option>Kamala Robinson</option>
+        <option>Kathi Scott</option>
+        <option>Matt Bushlow</option>
+        <option>Mike Behrenhausen</option>
+        <option>Nichole Sumpter</option>
+        <option>Peyton Young</option>
+        <option>Rosangela Azcona</option>
+        <option>Sondra Hawkins</option>
+        <option>Vince Pham</option>
+        <option>Zach Butlein</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- SECTION 2: DELIVERABLES -->
+  <div class="section-head">
+    <div class="section-num">2</div>
+    <span class="section-title">Deliverables</span>
+  </div>
+  <div class="card">
+    <div class="row-headers">
+      <span>Product</span>
+      <span>Count</span>
+      <span>New / Renewal</span>
+      <span>Rounds of edits</span>
+      <span style="text-align:center">P&amp;M</span>
+      <span></span>
+    </div>
+    <div id="delRows"></div>
+    <button class="add-row-btn" onclick="addRow()">+ Add deliverable</button>
+  </div>
+
+
+
+  <button class="preview-btn" onclick="previewPhases()">&#9654; Preview &amp; Edit Phases</button>
+
+  <!-- SECTION 3: PHASE PREVIEW -->
+  <div id="phasePreviewSection">
+    <div style="height:1.5rem"></div>
+    <div class="section-head">
+      <div class="section-num">3</div>
+      <span class="section-title">Review Phases</span>
+      <span class="section-hint">— click "Confirmed" to approve the proposed timeline for each deliverable</span>
+    </div>
+
+    <!-- Feasibility panel -->
+    <div class="feasibility-panel" id="feasibilityPanel">
+      <div class="feasibility-header">
+        <span class="feasibility-title">Timeline Feasibility</span>
+        <span class="feasibility-dates" id="feasDates"></span>
+      </div>
+      <div class="feasibility-grid">
+        <div class="feasibility-cell">
+          <div class="feasibility-cell-label">Days needed</div>
+          <div class="feasibility-value" id="feasNeeded">—</div>
+          <div class="feasibility-msg">longest deliverable track</div>
+        </div>
+        <div class="feasibility-cell">
+          <div class="feasibility-cell-label">Days available</div>
+          <div class="feasibility-value" id="feasAvailable">—</div>
+          <div class="feasibility-msg">start → due date</div>
+        </div>
+        <div class="feasibility-cell">
+          <div class="feasibility-cell-label">Difference</div>
+          <div class="feasibility-value" id="feasDiff">—</div>
+          <div class="feasibility-msg" id="feasMsg">—</div>
+        </div>
+      </div>
+      <div class="feasibility-bar-track">
+        <div class="feasibility-bar-fill" id="feasFill"></div>
+      </div>
+      <div id="ganttWrap" style="display:none;background:var(--dark);padding:1rem 1.25rem 1.25rem;border-top:1px solid rgba(255,255,255,.08)">
+        <div style="font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:.8rem">Deliverable Overview</div>
+        <div id="ganttChart"></div>
+      </div>
+    </div>
+
+    <div id="pbBlocks"></div>
+    <div class="preview-status">
+      <span>Confirmed:</span>
+      <span class="ps-count" id="psCount">0 / 0</span>
+      <span>deliverables</span>
+    </div>
+  </div>
+
+  <div class="generate-wrap">
+    <button class="generate-btn" id="generateBtn" onclick="generateTimeline()" disabled>Generate Timeline</button>
+    <div style="text-align:center;margin-top:.6rem;font-size:12px;color:var(--text-tertiary)">
+      Generated timelines can be saved and revisited from the <a href="dashboard.html" style="color:var(--blue);text-decoration:none;font-weight:600">Dashboard</a>
+    </div>
+  </div>
+
+  <div class="section-divider" id="outputDivider" style="display:none"></div>
+
+  <!-- SECTION 4: GENERATED TIMELINE -->
+  <div id="timelineOutput">
+    <div class="section-head">
+      <div class="section-num" style="background:var(--green)">5</div>
+      <span class="section-title">Generated Timeline</span>
+    </div>
+    <div class="tl-actions">
+      <button class="tl-action-btn" onclick="window.print()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="1" width="10" height="10" rx="1"/><path d="M3 7H1v7h14V7h-2"/><rect x="5" y="11" width="6" height="4"/></svg>
+        Print / PDF
+      </button>
+      <button class="tl-action-btn" onclick="copyTable()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="1" width="9" height="11" rx="1"/><rect x="2" y="4" width="9" height="11" rx="1"/></svg>
+        Copy table
+      </button>
+    </div>
+    <div id="nnNoteWrap"></div>
+    <div class="unified-tl-wrap">
+      <div class="unified-tl-title" id="tlTitle"></div>
+      <table class="unified-tl-table" id="tlTable">
+        <thead>
+          <tr>
+            <th>Party</th>
+            <th>Deliverable</th>
+            <th>Task</th>
+            <th style="text-align:right">Due Date</th>
+          </tr>
+        </thead>
+        <tbody id="tlTableBody"></tbody>
+      </table>
+      <div class="unified-tl-footer" id="tlFooter"></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:.75rem">
+      <button onclick="saveTimeline()" style="height:40px;padding:0 24px;background:var(--dark);border:none;border-radius:var(--radius-lg);color:var(--lime);font-family:Calibri,sans-serif;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.02em;transition:all .2s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+        Save timeline
+      </button>
+    </div>
+  </div>
+
+</div><!-- /.page -->
+
+<script>
+'use strict';
+
+// ── Constants ─────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════
+// SUPABASE CLIENT
+// ════════════════════════════════════════════════════════════════════
+const _supa = supabase.createClient(
+  'https://dtyvyqdgbhabimcaczls.supabase.co',
+  'sb_publishable_ppamkHmRjqIHKUzEk1wOIA_SYTo8EGF'
+);
+
+// ════════════════════════════════════════════════════════════════════
+// RUNTIME DATA — populated by loadReferenceData() on init
+// ════════════════════════════════════════════════════════════════════
+let PRODUCTS      = [];   // [{group, color, items:[name,...]}]
+let NA_PRODUCTS   = new Set();
+let END_PRODUCTS  = new Set();
+let ROUNDS_DEFAULTS = {};
+let ALL_PHASES    = {};   // {product_name: [{name,dur,owner,applies_to,renewal_phase_name,round_group_name,is_pre_completeable}]}
+let ROUND_GROUPS  = {};   // {product_name: [{group_name,default_rounds,group_order}]}
+let PRECONDITIONS = {};   // {product_name: [{checklist_label,phase_name}]}
+
+async function loadReferenceData() {
+  try {
+    // Fetch all four tables in parallel
+    const [
+      { data: products,     error: e1 },
+      { data: phases,       error: e2 },
+      { data: roundGroups,  error: e3 },
+      { data: preconditions,error: e4 }
+    ] = await Promise.all([
+      _supa.from('products').select('*').eq('active', true).order('sort_order'),
+      _supa.from('product_phases').select('*').order('phase_order'),
+      _supa.from('round_groups').select('*').order('group_order'),
+      _supa.from('phase_preconditions').select('*')
+    ]);
+
+    if (e1 || e2 || e3 || e4) throw new Error((e1||e2||e3||e4).message);
+
+    // ── Build PRODUCTS grouped structure ──
+    const groupMap = {};
+    products.forEach(p => {
+      if (!groupMap[p.group_name]) {
+        groupMap[p.group_name] = { group: p.group_name, color: p.group_color, items: [] };
+      }
+      groupMap[p.group_name].items.push(p.name);
+    });
+    // Sort groups: Videos, Microsites, Traditional Media, Companion Piece, others
+    const GROUP_ORDER = ['Videos','Microsites','Traditional Media','Companion Piece'];
+    PRODUCTS = Object.values(groupMap).sort((a,b) => {
+      const ai = GROUP_ORDER.indexOf(a.group);
+      const bi = GROUP_ORDER.indexOf(b.group);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+
+    // ── Build NA_PRODUCTS and END_PRODUCTS sets ──
+    NA_PRODUCTS  = new Set(products.filter(p => p.is_not_renewable).map(p => p.name));
+    END_PRODUCTS = new Set(products.filter(p => p.is_end_timeline_product).map(p => p.name));
+
+    // ── Build ROUNDS_DEFAULTS ──
+    ROUNDS_DEFAULTS = {};
+    products.forEach(p => {
+      if (p.default_rounds && p.default_rounds !== 2) {
+        ROUNDS_DEFAULTS[p.name] = p.default_rounds;
+      }
+    });
+
+    // ── Build ALL_PHASES keyed by product_name ──
+    ALL_PHASES = {};
+    phases.forEach(ph => {
+      if (!ALL_PHASES[ph.product_name]) ALL_PHASES[ph.product_name] = [];
+      ALL_PHASES[ph.product_name].push({
+        name:              ph.phase_name,
+        dur:               ph.duration_standard || 1,
+        durMin:            ph.duration_minimum  || 1,
+        owner:             ph.owner || 'Flimp',
+        applies_to:        ph.applies_to || 'both',
+        renewal_phase_name:ph.renewal_phase_name || '',
+        round_group_name:  ph.round_group_name   || '',
+        is_pre_completeable: ph.is_pre_completeable || false,
+        phase_order:       ph.phase_order
+      });
+    });
+    // Sort each product's phases by phase_order
+    Object.keys(ALL_PHASES).forEach(k => {
+      ALL_PHASES[k].sort((a,b) => a.phase_order - b.phase_order);
+    });
+
+    // ── Build ROUND_GROUPS keyed by product_name ──
+    ROUND_GROUPS = {};
+    roundGroups.forEach(rg => {
+      if (!ROUND_GROUPS[rg.product_name]) ROUND_GROUPS[rg.product_name] = [];
+      ROUND_GROUPS[rg.product_name].push({
+        group_name:     rg.group_name,
+        default_rounds: rg.default_rounds || 2,
+        group_order:    rg.group_order
+      });
+    });
+
+    // ── Build PRECONDITIONS keyed by product_name ──
+    PRECONDITIONS = {};
+    preconditions.forEach(pc => {
+      if (!PRECONDITIONS[pc.product_name]) PRECONDITIONS[pc.product_name] = [];
+      PRECONDITIONS[pc.product_name].push({
+        checklist_label: pc.checklist_label,
+        phase_name:      pc.phase_name
+      });
+    });
+
+    return true;
+  } catch (err) {
+    console.error('loadReferenceData failed:', err);
+    return false;
+  }
+}
+
+let workDays = 5;
+
+// ── Date helpers ──────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════
+// DATE UTILITIES
+// ════════════════════════════════════════════════════════════════════
+function toISO(d) {
+  // Use local date parts to avoid UTC offset issues
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+function isWorkDay(d) {
+  const dow = d.getDay();
+  if (workDays === 5 && (dow === 0 || dow === 6)) return false;
+  if (workDays === 6 && dow === 0) return false;
+  return !HOLIDAYS.has(toISO(d));
+}
+
+function addBusinessDays(startDate, days) {
+  const dur = Math.max(0, Math.round(days)); // allow 0-day phases
+  let d = new Date(startDate);
+  let added = 0;
+  let safety = 0;
+  while (added < dur && safety < 1000) {
+    d.setDate(d.getDate() + 1);
+    if (isWorkDay(d)) added++;
+    safety++;
+  }
+  return d;
+}
+
+function nextWorkDay(d) {
+  let nd = new Date(d);
+  let safety = 0;
+  while (!isWorkDay(nd) && safety < 30) { nd.setDate(nd.getDate()+1); safety++; }
+  return nd;
+}
+
+function countBusinessDays(start, end) {
+  if (!start || !end || end <= start) return 0;
+  let count = 0;
+  let d = new Date(start);
+  d.setDate(d.getDate() + 1);
+  let safety = 0;
+  while (d <= end && safety < 3000) {
+    if (isWorkDay(d)) count++;
+    d.setDate(d.getDate() + 1);
+    safety++;
+  }
+  return count;
+}
+
+function fmtDateShort(d) {
+  if (!d || isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+}
+
+// Sanitize a string for safe insertion into HTML text content
+function esc(str) {
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+// ── Product helpers ───────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════
+// PRODUCT HELPERS
+// ════════════════════════════════════════════════════════════════════
+function getProductGroup(name) {
+  return PRODUCTS.find(g => g.items.includes(name)) || null;
+}
+
+function defaultRounds(product) {
+  return ROUNDS_DEFAULTS[product] || 2;
+}
+
+// ── UI helpers ────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════
+// UI BUILDERS & HELPERS
+// ════════════════════════════════════════════════════════════════════
+function setDays(n) {
+  workDays = parseInt(n, 10) || 5;
+}
+
+function toggleNetNew() {
+  const cb = document.getElementById('netNewCb');
+  document.getElementById('nnLabel').classList.toggle('active', cb.checked);
+}
+
+
+
+// ── Deliverable row builder ───────────────────────────────────────────────
+function buildSelect() {
+  const sel = document.createElement('select');
+  // Blank option
+  const blank = document.createElement('option');
+  blank.value = '';
+  blank.textContent = 'Select product…';
+  sel.appendChild(blank);
+
+  PRODUCTS.forEach(g => {
+    const og = document.createElement('optgroup');
+    og.label = g.group;
+    og.style.color = g.color;
+    g.items.forEach(item => {
+      const o = document.createElement('option');
+      o.value = item;
+      o.textContent = item;
+      o.style.color = g.color;
+      og.appendChild(o);
+    });
+    sel.appendChild(og);
+  });
+
+  sel.addEventListener('change', function () {
+    const grp = getProductGroup(this.value);
+    this.style.color = grp ? grp.color : 'var(--text)';
+    const row = this.closest('.del-row');
+    if (!row) return;
+    // Toggle N/A products
+    const tog = row.querySelector('.nr-toggle');
+    const isNA = NA_PRODUCTS.has(this.value);
+    tog.classList.toggle('disabled', isNA);
+    if (isNA) row.querySelectorAll('.nr-btn').forEach(b => { b.className = 'nr-btn'; });
+    // Set default rounds
+    const rdVal = row.querySelector('.rounds-val');
+    if (rdVal) rdVal.textContent = defaultRounds(this.value);
+  });
+
+  return sel;
+}
+
+function buildDelRow() {
+  const row = document.createElement('div');
+  row.className = 'del-row';
+
+  row.appendChild(buildSelect());
+
+  // Count input
+  const cnt = document.createElement('input');
+  cnt.type = 'number'; cnt.min = 1; cnt.max = 99; cnt.value = 1;
+  cnt.style.cssText = 'font-family:Calibri,sans-serif;font-size:14px;height:36px;padding:0 8px;border:1px solid var(--border);border-radius:var(--radius);background:#fff;color:var(--text);text-align:center;width:100%';
+  row.appendChild(cnt);
+
+  // New/Renewal toggle
+  const tog = document.createElement('div');
+  tog.className = 'nr-toggle';
+  const btnN = document.createElement('button');
+  btnN.textContent = 'New'; btnN.className = 'nr-btn n-active';
+  const btnR = document.createElement('button');
+  btnR.textContent = 'Renewal'; btnR.className = 'nr-btn';
+  btnN.onclick = () => { btnN.className = 'nr-btn n-active'; btnR.className = 'nr-btn'; };
+  btnR.onclick = () => { btnR.className = 'nr-btn r-active'; btnN.className = 'nr-btn'; };
+  tog.appendChild(btnN); tog.appendChild(btnR);
+  row.appendChild(tog);
+
+  // Rounds stepper
+  const stepper = document.createElement('div');
+  stepper.className = 'rounds-stepper';
+  const rdMinus = document.createElement('button');
+  rdMinus.className = 'rounds-btn'; rdMinus.textContent = '−'; rdMinus.title = 'Decrease rounds';
+  const rdVal = document.createElement('div');
+  rdVal.className = 'rounds-val'; rdVal.textContent = '2';
+  const rdPlus = document.createElement('button');
+  rdPlus.className = 'rounds-btn'; rdPlus.textContent = '+'; rdPlus.title = 'Increase rounds';
+  rdMinus.onclick = () => { const v = parseInt(rdVal.textContent); if (v > 1) rdVal.textContent = v - 1; };
+  rdPlus.onclick = () => { const v = parseInt(rdVal.textContent); if (v < 20) rdVal.textContent = v + 1; };
+  stepper.appendChild(rdMinus); stepper.appendChild(rdVal); stepper.appendChild(rdPlus);
+  row.appendChild(stepper);
+
+
+  // Print & Mail checkbox
+  const pmWrap = document.createElement('div');
+  pmWrap.style.cssText = 'display:flex;align-items:center;justify-content:center;height:36px';
+  const pmCb = document.createElement('input');
+  pmCb.type = 'checkbox';
+  pmCb.className = 'pm-checkbox';
+  pmCb.title = 'Include Print & Mail phase (10 business days before delivery)';
+  pmCb.style.cssText = 'width:16px;height:16px;accent-color:var(--dark);cursor:pointer';
+  pmWrap.appendChild(pmCb);
+  row.appendChild(pmWrap);
+
+  // Remove button
+  const rm = document.createElement('button');
+  rm.className = 'rm-btn'; rm.innerHTML = '&times;'; rm.title = 'Remove deliverable';
+  rm.onclick = () => { row.remove(); updateRemove(); };
+  row.appendChild(rm);
+
+  return row;
+}
+
+function updateRemove() {
+  const rows = document.querySelectorAll('#delRows .del-row');
+  rows.forEach(r => {
+    r.querySelector('.rm-btn').style.visibility = rows.length > 1 ? 'visible' : 'hidden';
+  });
+}
+
+function addRow() {
+  document.getElementById('delRows').appendChild(buildDelRow());
+  updateRemove();
+}
+
+// ── Phase row builder helpers ─────────────────────────────────────────────
+
+function buildNewPhaseRow() {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input class="pt-name" type="text" value="New phase"></td>
+    <td style="text-align:center"><span class="owner-badge owner-flimp">Flimp</span></td>
+    <td style="text-align:center"><input class="pt-dur" type="number" min="1" max="120" value="3"></td>
+    <td class="phase-end-date" style="text-align:center;font-size:11px;color:var(--text-muted);white-space:nowrap">—</td>
+    <td style="text-align:center"><button class="phase-rm-btn" title="Remove phase">&times;</button></td>`;
+  return tr;
+}
+
+// ── Phase preview ─────────────────────────────────────────────────────────
+function previewPhases() {
+  const sdVal = document.getElementById('startDate').value;
+  const rows = [...document.querySelectorAll('#delRows .del-row')];
+  const deliverables = rows.map(r => ({
+    product: r.querySelector('select').value,
+    count:   parseInt(r.querySelector('input[type=number]').value) || 1,
+    isRenewal: r.querySelector('.nr-btn.r-active') !== null,
+    rounds:  parseInt(r.querySelector('.rounds-val').textContent) || 2,
+    printMail: r.querySelector('.pm-checkbox') ? r.querySelector('.pm-checkbox').checked : false
+  })).filter(d => d.product);
+
+  if (!deliverables.length) { alert('Please select at least one product.'); return; }
+
+  const container = document.getElementById('pbBlocks');
+  container.innerHTML = '';
+  let blockIndex = 0;
+
+  deliverables.forEach(del => {
+    const grp = getProductGroup(del.product);
+    const dot = grp ? grp.color : '#888';
+    const isRenewal = del.isRenewal;
+    const isNA = NA_PRODUCTS.has(del.product);
+
+    // Deep-clone phases to avoid mutating constants
+    let phases = JSON.parse(JSON.stringify(ALL_PHASES[del.product] || []));
+    if (isRenewal) phases = phases.slice(2);
+    if (del.printMail) phases.push({ name: 'Print & Mail', dur: 10, owner: 'Flimp', isPrintMail: true });
+
+    const block = document.createElement('div');
+    block.className = 'pb-block';
+    block.dataset.confirmed = 'false';
+    block.dataset.product = del.product;
+    block.dataset.printmail = del.printMail ? 'true' : 'false';
+
+    // Header
+    const hdr = document.createElement('div');
+    hdr.className = 'pb-header';
+
+    const titleWrap = document.createElement('div');
+    titleWrap.className = 'pb-title-wrap';
+    const variantLabel = isNA ? '' : (isRenewal ? ' &bull; Renewal' : ' &bull; New');
+    titleWrap.innerHTML = `
+      <div class="pb-title">
+        <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${esc(dot)};margin-right:6px;vertical-align:middle"></span>
+        ${esc(del.product)}
+      </div>
+      <div class="pb-subtitle">${esc(grp ? grp.group : '')}${variantLabel} &middot; ${phases.length} phases</div>
+      <div class="pb-dates" style="min-height:16px"><span class="pb-date-starts"></span><span class="pb-date-sep" style="display:none">→</span><span class="pb-date-ends"></span></div>
+      <div class="pb-feas"><div class="pb-feas-bar-track"><div class="pb-feas-bar-fill"></div></div><div class="pb-feas-diff"></div></div>`;
+
+    const chevron = document.createElement('div');
+    chevron.className = 'pb-chevron open';
+    chevron.innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M4 6l4 4 4-4"/></svg>`;
+
+    const confirmBox = document.createElement('div');
+    confirmBox.className = 'pb-confirm';
+    confirmBox.title = 'Confirm this deliverable';
+
+    const confirmWrap = document.createElement('div');
+    confirmWrap.className = 'confirm-wrap';
+    const confirmLabel = document.createElement('span');
+    confirmLabel.className = 'confirm-label';
+    confirmLabel.textContent = 'Confirmed';
+    confirmWrap.appendChild(confirmLabel);
+    confirmWrap.appendChild(confirmBox);
+    confirmWrap.onclick = e => e.stopPropagation();
+
+    confirmBox.onclick = () => {
+      const isNow = block.dataset.confirmed !== 'true';
+      block.dataset.confirmed = isNow ? 'true' : 'false';
+      confirmBox.classList.toggle('confirmed', isNow);
+      const body = block.querySelector('.pb-body');
+      if (isNow) { body.classList.remove('open'); chevron.classList.remove('open'); }
+      else       { body.classList.add('open');    chevron.classList.add('open');    }
+      updateGenerateBtn();
+    };
+
+    hdr.appendChild(titleWrap);
+    hdr.appendChild(chevron);
+    hdr.appendChild(confirmWrap);
+    hdr.addEventListener('click', () => {
+      const body = block.querySelector('.pb-body');
+      const open = body.classList.toggle('open');
+      chevron.classList.toggle('open', open);
+    });
+
+    // Body
+    const body = document.createElement('div');
+    body.className = 'pb-body open';
+
+    const table = document.createElement('table');
+    table.className = 'phase-table';
+    table.innerHTML = `<thead><tr>
+      <th style="width:40%">Phase</th>
+      <th style="width:15%">Owner</th>
+      <th style="width:15%">Duration (days)</th>
+      <th style="width:15%">Due</th>
+      <th style="width:32px"></th>
+    </tr></thead>`;
+    const tbody = document.createElement('tbody');
+
+    const dueDateVal = document.getElementById('dueDate').value;
+    const blockEndDate = dueDateVal ? new Date(dueDateVal + 'T00:00:00') : null;
+
+    phases.forEach(phase => {
+      const tr = document.createElement('tr');
+      if (phase.isPrintMail) tr.style.cssText = 'background:#FFF8E7;';
+      const ownerClass = phase.owner === 'Flimp' ? 'owner-flimp' : 'owner-client';
+      // Use DOM methods to avoid XSS when eventually loading from CSV
+      const tdName = document.createElement('td');
+      const nameInput = document.createElement('input');
+      nameInput.className = 'pt-name'; nameInput.type = 'text'; nameInput.value = phase.name;
+      tdName.appendChild(nameInput);
+
+      const tdDur = document.createElement('td');
+      tdDur.style.textAlign = 'center';
+      const durInput = document.createElement('input');
+      durInput.className = 'pt-dur'; durInput.type = 'number';
+      durInput.min = 1; durInput.max = 120; durInput.value = phase.dur;
+      durInput.addEventListener('change', () => { recalcPhaseDates(block); recalcBlockFeasibility(block); });
+      tdDur.appendChild(durInput);
+
+      const tdOwner = document.createElement('td');
+      tdOwner.style.textAlign = 'center';
+      const badge = document.createElement('span');
+      badge.className = `owner-badge ${ownerClass}`;
+      badge.textContent = phase.owner;
+      tdOwner.appendChild(badge);
+
+      const tdRm = document.createElement('td');
+      tdRm.style.textAlign = 'center';
+      const rmBtn = document.createElement('button');
+      rmBtn.className = 'phase-rm-btn'; rmBtn.title = 'Remove phase'; rmBtn.textContent = '×';
+      rmBtn.onclick = () => { tr.remove(); updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block); };
+      tdRm.appendChild(rmBtn);
+
+      // End date cell — populated by recalcPhaseDates after all rows exist
+      const tdDate = document.createElement('td');
+      tdDate.className = 'phase-end-date';
+      tdDate.style.cssText = 'text-align:center;font-size:11px;color:var(--text-muted);white-space:nowrap';
+      tdDate.textContent = '—';
+
+      tr.appendChild(tdName); tr.appendChild(tdOwner);
+      tr.appendChild(tdDur); tr.appendChild(tdDate); tr.appendChild(tdRm);
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    body.appendChild(table);
+    // Add phase button
+    const addPhaseBtn = document.createElement('button');
+    addPhaseBtn.className = 'add-phase-btn';
+    addPhaseBtn.textContent = '+ Add phase';
+    addPhaseBtn.onclick = () => {
+      const tr = buildNewPhaseRow();
+      tr.querySelector('.phase-rm-btn').onclick = () => { tr.remove(); updateFeasibility(); recalcPhaseDates(block); };
+      const newDurInput = tr.querySelector('.pt-dur');
+      if (newDurInput) newDurInput.addEventListener('change', () => { recalcPhaseDates(block); recalcBlockFeasibility(block); });
+      tbody.appendChild(tr);
+      tr.querySelector('.pt-name').focus();
+      tr.querySelector('.pt-name').select();
+      updateFeasibility();
+      recalcPhaseDates(block);
+      recalcBlockFeasibility(block);
+    };
+    body.appendChild(addPhaseBtn);
+
+    block.appendChild(hdr);
+    block.appendChild(body);
+    container.appendChild(block);
+    recalcPhaseDates(block);
+    recalcBlockFeasibility(block);
+    blockIndex++;
+  });
+
+  document.getElementById('phasePreviewSection').style.display = 'block';
+  updateGenerateBtn();
+  updateGantt();
+  document.getElementById('phasePreviewSection').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// ── Feasibility panel ─────────────────────────────────────────────────────
+
+
+// ── Gantt chart ───────────────────────────────────────────────
+function subtractBusinessDays(endDate, days) {
+  if (!days || days <= 0) return new Date(endDate);
+  let d = new Date(endDate);
+  let count = 0;
+  let safety = 0;
+  while (count < days && safety < 2000) {
+    d.setDate(d.getDate() - 1);
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) count++;
+    safety++;
+  }
+  return d;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// GANTT CHART
+// ════════════════════════════════════════════════════════════════════
+function updateGantt() {
+  const wrap  = document.getElementById('ganttWrap');
+  const chart = document.getElementById('ganttChart');
+  const startVal = document.getElementById('startDate').value;
+  const dueVal   = document.getElementById('dueDate').value;
+  const blocks   = [...document.querySelectorAll('#pbBlocks .pb-block')];
+
+  if (!startVal || !blocks.length) { wrap.style.display = 'none'; return; }
+  document.getElementById('feasibilityPanel').style.display = 'block';
+
+  const startDate = nextWorkDay(new Date(startVal + 'T00:00:00'));
+
+  // Compute parallelMax from phase durations
+  let parallelMax = 0;
+  const raw = blocks.map(block => {
+    const product   = block.dataset.product || '';
+    const grp       = getProductGroup(product);
+    const color     = grp ? grp.color : '#888';
+    const isEnd     = END_PRODUCTS.has(product);
+    const durs      = [...block.querySelectorAll('.pt-dur')].map(i => Math.max(1, parseInt(i.value)||1));
+    const totalDays = durs.reduce((a,b)=>a+b,0);
+    const hasPrintMail = block.dataset.printmail === 'true';
+    if (!isEnd && totalDays > parallelMax) parallelMax = totalDays;
+    return { label: product, color, totalDays, isEnd, hasPrintMail };
+  });
+
+  // Anchor = due date if set, else forward-compute from longest track
+  let anchorDate;
+  if (dueVal) {
+    anchorDate = new Date(dueVal + 'T00:00:00');
+  } else {
+    let maxTotal = 0;
+    raw.forEach(t => {
+      const tt = t.isEnd ? parallelMax + t.totalDays : t.totalDays;
+      if (tt > maxTotal) maxTotal = tt;
+    });
+    anchorDate = addBusinessDays(startDate, maxTotal);
+    // scaleDays not yet computed - will equal maxTotal in no-due-date case
+  }
+
+  // Backward from due date
+  const tracks = raw.map(t => {
+    const trackEnd   = new Date(anchorDate);
+    const trackStart = subtractBusinessDays(trackEnd, t.totalDays);
+    return { ...t, trackStart, trackEnd };
+  });
+
+  // Scale = available business days start→due (or longest track if no due date)
+  const longestTrack = raw.reduce((max, t) => {
+    const d = t.isEnd ? parallelMax + t.totalDays : t.totalDays;
+    return d > max ? d : max;
+  }, 0);
+  const scaleDays = Math.max(1, dueVal ? countBusinessDays(startDate, anchorDate) : longestTrack);
+
+  // Month ticks
+  const ticks = [];
+  const cur = new Date(startDate);
+  cur.setDate(1); cur.setMonth(cur.getMonth()+1);
+  while (cur <= anchorDate) {
+    const bdSoFar = countBusinessDays(startDate, cur);
+    const pct = Math.min(100, (bdSoFar / scaleDays) * 100);
+    ticks.push({ label: cur.toLocaleDateString('en-US',{month:'short',year:'2-digit'}), pct });
+    cur.setMonth(cur.getMonth()+1);
+  }
+
+  const duePct = dueVal ? 100 : null; // due date IS the anchor, always 100%
+
+  let html = '';
+
+  // Axis
+  html += `<div class="gantt-axis-row"><div style="width:150px;flex-shrink:0"></div><div class="gantt-axis-track">`;
+  html += `<span class="gantt-axis-tick" style="left:0;transform:none">${fmtDateShort(startDate)}</span>`;
+  ticks.forEach(t => html += `<span class="gantt-axis-tick" style="left:${t.pct}%">${t.label}</span>`);
+  html += `<span class="gantt-axis-tick" style="right:0;left:auto;transform:none">${fmtDateShort(anchorDate)}</span>`;
+  html += `</div></div>`;
+
+  // Total project row
+  const totalWidthPct = Math.min(100, (longestTrack / scaleDays) * 100);
+  const totalLeftPct  = 100 - totalWidthPct;
+  html += `<div class="gantt-row">
+    <div class="gantt-label" style="color:rgba(255,255,255,.45);font-style:italic">Total project</div>
+    <div class="gantt-track">
+      ${duePct!==null?`<div class="gantt-due-line" style="left:${duePct}%"><span class="gantt-due-label">Due</span></div>`:''}
+      <div class="gantt-bar total-bar" style="left:${totalLeftPct}%;width:${totalWidthPct}%" title="Total project: ${longestTrack} days">
+        ${totalWidthPct > 10 ? longestTrack+'d' : ''}
+      </div>
+    </div>
+    <div class="gantt-enddate">${fmtDateShort(anchorDate)}</div>
+  </div>`;
+
+  // Divider
+  html += `<div style="border-top:1px solid rgba(255,255,255,.07);margin:6px 0 8px"></div>`;
+
+  // Per-deliverable rows
+  tracks.forEach(t => {
+    const widthPct = Math.max(1, (t.totalDays / scaleDays) * 100);
+    const leftPct  = Math.max(0, 100 - widthPct);
+    const pmWidthPct = t.hasPrintMail ? Math.min(45, (10 / t.totalDays) * 100) : 0; // stripe within the bar
+    html += `<div class="gantt-row">
+      <div class="gantt-label" title="${esc(t.label)}">${esc(t.label)}</div>
+      <div class="gantt-track">
+        ${duePct!==null?`<div class="gantt-due-line" style="left:${duePct}%"><span class="gantt-due-label"></span></div>`:''}
+        <div class="gantt-bar${t.isEnd?' end-product':''}" style="left:${leftPct}%;width:${widthPct}%;background:${t.color};overflow:hidden;position:relative"
+             title="${esc(t.label)}: ${t.totalDays}d — ends ${fmtDateShort(t.trackEnd)}">
+          ${widthPct > 10 ? t.totalDays+'d' : ''}
+          ${t.hasPrintMail ? `<div style="position:absolute;right:0;top:0;bottom:0;width:${pmWidthPct}%;background:#FFB21B;border-left:2px solid rgba(0,0,0,.2)" title="Print & Mail: 10 days"></div>` : ''}
+        </div>
+      </div>
+      <div class="gantt-enddate">${fmtDateShort(t.trackEnd)}</div>
+    </div>`;
+  });
+
+  chart.innerHTML = html;
+  wrap.style.display = 'block';
+}
+// ── Phase date recalculation ──────────────────────────────────────────────
+// ── Per-block feasibility bar ───────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════
+// PHASE PREVIEW & FEASIBILITY
+// ════════════════════════════════════════════════════════════════════
+function recalcBlockFeasibility(block) {
+  const dueVal   = document.getElementById('dueDate').value;
+  const startVal = document.getElementById('startDate').value;
+  if (!dueVal || !startVal) return;
+
+  const due   = new Date(dueVal   + 'T00:00:00');
+  const start = nextWorkDay(new Date(startVal + 'T00:00:00'));
+  const available = countBusinessDays(start, due);
+
+  const durInputs = [...block.querySelectorAll('.pt-dur')];
+  const needed = durInputs.reduce((s, inp) => s + (Math.max(0, parseInt(inp.value) || 0)), 0);
+
+  const fill = block.querySelector('.pb-feas-bar-fill');
+  const diff = block.querySelector('.pb-feas-diff');
+  if (!fill || !diff || available <= 0) return;
+
+  const pct   = available > 0 ? Math.min(100, (needed / available) * 100) : 100;
+  const delta = available - needed;
+
+  if (delta > 5) {
+    fill.style.cssText = `width:${pct}%;background:var(--green)`;
+    diff.className = 'pb-feas-diff ok';
+    diff.textContent = `+${delta} days buffer`;
+  } else if (delta >= 0) {
+    fill.style.cssText = `width:${pct}%;background:var(--amber)`;
+    diff.className = 'pb-feas-diff warn';
+    diff.textContent = delta === 0 ? 'Exactly on time' : `+${delta} days`;
+  } else {
+    fill.style.cssText = `width:100%;background:var(--red)`;
+    diff.className = 'pb-feas-diff over';
+    diff.textContent = `${delta} days over`;
+  }
+}
+
+function recalcPhaseDates(block, blockEndDate) {
+  const dueVal = document.getElementById('dueDate').value;
+  const due = blockEndDate || (dueVal ? new Date(dueVal + 'T00:00:00') : null);
+  if (!due) return;
+
+  // Read all dur inputs from this block in order
+  const durInputs = [...block.querySelectorAll('.pt-dur')];
+  const dateCells = [...block.querySelectorAll('.phase-end-date')];
+
+  // Total days from live inputs — treat blank/invalid as 0
+  const parseDur = inp => Math.max(0, parseInt(inp.value) || 0);
+  const total = durInputs.reduce((s, inp) => s + parseDur(inp), 0);
+  if (total === 0) return;
+
+  // Compute each phase end date as due - (days remaining after this phase)
+  // This guarantees the last phase always ends exactly on due date
+  const durs = durInputs.map(parseDur);
+  let remaining = total;
+  durs.forEach((dur, i) => {
+    remaining -= dur;
+    const phaseEnd = remaining === 0 ? new Date(due) : subtractBusinessDays(due, remaining);
+    if (dateCells[i]) dateCells[i].textContent = dur > 0 ? fmtDateShort(phaseEnd) : '—';
+  });
+
+  // Update header starts/completes
+  const startsEl = block.querySelector('.pb-date-starts');
+  const endsEl   = block.querySelector('.pb-date-ends');
+  const sepEl    = block.querySelector('.pb-date-sep');
+  if (startsEl && endsEl) {
+    const starts = subtractBusinessDays(due, total);
+    startsEl.innerHTML = `<span class="pb-date-label">Starts</span> ${fmtDateShort(starts)}`;
+    endsEl.innerHTML   = `<span class="pb-date-label">Completes</span> ${fmtDateShort(due)}`;
+    if (sepEl) sepEl.style.display = '';
+  }
+}
+
+function updateFeasibility() {
+  const panel = document.getElementById('feasibilityPanel');
+  if (!panel) return;
+
+  const startVal = document.getElementById('startDate').value;
+  const dueVal   = document.getElementById('dueDate').value;
+
+  if (!startVal) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+
+  const startDate = new Date(startVal + 'T00:00:00');
+  const dueDate   = dueVal ? new Date(dueVal + 'T00:00:00') : null;
+
+  const available = dueDate ? countBusinessDays(startDate, dueDate) : null;
+  document.getElementById('feasAvailable').textContent = available !== null ? available : '—';
+  document.getElementById('feasDates').textContent = dueDate
+    ? `${fmtDateShort(startDate)} → ${fmtDateShort(dueDate)}`
+    : 'No due date set';
+
+  // Calculate needed days from preview blocks
+  const blocks = [...document.querySelectorAll('#pbBlocks .pb-block')];
+  if (!blocks.length) {
+    ['feasNeeded','feasDiff'].forEach(id => document.getElementById(id).textContent = '—');
+    document.getElementById('feasMsg').textContent = '—';
+    document.getElementById('feasFill').style.width = '0%';
+    return;
+  }
+
+  let maxParallelDays = 0;
+  let maxEndDays = 0;
+  blocks.forEach(block => {
+    const product = block.dataset.product || '';
+    const total = [...block.querySelectorAll('.pt-dur')]
+      .reduce((sum, inp) => sum + (Math.max(1, parseInt(inp.value) || 1)), 0);
+    if (END_PRODUCTS.has(product)) {
+      if (total > maxEndDays) maxEndDays = total;
+    } else {
+      if (total > maxParallelDays) maxParallelDays = total;
+    }
+  });
+
+  const needed = maxParallelDays + maxEndDays;
+  document.getElementById('feasNeeded').textContent = needed;
+
+  if (available === null) {
+    document.getElementById('feasDiff').textContent = '—';
+    document.getElementById('feasMsg').textContent = 'Set a due date to check feasibility';
+    document.getElementById('feasFill').style.cssText = 'width:0%;background:var(--border)';
+    document.getElementById('feasDiff').style.color = 'var(--text)';
+    updateGantt();
+    return;
+  }
+
+  const diff = available - needed;
+  const pct  = Math.min(100, Math.round((needed / Math.max(available, needed)) * 100));
+  const diffEl = document.getElementById('feasDiff');
+  const msgEl  = document.getElementById('feasMsg');
+  const fillEl = document.getElementById('feasFill');
+
+  diffEl.textContent = (diff >= 0 ? '+' : '') + diff + ' days';
+
+  if (diff >= 6) {
+    diffEl.style.color = '#2e8b4a'; msgEl.style.color = '#2e8b4a';
+    msgEl.textContent = 'Timeline fits with buffer';
+    fillEl.style.cssText = `width:${pct}%;background:#44A55D`;
+  } else if (diff >= 1) {
+    diffEl.style.color = '#b5920a'; msgEl.style.color = '#b5920a';
+    msgEl.textContent = `Tight — only ${diff} day${diff === 1 ? '' : 's'} buffer`;
+    fillEl.style.cssText = `width:${pct}%;background:var(--amber)`;
+  } else if (diff === 0) {
+    diffEl.style.color = '#b5920a'; msgEl.style.color = '#b5920a';
+    msgEl.textContent = 'Exactly on time — no buffer';
+    fillEl.style.cssText = 'width:100%;background:var(--amber)';
+  } else {
+    diffEl.style.color = 'var(--red)'; msgEl.style.color = 'var(--red)';
+    msgEl.textContent = `${Math.abs(diff)} days over — consider compressing`;
+    fillEl.style.cssText = 'width:100%;background:var(--red)';
+  }
+  updateGantt();
+}
+
+// ── Generate button state ─────────────────────────────────────────────────
+function updateGenerateBtn() {
+  const psCount     = document.getElementById('psCount');
+  const generateBtn = document.getElementById('generateBtn');
+  if (!psCount || !generateBtn) return;
+  const blocks    = [...document.querySelectorAll('#pbBlocks .pb-block')];
+  const total     = blocks.length;
+  const confirmed = blocks.filter(b => b.dataset.confirmed === 'true').length;
+  psCount.textContent = `${confirmed} / ${total}`;
+  generateBtn.disabled = total === 0 || confirmed < total;
+  updateFeasibility();
+}
+
+// ── Generate timeline ─────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════
+// TIMELINE GENERATION & OUTPUT
+// ════════════════════════════════════════════════════════════════════
+function generateTimeline() {
+  const client    = esc(document.getElementById('clientName').value.trim() || 'Client');
+  const project   = esc(document.getElementById('projectName').value.trim() || 'Untitled Project');
+  const startVal  = document.getElementById('startDate').value;
+  const dueVal    = document.getElementById('dueDate').value;
+  const isNetNew  = document.getElementById('netNewCb').checked;
+
+  if (!startVal) { alert('Please enter a start date.'); return; }
+
+  const startDate = nextWorkDay(new Date(startVal + 'T00:00:00'));
+  const dueDate   = dueVal ? new Date(dueVal + 'T00:00:00') : null;
+
+  // Collect deliverables from form
+  const deliverables = [...document.querySelectorAll('#delRows .del-row')]
+    .map(r => ({
+      product:   r.querySelector('select').value,
+      count:     parseInt(r.querySelector('input[type=number]').value) || 1,
+      isRenewal: r.querySelector('.nr-btn.r-active') !== null,
+      rounds:    parseInt(r.querySelector('.rounds-val').textContent) || 2
+    }))
+    .filter(d => d.product);
+
+  if (!deliverables.length) { alert('Please select at least one product.'); return; }
+
+  const addl = []; // Section 3 removed — no additional items
+
+  // Read edited phases from preview blocks (in order)
+  const previewBlocks = [...document.querySelectorAll('#pbBlocks .pb-block')];
+  let blockIdx = 0;
+
+  function readPhases(block) {
+    if (!block) return [];
+    return [...block.querySelectorAll('.phase-table tbody tr')].map(tr => {
+      const nameInput  = tr.querySelector('.pt-name');
+      const durInput   = tr.querySelector('.pt-dur');
+      const ownerBadge = tr.querySelector('.owner-badge');
+      return {
+        name:  nameInput  ? nameInput.value.trim()  : '',
+        dur:   Math.max(1, parseInt(durInput ? durInput.value : 1) || 1),
+        owner: ownerBadge ? ownerBadge.textContent.trim() : 'Flimp'
+      };
+    }).filter(p => p.name);
+  }
+
+  const parallelDels = deliverables.filter(d => !END_PRODUCTS.has(d.product));
+  const endDels      = deliverables.filter(d => END_PRODUCTS.has(d.product));
+
+  const allMilestones = [];
+  let parallelEndDate = new Date(startDate);
+  let projectEndDate  = new Date(startDate);
+  let totalWorkDays   = 0;
+
+  // Pass 1: parallel deliverables — all start on startDate
+  parallelDels.forEach(del => {
+    let vDate = new Date(startDate);
+    const phases = readPhases(previewBlocks[blockIdx++]);
+    phases.forEach(phase => {
+      const endDate = addBusinessDays(vDate, phase.dur);
+      totalWorkDays += phase.dur;
+      allMilestones.push({date: endDate, owner: phase.owner, deliverable: del.product, task: phase.name});
+      if (endDate > parallelEndDate) parallelEndDate = new Date(endDate);
+      if (endDate > projectEndDate)  projectEndDate  = new Date(endDate);
+      vDate = nextWorkDay(new Date(endDate));
+    });
+  });
+
+  // Pass 2: end deliverables — start after parallel block, run in parallel with each other
+  const endStart = parallelDels.length > 0 ? nextWorkDay(new Date(parallelEndDate)) : new Date(startDate);
+  endDels.forEach(del => {
+    let vDate = new Date(endStart);
+    const phases = readPhases(previewBlocks[blockIdx++]);
+    phases.forEach(phase => {
+      const endDate = addBusinessDays(vDate, phase.dur);
+      totalWorkDays += phase.dur;
+      allMilestones.push({date: endDate, owner: phase.owner, deliverable: del.product, task: phase.name});
+      if (endDate > projectEndDate) projectEndDate = new Date(endDate);
+      vDate = nextWorkDay(new Date(endDate));
+    });
+  });
+
+  // Sort chronologically
+  allMilestones.sort((a, b) => a.date - b.date);
+
+  // Group by date + owner (Client and Flimp never combined)
+  const groups = [];
+  const groupIndex = {};
+  allMilestones.forEach(m => {
+    const key = toISO(m.date) + '|' + m.owner;
+    if (groupIndex[key] === undefined) {
+      groupIndex[key] = groups.length;
+      groups.push({date: m.date, owner: m.owner, items: [], isPastDue: false});
+    }
+    groups[groupIndex[key]].items.push(m);
+    if (dueDate && m.date > dueDate) groups[groupIndex[key]].isPastDue = true;
+  });
+  groups.sort((a, b) => a.date - b.date || a.owner.localeCompare(b.owner));
+
+  // Render output
+  document.getElementById('outputDivider').style.display = 'block';
+  const output = document.getElementById('timelineOutput');
+  output.style.display = 'block';
+
+  // Net new note
+  const nnWrap = document.getElementById('nnNoteWrap');
+  nnWrap.innerHTML = isNetNew
+    ? `<div class="nn-note"><strong>Net New Client</strong>This project involves a new client relationship with Flimp. Please allow additional time during the Kickoff and onboarding phases for account setup, portal access provisioning, and alignment on Flimp's production process and review expectations. All milestone dates assume timely client responsiveness — delays in content delivery or review rounds will push the schedule accordingly.</div>`
+    : '';
+
+  document.getElementById('tlTitle').textContent = project;
+
+  const tbody = document.getElementById('tlTableBody');
+  tbody.innerHTML = '';
+  let hasWarning = false;
+
+  groups.forEach(group => {
+    if (group.isPastDue) hasWarning = true;
+    const tr = document.createElement('tr');
+    if (group.isPastDue) tr.style.background = 'var(--red-bg)';
+
+    const deliverables_str = [...new Set(group.items.map(m => m.deliverable))].join(', ');
+    const tasks_str        = [...new Set(group.items.map(m => m.task))].join(', ');
+
+    const tdParty = document.createElement('td');
+    tdParty.textContent = group.owner;
+
+    const tdDel = document.createElement('td');
+    tdDel.className = 'td-deliverable';
+    tdDel.textContent = deliverables_str;
+
+    const tdTask = document.createElement('td');
+    tdTask.textContent = tasks_str;
+
+    const tdDate = document.createElement('td');
+    tdDate.className = 'td-date';
+    tdDate.textContent = fmtDateShort(group.date);
+    if (group.isPastDue) tdDate.style.color = 'var(--red)';
+
+    tr.appendChild(tdParty); tr.appendChild(tdDel);
+    tr.appendChild(tdTask);  tr.appendChild(tdDate);
+    tbody.appendChild(tr);
+  });
+
+  if (hasWarning) {
+    const warnTr = document.createElement('tr');
+    const warnTd = document.createElement('td');
+    warnTd.colSpan = 4;
+    warnTd.style.cssText = 'background:var(--red-bg);color:var(--red);font-size:12px;padding:.5rem 1rem;font-weight:600';
+    warnTd.textContent = 'One or more phases extend past the due date. Consider compressing durations in the phase review step.';
+    warnTr.appendChild(warnTd);
+    tbody.appendChild(warnTr);
+  }
+
+  const footer = document.getElementById('tlFooter');
+  footer.innerHTML = '';
+  [
+    ['Project Start', fmtDateShort(startDate)],
+    ['Working Days', totalWorkDays],
+    ...(dueDate ? [['Due Date', fmtDateShort(dueDate)]] : []),
+    ['Projected End', fmtDateShort(projectEndDate)],
+    ['Deliverables', deliverables.reduce((a,d) => a + d.count, 0) + (addl.length ? ' + ' + addl.join(', ') : '')]
+  ].forEach(([label, value]) => {
+    const span = document.createElement('span');
+    span.innerHTML = `<strong>${esc(label)}:</strong> ${esc(String(value))}`;
+    footer.appendChild(span);
+  });
+
+  output.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// ── Save timeline ────────────────────────────────────────────────────────
+function saveTimeline() {
+  const pm      = document.getElementById('pmName').value;
+  const client  = document.getElementById('clientName').value.trim();
+  const project = document.getElementById('projectName').value.trim();
+  if (!pm)      { alert('Please select a PM before saving.'); return; }
+  if (!client)  { alert('Please enter a client name before saving.'); return; }
+  if (!project) { alert('Please enter a project name before saving.'); return; }
+  // Store PM name for dashboard
+  localStorage.setItem('flimp_pm', pm);
+  // In production: Supabase insert
+  const btn = event.target;
+  btn.textContent = '✓ Saved!';
+  btn.style.background = 'var(--green)';
+  setTimeout(() => {
+    btn.textContent = 'Save timeline';
+    btn.style.background = 'var(--dark)';
+  }, 2000);
+}
+
+// ── Copy table ────────────────────────────────────────────────────────────
+function copyTable() {
+  const rows = [...document.querySelectorAll('#tlTableBody tr')];
+  const header = 'Party\tDeliverable\tTask\tDue Date';
+  const lines = rows.map(r => {
+    const cells = [...r.querySelectorAll('td')];
+    if (cells.length < 4) return null;
+    return cells.slice(0, 4).map(c => c.textContent.trim()).join('\t');
+  }).filter(Boolean);
+
+  navigator.clipboard.writeText([header, ...lines].join('\n')).then(() => {
+    const btn = document.querySelector('.tl-action-btn:last-child');
+    const orig = btn.innerHTML;
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.innerHTML = orig; }, 1500);
+  });
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════
+(function init() {
+  // Build initial 3 deliverable rows
+  const dr = document.getElementById('delRows');
+  for (let i = 0; i < 3; i++) dr.appendChild(buildDelRow());
+  updateRemove();
+
+  // Default start date to today
+  const today = new Date();
+  document.getElementById('startDate').value = toISO(today);
+
+  // Trigger feasibility update when dates change
+
+  document.getElementById('startDate').addEventListener('change', () => { updateFeasibility(); document.querySelectorAll('#pbBlocks .pb-block').forEach(b => recalcBlockFeasibility(b)); });
+  document.getElementById('dueDate').addEventListener('change', () => { updateFeasibility(); document.querySelectorAll('#pbBlocks .pb-block').forEach(b => { recalcPhaseDates(b); recalcBlockFeasibility(b); }); });
+
+  // Pre-fill PM name from localStorage
+  const savedPm = localStorage.getItem('flimp_pm');
+  if (savedPm) { const s = document.getElementById('pmName'); if ([...s.options].find(o=>o.value===savedPm)) s.value=savedPm; }
+
+  // Save PM selection to localStorage when changed
+  document.getElementById('pmName').addEventListener('change', function() {
+    if (this.value) localStorage.setItem('flimp_pm', this.value);
+  });
+
+  // Live feasibility update on duration field changes or phase add/remove
+  document.addEventListener('input', e => {
+    if (e.target.classList.contains('pt-dur')) updateFeasibility();
+  });
+
+  // Bootstrap: load Supabase data then show UI
+  loadReferenceData().then(ok => {
+    document.getElementById('loadingOverlay').style.display = 'none';
+    if (!ok) {
+      document.getElementById('loadingError').style.display = 'flex';
+    }
+    // buildSelect() now uses live PRODUCTS — rebuild all existing rows
+    document.querySelectorAll('#delRows .del-row').forEach(r => {
+      const sel = r.querySelector('select');
+      const cur = sel ? sel.value : '';
+      const newSel = buildSelect();
+      if (cur) newSel.value = cur;
+      sel.replaceWith(newSel);
+    });
+  });
+})();
+</script>
+</body>
+</html>
