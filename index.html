@@ -1259,9 +1259,9 @@ function updateGantt() {
 
   // Scale = available business days start→due (or longest track if no due date)
   const longestTrack = raw.reduce((max, t) => {
-    // For parent products, effective length = their days + appended days
-    // For end-timeline products, they are already counted within their parent
-    const d = t.isEnd ? 0 : (t.totalDays + (t.appendedDays || 0));
+    // Skip end-timeline products — their days are counted within their parent chain
+    if (t.isEnd) return max;
+    const d = t.totalDays + (t.appendedDays || 0);
     return d > max ? d : max;
   }, 0);
   const scaleDays = Math.max(1, dueVal ? countBusinessDays(startDate, anchorDate) : longestTrack);
@@ -1307,8 +1307,9 @@ function updateGantt() {
 
   // Per-deliverable rows
   tracks.forEach(t => {
-    const widthPct = Math.max(1, (t.totalDays / scaleDays) * 100);
-    const leftPct  = Math.max(0, ((scaleDays - countBusinessDays(startDate, t.trackEnd)) / scaleDays) * 100);
+    const widthPct    = Math.max(1, (t.totalDays / scaleDays) * 100);
+    const daysToStart = countBusinessDays(startDate, t.trackStart);
+    const leftPct     = Math.max(0, Math.min(100 - widthPct, (daysToStart / scaleDays) * 100));
     const pmWidthPct = t.hasPrintMail ? Math.min(45, (10 / t.totalDays) * 100) : 0; // stripe within the bar
     html += `<div class="gantt-row">
       <div class="gantt-label" title="${esc(t.label)}">${esc(t.label)}</div>
