@@ -1278,8 +1278,9 @@ function updateGantt() {
       <div class="gantt-track">
         ${duePct!==null?`<div class="gantt-due-line" style="left:${duePct}%"><span class="gantt-due-label"></span></div>`:''}
         <div class="gantt-bar${t.isEnd?' end-product':''}" style="left:${leftPct}%;width:${widthPct}%;background:${t.color};overflow:hidden;position:relative"
-             title="${esc(t.label)}: ${t.totalDays}d — ends ${fmtDateShort(t.trackEnd)}">
+             title="${esc(t.label)}: ${t.barDays}d — ends ${fmtDateShort(t.trackEnd)}">
           ${widthPct > 10 ? t.barDays+'d' : ''}
+          ${t.appendedDays > 0 ? (() => { const stripeW = Math.min(60, (t.appendedDays / t.barDays) * 100); return `<div style="position:absolute;right:0;top:0;bottom:0;width:${stripeW}%;background:rgba(255,255,255,.18);border-left:2px solid rgba(255,255,255,.35)" title="Includes ${t.appendedDays}d appended: ${t.barDays - t.appendedDays}d parent + ${t.appendedDays}d appended"></div>`; })() : ''}
           ${t.hasPrintMail ? `<div style="position:absolute;right:0;top:0;bottom:0;width:${pmWidthPct}%;background:#FFB21B;border-left:2px solid rgba(0,0,0,.2)" title="Print & Mail: 10 days"></div>` : ''}
         </div>
       </div>
