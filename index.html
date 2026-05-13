@@ -88,6 +88,10 @@ body{font-family:Calibri,sans-serif;background:#F2F8F0;color:var(--text);min-hei
 .rounds-btn{width:28px;height:100%;border:none;background:transparent;color:var(--text-secondary);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;flex-shrink:0;font-family:Calibri,sans-serif}
 .rounds-btn:hover{background:var(--blue-bg);color:var(--blue)}
 .rounds-val{flex:1;text-align:center;font-size:14px;font-weight:600;color:var(--text);font-family:Calibri,sans-serif;border-left:1px solid var(--border);border-right:1px solid var(--border);height:100%;display:flex;align-items:center;justify-content:center;min-width:28px}
+.parent-sel-wrap{display:none;margin-top:4px;padding-left:20px;grid-column:1/-1}
+.ps-inner{display:flex;align-items:center;gap:8px}
+.ps-label{font-size:11px;font-weight:600;color:var(--text-tertiary);white-space:nowrap;min-width:70px}
+.parent-sel-wrap select{flex:1;font-family:Calibri,sans-serif;font-size:12px;height:30px;padding:0 6px;border:1px solid var(--border);border-radius:var(--radius);background:#fff;color:var(--text-secondary)}
 .rm-btn{width:32px;height:32px;border:1px solid var(--border);border-radius:var(--radius);background:transparent;color:var(--text-tertiary);cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center;transition:all .15s;line-height:1;padding:0}
 .rm-btn:hover{border-color:var(--red);color:var(--red);background:var(--red-bg)}
 .add-row-btn{width:100%;height:36px;border:1px dashed var(--border);border-radius:var(--radius);background:transparent;color:var(--text-tertiary);font-family:Calibri,sans-serif;font-size:13px;cursor:pointer;margin-top:4px;transition:all .15s}
@@ -778,7 +782,8 @@ function buildDelRow() {
   // Parent selector (shown only for end-timeline products)
   const parentWrap = document.createElement('div');
   parentWrap.className = 'parent-sel-wrap';
-  parentWrap.innerHTML = '<label>Appended to</label><select class="parent-sel"><option value="">Select parent deliverable…</option></select>';
+  parentWrap.style.display = 'none';
+  parentWrap.innerHTML = '<div class="ps-inner"><span class="ps-label">Appended to</span><select class="parent-sel"><option value="">Select parent…</option></select></div>';
   row.appendChild(parentWrap);
 
   return row;
@@ -907,6 +912,11 @@ function previewPhases() {
       });
       phases = expandedPhases;
     }
+
+    // Remove last phase (Distribution) if this product has an appended end-timeline product
+    // We detect this after preview by checking parent selectors - re-check on rebuild
+    // Store flag on block for rebuild to use
+    // (actual removal happens in a post-pass after all blocks are built)
 
     if (del.printMail) phases.push({ name: 'Print & Mail', dur: 10, owner: 'Flimp', isPrintMail: true });
 
@@ -1080,6 +1090,37 @@ function previewPhases() {
     recalcBlockFeasibility(block);
     blockIndex++;
   });
+
+  // Post-pass: remove Distribution from parent products that have appended items
+  refreshParentSelectors();
+  setTimeout(() => {
+    const allDelRows = [...document.querySelectorAll('#delRows .del-row')];
+    const parentProductsWithAppended = new Set();
+    allDelRows.forEach(row => {
+      const sel = row.querySelector('select');
+      if (!sel || !sel.value || !END_PRODUCTS.has(sel.value)) return;
+      const parentSel = row.querySelector('.parent-sel');
+      if (!parentSel || parentSel.value === '') return;
+      const opt = parentSel.options[parentSel.selectedIndex];
+      if (opt && opt.dataset.product) parentProductsWithAppended.add(opt.dataset.product);
+    });
+
+    document.querySelectorAll('#pbBlocks .pb-block').forEach(block => {
+      if (!parentProductsWithAppended.has(block.dataset.product)) return;
+      const rows = [...block.querySelectorAll('tbody tr')];
+      if (!rows.length) return;
+      // Find and remove the last Distribution phase
+      for (let i = rows.length - 1; i >= 0; i--) {
+        const nameInput = rows[i].querySelector('.pt-name');
+        if (nameInput && nameInput.value.toLowerCase().includes('distribution')) {
+          rows[i].remove();
+          recalcPhaseDates(block);
+          recalcBlockFeasibility(block);
+          break;
+        }
+      }
+    });
+  }, 50);
 
   document.getElementById('phasePreviewSection').style.display = 'block';
   updateGenerateBtn();
@@ -1404,6 +1445,37 @@ function refreshParentSelectors() {
   });
 }
 
+
+// Get total phase days of all products appended to a given parent label
+function getAppendedDays(parentProduct, parentIsRenewal) {
+  const allRows = [...document.querySelectorAll('#delRows .del-row')];
+  let total = 0;
+  allRows.forEach(row => {
+    const sel = row.querySelector('select');
+    if (!sel || !sel.value || !END_PRODUCTS.has(sel.value)) return;
+    const parentSel = row.querySelector('.parent-sel');
+    if (!parentSel || parentSel.value === '') return;
+    const opt = parentSel.options[parentSel.selectedIndex];
+    if (!opt) return;
+    const expectedLabel = parentProduct + (parentIsRenewal ? ' (Renewal)' : ' (New)');
+    if (opt.textContent.replace(/ \d+$/, '') === expectedLabel) {
+      // Add phase days for this appended product from its preview block
+      const blocks = [...document.querySelectorAll('#pbBlocks .pb-block')];
+      const matchBlock = blocks.find(b => {
+        const bs = b.dataset.product;
+        const bIsRenewal = b.dataset.isrenewal === 'true';
+        const rowIsRenewal = row.querySelector('.nr-btn.r-active') !== null;
+        return bs === sel.value && bIsRenewal === rowIsRenewal;
+      });
+      if (matchBlock) {
+        const durs = [...matchBlock.querySelectorAll('.pt-dur')].map(i => parseInt(i.value)||1);
+        total += durs.reduce((a,b) => a+b, 0);
+      }
+    }
+  });
+  return total;
+}
+
 function recalcBlockFeasibility(block) {
   const dueVal   = document.getElementById('dueDate').value;
   const startVal = document.getElementById('startDate').value;
@@ -1416,12 +1488,18 @@ function recalcBlockFeasibility(block) {
   const durInputs = [...block.querySelectorAll('.pt-dur')];
   const needed = durInputs.reduce((s, inp) => s + (Math.max(0, parseInt(inp.value) || 0)), 0);
 
+  // Subtract appended product days from effective due date
+  const blockProduct  = block.dataset.product;
+  const blockIsRenewal = block.dataset.isrenewal === 'true';
+  const appendedDays  = END_PRODUCTS.has(blockProduct) ? 0 : getAppendedDays(blockProduct, blockIsRenewal);
+  const effectiveAvailable = available - appendedDays;
+
   const fill = block.querySelector('.pb-feas-bar-fill');
   const diff = block.querySelector('.pb-feas-diff');
-  if (!fill || !diff || available <= 0) return;
+  if (!fill || !diff || effectiveAvailable <= 0) return;
 
-  const pct   = available > 0 ? Math.min(100, (needed / available) * 100) : 100;
-  const delta = available - needed;
+  const pct   = effectiveAvailable > 0 ? Math.min(100, (needed / effectiveAvailable) * 100) : 100;
+  const delta = effectiveAvailable - needed;
 
   if (delta > 5) {
     fill.style.cssText = `width:${pct}%;background:var(--green)`;
@@ -1440,8 +1518,17 @@ function recalcBlockFeasibility(block) {
 
 function recalcPhaseDates(block, blockEndDate) {
   const dueVal = document.getElementById('dueDate').value;
-  const due = blockEndDate || (dueVal ? new Date(dueVal + 'T00:00:00') : null);
+  let due = blockEndDate || (dueVal ? new Date(dueVal + 'T00:00:00') : null);
   if (!due) return;
+  // Adjust due date for parent products that have appended items
+  if (!blockEndDate) {
+    const bp = block.dataset.product;
+    const bir = block.dataset.isrenewal === 'true';
+    if (bp && !END_PRODUCTS.has(bp)) {
+      const appDays = getAppendedDays(bp, bir);
+      if (appDays > 0) due = subtractBusinessDays(due, appDays);
+    }
+  }
 
   // Read all dur inputs from this block in order
   const durInputs = [...block.querySelectorAll('.pt-dur')];
