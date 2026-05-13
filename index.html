@@ -1242,13 +1242,37 @@ function updateGantt() {
     }
   });
 
+  // Compute end-timeline track dates first
+  const endTracks = {};
+  raw.forEach(t => {
+    if (!t.isEnd) return;
+    const trackEnd   = new Date(anchorDate);
+    const trackStart = subtractBusinessDays(trackEnd, t.totalDays);
+    endTracks[t.label] = { trackStart, trackEnd };
+  });
+
+  // Update parentChildEnd to use exact trackStart (no nextWorkDay offset)
+  ganttDelRows2.forEach(row => {
+    const sel = row.querySelector('select');
+    if (!sel || !sel.value || !END_PRODUCTS.has(sel.value)) return;
+    const parentSel = row.querySelector('.parent-sel');
+    if (!parentSel || parentSel.value === '') return;
+    const opt = parentSel.options[parentSel.selectedIndex];
+    if (!opt || !opt.dataset.product) return;
+    const parentLabel = opt.dataset.product;
+    const childLabel  = sel.value;
+    if (endTracks[childLabel]) {
+      const childStart = endTracks[childLabel].trackStart;
+      if (!parentChildEnd[parentLabel] || childStart < parentChildEnd[parentLabel]) {
+        parentChildEnd[parentLabel] = new Date(childStart);
+      }
+    }
+  });
+
   const tracks = raw.map(t => {
     if (t.isEnd) {
-      const trackEnd   = new Date(anchorDate);
-      const trackStart = subtractBusinessDays(trackEnd, t.totalDays);
-      return { ...t, trackStart, trackEnd };
+      return { ...t, ...endTracks[t.label] };
     } else {
-      // If this product has a child, it must end by the child's start
       const trackEnd   = parentChildEnd[t.label]
         ? new Date(parentChildEnd[t.label])
         : new Date(anchorDate);
@@ -1653,20 +1677,36 @@ function updateFeasibility() {
     return;
   }
 
-  let maxParallelDays = 0;
-  let maxEndDays = 0;
+  // Build block days map
+  const blockDays = {};
   blocks.forEach(block => {
     const product = block.dataset.product || '';
-    const total = [...block.querySelectorAll('.pt-dur')]
-      .reduce((sum, inp) => sum + (Math.max(1, parseInt(inp.value) || 1)), 0);
-    if (END_PRODUCTS.has(product)) {
-      if (total > maxEndDays) maxEndDays = total;
-    } else {
-      if (total > maxParallelDays) maxParallelDays = total;
-    }
+    blockDays[product] = (blockDays[product] || 0) +
+      [...block.querySelectorAll('.pt-dur')]
+        .reduce((sum, inp) => sum + (Math.max(1, parseInt(inp.value) || 1)), 0);
   });
 
-  const needed = maxParallelDays + maxEndDays;
+  // Build chain lengths: for each parallel product, add days of any appended end-timeline products
+  const feasDelRows = [...document.querySelectorAll('#delRows .del-row')];
+  const parentAppendedDays = {};
+  feasDelRows.forEach(row => {
+    const sel = row.querySelector('select');
+    if (!sel || !sel.value || !END_PRODUCTS.has(sel.value)) return;
+    const parentSel = row.querySelector('.parent-sel');
+    if (!parentSel || parentSel.value === '') return;
+    const opt = parentSel.options[parentSel.selectedIndex];
+    if (!opt || !opt.dataset.product) return;
+    const parentProduct = opt.dataset.product;
+    parentAppendedDays[parentProduct] = (parentAppendedDays[parentProduct] || 0) + (blockDays[sel.value] || 0);
+  });
+
+  // Longest chain = max of (parallelDays + appendedDays) across all non-end products
+  let needed = 0;
+  Object.keys(blockDays).forEach(product => {
+    if (END_PRODUCTS.has(product)) return;
+    const chain = (blockDays[product] || 0) + (parentAppendedDays[product] || 0);
+    if (chain > needed) needed = chain;
+  });
   document.getElementById('feasNeeded').textContent = needed;
 
   if (available === null) {
