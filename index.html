@@ -1295,38 +1295,24 @@ function updateGantt() {
         <div class="gantt-bar" style="left:${leftPct}%;width:${widthPct}%;background:${t.color};overflow:hidden;position:relative;"
              title="${esc(t.label)}: ${t.barDays}d — ends ${fmtDateShort(t.trackEnd)}">
           ${widthPct > 10 ? (t.appendedDays > 0 ? (t.barDays - t.appendedDays) : t.barDays)+'d' : ''}
-          ${t.appendedDays > 0 ? (() => { const stripeW = Math.min(60, (t.appendedDays / t.barDays) * 100); return `<div style="position:absolute;right:0;top:0;bottom:0;width:${stripeW}%;background:#1B323D;border-left:3px solid #1B323D;border-radius:0 4px 4px 0" title="${t.appendedDays}d appended"></div>`; })() : ''}
+          ${(() => { const children = appendedChildMap[t.label] || []; if (!children.length) return ''; let html = ''; let rightOffset = 0; [...children].reverse().forEach(child => { const segW = Math.min(60, (child.days / t.barDays) * 100); html += `<div style="position:absolute;right:${rightOffset}%;top:0;bottom:0;width:${segW}%;background:${child.color};opacity:.7;border-left:2px solid rgba(0,0,0,.2)\${rightOffset===0?';border-radius:0 4px 4px 0':''}" title="${esc(child.product)}: ${child.days}d"></div>`; rightOffset += segW; }); return html; })()} 
           ${t.hasPrintMail ? `<div style="position:absolute;right:0;top:0;bottom:0;width:${pmWidthPct}%;background:#FFB21B;border-left:2px solid rgba(0,0,0,.2)" title="Print & Mail: 10 days"></div>` : ''}
         </div>
       </div>
       <div class="gantt-enddate">${fmtDateShort(anchorDate)}</div>
     </div>`;
 
-    // Nested rows for appended children (unique, sequential)
+    // Nested rows — each right-aligned to its position in the chain
     const children = appendedChildMap[t.label] || [];
-    let offsetDays = 0;
-    children.forEach(child => {
-      const childWidthPct = Math.max(1, (child.days / scaleDays) * 100);
-      const childLeftPct  = Math.max(0, 100 - childWidthPct);
-      html += `<div class="gantt-nested-row">
-        <div class="gantt-nested-label">
-          <div class="gantt-nested-connector">
-            <div style="width:1px;height:10px;background:rgba(255,255,255,.2)"></div>
-            <div style="width:8px;height:1px;background:rgba(255,255,255,.2)"></div>
-          </div>
-          <span>↳ ${esc(child.product)}</span>
-        </div>
-        <div class="gantt-nested-track">
-          <div class="gantt-nested-bar" style="width:${childWidthPct}%;background:${child.color};opacity:.75"
-               title="${esc(child.product)}: ${child.days}d">
-            ${childWidthPct > 8 ? child.days+'d' : ''}
-          </div>
-        </div>
-        <div class="gantt-enddate" style="font-size:9px;color:rgba(255,255,255,.35)">${fmtDateShort(anchorDate)}</div>
-      </div>`;
-      offsetDays += child.days;
-    });
-  });
+    let rightOffsetDays = 0;
+    [...children].reverse().forEach(child => {
+      const childWidthPct  = Math.max(1, (child.days / scaleDays) * 100);
+      const rightOffsetPct = (rightOffsetDays / scaleDays) * 100;
+      const childLeftPct   = Math.max(0, 100 - childWidthPct - rightOffsetPct);
+      const childEndDate   = rightOffsetDays === 0 ? anchorDate : subtractBusinessDays(anchorDate, rightOffsetDays);
+      html += "<div class='gantt-nested-row'><div class='gantt-nested-label'><div class='gantt-nested-connector'><div style='width:1px;height:10px;background:rgba(255,255,255,.2)'></div><div style='width:8px;height:1px;background:rgba(255,255,255,.2)'></div></div><span>↳ " + esc(child.product) + "</span></div><div class='gantt-nested-track' style='position:relative'><div class='gantt-nested-bar' style='left:" + childLeftPct + "%;width:" + childWidthPct + "%;background:" + child.color + ";opacity:.75' title='" + esc(child.product) + ": " + child.days + "d'>" + (childWidthPct > 8 ? child.days + 'd' : '') + "</div></div><div class='gantt-enddate' style='font-size:9px;color:rgba(255,255,255,.35)'>" + fmtDateShort(childEndDate) + "</div></div>";
+      rightOffsetDays += child.days;
+    });  });
 
   chart.innerHTML = html;
   wrap.style.display = 'block';
