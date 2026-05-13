@@ -1163,6 +1163,26 @@ function updateGantt() {
 
   // Compute parallelMax from phase durations
   let parallelMax = 0;
+  // Build appended days map: product -> total days of its appended end-timeline products
+  const appendedDaysMap = {};
+  const delRows = [...document.querySelectorAll('#delRows .del-row')];
+  delRows.forEach(row => {
+    const sel = row.querySelector('select');
+    if (!sel || !sel.value || !END_PRODUCTS.has(sel.value)) return;
+    const parentSel = row.querySelector('.parent-sel');
+    if (!parentSel || parentSel.value === '') return;
+    const opt = parentSel.options[parentSel.selectedIndex];
+    if (!opt || !opt.dataset.product) return;
+    const parentProduct = opt.dataset.product;
+    // Find the appended block's total days
+    const appendedBlock = blocks.find(b => b.dataset.product === sel.value);
+    if (!appendedBlock) return;
+    const appendedDays = [...appendedBlock.querySelectorAll('.pt-dur')]
+      .map(i => Math.max(1, parseInt(i.value)||1))
+      .reduce((a,b) => a+b, 0);
+    appendedDaysMap[parentProduct] = (appendedDaysMap[parentProduct] || 0) + appendedDays;
+  });
+
   const raw = blocks.map(block => {
     const product   = block.dataset.product || '';
     const grp       = getProductGroup(product);
@@ -1171,8 +1191,9 @@ function updateGantt() {
     const durs      = [...block.querySelectorAll('.pt-dur')].map(i => Math.max(1, parseInt(i.value)||1));
     const totalDays = durs.reduce((a,b)=>a+b,0);
     const hasPrintMail = block.dataset.printmail === 'true';
+    const appendedDays = appendedDaysMap[product] || 0;
     if (!isEnd && totalDays > parallelMax) parallelMax = totalDays;
-    return { label: product, color, totalDays, isEnd, hasPrintMail };
+    return { label: product, color, totalDays, isEnd, hasPrintMail, appendedDays };
   });
 
   // Anchor = due date if set, else forward-compute from longest track
@@ -1189,9 +1210,11 @@ function updateGantt() {
     // scaleDays not yet computed - will equal maxTotal in no-due-date case
   }
 
-  // Backward from due date
+  // Backward from due date — parents end earlier if they have appended products
   const tracks = raw.map(t => {
-    const trackEnd   = new Date(anchorDate);
+    const trackEnd   = t.appendedDays > 0
+      ? subtractBusinessDays(anchorDate, t.appendedDays)
+      : new Date(anchorDate);
     const trackStart = subtractBusinessDays(trackEnd, t.totalDays);
     return { ...t, trackStart, trackEnd };
   });
