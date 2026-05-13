@@ -972,7 +972,7 @@ function previewPhases() {
 
     hdr.appendChild(titleWrap);
     hdr.appendChild(chevron);
-    if (blockRoundsStepper) hdr.insertBefore(blockRoundsStepper, confirmWrap);
+    if (blockRoundsStepper) hdr.appendChild(blockRoundsStepper);
     hdr.appendChild(confirmWrap);
     hdr.addEventListener('click', () => {
       const body = block.querySelector('.pb-body');
