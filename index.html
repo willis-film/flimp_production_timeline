@@ -1222,6 +1222,22 @@ function updateGantt() {
     // scaleDays not yet computed - will equal maxTotal in no-due-date case
   }
 
+
+
+  const longestTrack = raw.reduce((max, t) => {
+    // Skip end-timeline products — their days are counted within their parent chain
+    if (t.isEnd) return max;
+    const d = t.totalDays + (t.appendedDays || 0);
+    return d > max ? d : max;
+  }, 0);
+
+  // If days needed > days available, expand scale to fit
+  const availableDays = dueVal ? countBusinessDays(startDate, anchorDate) : 0;
+  const scaleDays = Math.max(1, longestTrack, availableDays);
+  const ganttAnchor = longestTrack > availableDays && availableDays > 0
+    ? addBusinessDays(startDate, longestTrack)
+    : anchorDate;
+
   // Simple backward layout: all bars right-aligned to anchorDate
   // Parent bars span their own days + appended days (full chain)
   // End-timeline bars span their own days only
@@ -1233,19 +1249,7 @@ function updateGantt() {
   });
 
     // Scale = available business days start→due (or longest track if no due date)
-  const longestTrack = raw.reduce((max, t) => {
-    // Skip end-timeline products — their days are counted within their parent chain
-    if (t.isEnd) return max;
-    const d = t.totalDays + (t.appendedDays || 0);
-    return d > max ? d : max;
-  }, 0);
-  // If days needed > days available, expand scale to fit and show due date as a line
-  const availableDays = dueVal ? countBusinessDays(startDate, anchorDate) : 0;
-  const scaleDays = Math.max(1, longestTrack, availableDays);
-  // Recompute anchorDate if over budget — extend to fit the longest track
-  const ganttAnchor = longestTrack > availableDays && availableDays > 0
-    ? addBusinessDays(startDate, longestTrack)
-    : anchorDate;
+
 
   // Month ticks
   const ticks = [];
