@@ -190,7 +190,7 @@ body{font-family:Calibri,sans-serif;background:#F2F8F0;color:var(--text);min-hei
 .gantt-row{display:flex;align-items:center;gap:10px;margin-bottom:7px}
 .gantt-label{font-size:11px;color:rgba(255,255,255,.75);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:150px;flex-shrink:0;font-family:Calibri,sans-serif}
 .gantt-track{flex:1;height:22px;background:rgba(255,255,255,.08);border-radius:4px;position:relative;overflow:visible}
-.gantt-bar{position:absolute;top:0;height:100%;border-radius:4px;display:flex;align-items:center;justify-content:center;padding:0 6px;font-size:10px;font-weight:700;color:rgba(255,255,255,.9);white-space:nowrap;min-width:4px;transition:width .3s,left .3s}
+.gantt-bar{position:absolute;top:0;height:100%;border-radius:4px 4px 4px 4px;display:flex;align-items:center;justify-content:center;padding:0 6px;font-size:10px;font-weight:700;color:rgba(255,255,255,.9);white-space:nowrap;min-width:4px;transition:width .3s,left .3s}
 .gantt-bar.end-product{opacity:.8}
 .gantt-bar.total-bar{background:rgba(255,255,255,.15)!important;border:1px solid rgba(255,255,255,.2)}
 .gantt-due-line{position:absolute;top:-4px;bottom:-4px;width:2px;background:rgba(255,80,80,.7);border-radius:1px;z-index:2}
@@ -1277,10 +1277,10 @@ function updateGantt() {
       <div class="gantt-label" title="${esc(t.label)}">${esc(t.label)}</div>
       <div class="gantt-track">
         ${duePct!==null?`<div class="gantt-due-line" style="left:${duePct}%"><span class="gantt-due-label"></span></div>`:''}
-        <div class="gantt-bar${t.isEnd?' end-product':''}" style="left:${leftPct}%;width:${widthPct}%;background:${t.color};overflow:hidden;position:relative"
+        <div class="gantt-bar${t.isEnd?' end-product':''}" style="left:${leftPct}%;width:${widthPct}%;background:${t.color};overflow:hidden;position:relative;${t.appendedDays > 0 ? 'border-radius:4px 0 0 4px;' : ''}"
              title="${esc(t.label)}: ${t.barDays}d — ends ${fmtDateShort(t.trackEnd)}">
           ${widthPct > 10 ? t.barDays+'d' : ''}
-          ${t.appendedDays > 0 ? (() => { const stripeW = Math.min(60, (t.appendedDays / t.barDays) * 100); return `<div style="position:absolute;right:0;top:0;bottom:0;width:${stripeW}%;background:rgba(255,255,255,.18);border-left:2px solid rgba(255,255,255,.35)" title="Includes ${t.appendedDays}d appended: ${t.barDays - t.appendedDays}d parent + ${t.appendedDays}d appended"></div>`; })() : ''}
+          ${t.appendedDays > 0 ? (() => { const stripeW = Math.min(60, (t.appendedDays / t.barDays) * 100); return `<div style="position:absolute;right:0;top:0;bottom:0;width:${stripeW}%;background:#1B323D;border-left:3px solid #1B323D;border-radius:0 4px 4px 0" title="Includes ${t.appendedDays}d appended: ${t.barDays - t.appendedDays}d parent + ${t.appendedDays}d appended"></div>`; })() : ''}
           ${t.hasPrintMail ? `<div style="position:absolute;right:0;top:0;bottom:0;width:${pmWidthPct}%;background:#FFB21B;border-left:2px solid rgba(0,0,0,.2)" title="Print & Mail: 10 days"></div>` : ''}
         </div>
       </div>
