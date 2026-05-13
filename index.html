@@ -703,6 +703,11 @@ function buildSelect() {
     const isNA = NA_PRODUCTS.has(this.value);
     tog.classList.toggle('disabled', isNA);
     if (isNA) row.querySelectorAll('.nr-btn').forEach(b => { b.className = 'nr-btn'; });
+    // Show/hide parent selector for end-timeline products
+    const parentWrap = row.querySelector('.parent-sel-wrap');
+    if (parentWrap) parentWrap.style.display = END_PRODUCTS.has(this.value) ? 'block' : 'none';
+    refreshParentSelectors();
+
     // Set default rounds based on current N/R state
     const rdVal = row.querySelector('.rounds-val');
     if (rdVal) {
@@ -733,8 +738,8 @@ function buildDelRow() {
   btnN.textContent = 'New'; btnN.className = 'nr-btn n-active';
   const btnR = document.createElement('button');
   btnR.textContent = 'Renewal'; btnR.className = 'nr-btn';
-  btnN.onclick = () => { btnN.className = 'nr-btn n-active'; btnR.className = 'nr-btn'; const rv = row.querySelector('.rounds-val'); const s = row.querySelector('select'); if (rv && s) rv.textContent = defaultRounds(s.value, false); };
-  btnR.onclick = () => { btnR.className = 'nr-btn r-active'; btnN.className = 'nr-btn'; const rv = row.querySelector('.rounds-val'); const s = row.querySelector('select'); if (rv && s) rv.textContent = defaultRounds(s.value, true); };
+  btnN.onclick = () => { btnN.className = 'nr-btn n-active'; btnR.className = 'nr-btn'; const rv = row.querySelector('.rounds-val'); const s = row.querySelector('select'); if (rv && s) rv.textContent = defaultRounds(s.value, false); refreshParentSelectors(); };
+  btnR.onclick = () => { btnR.className = 'nr-btn r-active'; btnN.className = 'nr-btn'; const rv = row.querySelector('.rounds-val'); const s = row.querySelector('select'); if (rv && s) rv.textContent = defaultRounds(s.value, true); refreshParentSelectors(); };
   tog.appendChild(btnN); tog.appendChild(btnR);
   row.appendChild(tog);
 
@@ -767,8 +772,14 @@ function buildDelRow() {
   // Remove button
   const rm = document.createElement('button');
   rm.className = 'rm-btn'; rm.innerHTML = '&times;'; rm.title = 'Remove deliverable';
-  rm.onclick = () => { row.remove(); updateRemove(); };
+  rm.onclick = () => { row.remove(); updateRemove(); refreshParentSelectors(); };
   row.appendChild(rm);
+
+  // Parent selector (shown only for end-timeline products)
+  const parentWrap = document.createElement('div');
+  parentWrap.className = 'parent-sel-wrap';
+  parentWrap.innerHTML = '<label>Appended to</label><select class="parent-sel"><option value="">Select parent deliverable…</option></select>';
+  row.appendChild(parentWrap);
 
   return row;
 }
@@ -1337,6 +1348,62 @@ function rebuildPhaseTable(block) {
   recalcBlockFeasibility(block);
 }
 
+// ── Parent selector for end-timeline products ────────────────────────
+function getRowLabel(row) {
+  const sel = row.querySelector('select');
+  if (!sel || !sel.value) return null;
+  const isRenewal = row.querySelector('.nr-btn.r-active') !== null;
+  return { product: sel.value, label: sel.value + (isRenewal ? ' (Renewal)' : ' (New)') };
+}
+
+function refreshParentSelectors() {
+  const allRows = [...document.querySelectorAll('#delRows .del-row')];
+
+  allRows.forEach(row => {
+    const parentWrap = row.querySelector('.parent-sel-wrap');
+    if (!parentWrap) return;
+    const sel = row.querySelector('select');
+    if (!sel || !sel.value || !END_PRODUCTS.has(sel.value)) {
+      parentWrap.style.display = 'none';
+      return;
+    }
+    parentWrap.style.display = 'block';
+
+    const myGroup = getProductGroup(sel.value);
+    const parentSel = parentWrap.querySelector('.parent-sel');
+    const curVal = parentSel.value;
+
+    const options = [];
+    const labelCounts = {};
+    allRows.forEach(otherRow => {
+      if (otherRow === row) return;
+      const info = getRowLabel(otherRow);
+      if (!info) return;
+      if (END_PRODUCTS.has(info.product)) return;
+      const grp = getProductGroup(info.product);
+      if (!grp || !myGroup || grp.group !== myGroup.group) return;
+      labelCounts[info.label] = (labelCounts[info.label] || 0) + 1;
+      options.push({ product: info.product, label: info.label, idx: labelCounts[info.label] });
+    });
+    const finalOptions = options.map(o => ({
+      ...o,
+      label: labelCounts[o.label] > 1 ? o.label + ' ' + o.idx : o.label
+    }));
+
+    parentSel.innerHTML = '<option value=>Select parent deliverable…</option>';
+    finalOptions.forEach((o, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = o.label;
+      opt.dataset.product = o.product;
+      if (String(i) === curVal) opt.selected = true;
+      parentSel.appendChild(opt);
+    });
+
+    if (finalOptions.length === 1) parentSel.value = '0';
+  });
+}
+
 function recalcBlockFeasibility(block) {
   const dueVal   = document.getElementById('dueDate').value;
   const startVal = document.getElementById('startDate').value;
@@ -1557,24 +1624,48 @@ function generateTimeline() {
   let projectEndDate  = new Date(startDate);
   let totalWorkDays   = 0;
 
+  // Build parent end date map: product label -> end date
+  const parentEndDates = {};
+
   // Pass 1: parallel deliverables — all start on startDate
   parallelDels.forEach(del => {
     let vDate = new Date(startDate);
     const phases = readPhases(previewBlocks[blockIdx++]);
+    let trackEnd = new Date(startDate);
     phases.forEach(phase => {
       const endDate = addBusinessDays(vDate, phase.dur);
       totalWorkDays += phase.dur;
       allMilestones.push({date: endDate, owner: phase.owner, deliverable: del.product, task: phase.name});
       if (endDate > parallelEndDate) parallelEndDate = new Date(endDate);
+      trackEnd = new Date(endDate);
       if (endDate > projectEndDate)  projectEndDate  = new Date(endDate);
       vDate = nextWorkDay(new Date(endDate));
     });
+    // Store end date keyed by deliverable label for parent lookup
+    const isRen = del.isRenewal;
+    const lbl = del.product + (isRen ? ' (Renewal)' : ' (New)');
+    if (!parentEndDates[lbl] || trackEnd > parentEndDates[lbl]) parentEndDates[lbl] = new Date(trackEnd);
   });
 
   // Pass 2: end deliverables — start after parallel block, run in parallel with each other
   const endStart = parallelDels.length > 0 ? nextWorkDay(new Date(parallelEndDate)) : new Date(startDate);
   endDels.forEach(del => {
-    let vDate = new Date(endStart);
+    // Find parent end date from selector
+    const delRow = [...document.querySelectorAll('#delRows .del-row')]
+      .find(r => r.querySelector('select') && r.querySelector('select').value === del.product
+        && (del.isRenewal ? r.querySelector('.nr-btn.r-active') : !r.querySelector('.nr-btn.r-active')));
+    let parentEnd = new Date(endStart);
+    if (delRow) {
+      const parentSel = delRow.querySelector('.parent-sel');
+      if (parentSel && parentSel.value !== '') {
+        const parentOpt = parentSel.options[parentSel.selectedIndex];
+        if (parentOpt && parentOpt.dataset.product) {
+          const parentLabel = parentOpt.textContent;
+          if (parentEndDates[parentLabel]) parentEnd = new Date(parentEndDates[parentLabel]);
+        }
+      }
+    }
+    let vDate = nextWorkDay(new Date(parentEnd));
     const phases = readPhases(previewBlocks[blockIdx++]);
     phases.forEach(phase => {
       const endDate = addBusinessDays(vDate, phase.dur);
