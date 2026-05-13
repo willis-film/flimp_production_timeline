@@ -733,8 +733,8 @@ function buildDelRow() {
   btnN.textContent = 'New'; btnN.className = 'nr-btn n-active';
   const btnR = document.createElement('button');
   btnR.textContent = 'Renewal'; btnR.className = 'nr-btn';
-  btnN.onclick = () => { btnN.className = 'nr-btn n-active'; btnR.className = 'nr-btn'; const rv = row.querySelector('.rounds-val'); if (rv) rv.textContent = defaultRounds(sel.value, false); };
-  btnR.onclick = () => { btnR.className = 'nr-btn r-active'; btnN.className = 'nr-btn'; const rv = row.querySelector('.rounds-val'); if (rv) rv.textContent = defaultRounds(sel.value, true); };
+  btnN.onclick = () => { btnN.className = 'nr-btn n-active'; btnR.className = 'nr-btn'; const rv = row.querySelector('.rounds-val'); const s = row.querySelector('select'); if (rv && s) rv.textContent = defaultRounds(s.value, false); };
+  btnR.onclick = () => { btnR.className = 'nr-btn r-active'; btnN.className = 'nr-btn'; const rv = row.querySelector('.rounds-val'); const s = row.querySelector('select'); if (rv && s) rv.textContent = defaultRounds(s.value, true); };
   tog.appendChild(btnN); tog.appendChild(btnR);
   row.appendChild(tog);
 
