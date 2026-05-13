@@ -498,12 +498,13 @@ async function loadReferenceData() {
     NA_PRODUCTS  = new Set(products.filter(p => p.is_not_renewable).map(p => p.name));
     END_PRODUCTS = new Set(products.filter(p => p.is_end_timeline_product).map(p => p.name));
 
-    // ── Build ROUNDS_DEFAULTS ──
+    // ── Build ROUNDS_DEFAULTS — store new and renewal rounds for all products ──
     ROUNDS_DEFAULTS = {};
     products.forEach(p => {
-      if (p.default_rounds && p.default_rounds !== 2) {
-        ROUNDS_DEFAULTS[p.name] = p.default_rounds;
-      }
+      ROUNDS_DEFAULTS[p.name] = {
+        new:     p.default_rounds          || 2,
+        renewal: p.default_rounds_renewal  || p.default_rounds || 2
+      };
     });
 
     // ── Build ALL_PHASES keyed by product_name ──
@@ -644,8 +645,10 @@ function getProductGroup(name) {
   return PRODUCTS.find(g => g.items.includes(name)) || null;
 }
 
-function defaultRounds(product) {
-  return ROUNDS_DEFAULTS[product] || 2;
+function defaultRounds(product, isRenewal) {
+  const r = ROUNDS_DEFAULTS[product];
+  if (!r) return 2;
+  return isRenewal ? (r.renewal || 2) : (r.new || 2);
 }
 
 // ── UI helpers ────────────────────────────────────────────────────────────
@@ -723,8 +726,8 @@ function buildDelRow() {
   btnN.textContent = 'New'; btnN.className = 'nr-btn n-active';
   const btnR = document.createElement('button');
   btnR.textContent = 'Renewal'; btnR.className = 'nr-btn';
-  btnN.onclick = () => { btnN.className = 'nr-btn n-active'; btnR.className = 'nr-btn'; };
-  btnR.onclick = () => { btnR.className = 'nr-btn r-active'; btnN.className = 'nr-btn'; };
+  btnN.onclick = () => { btnN.className = 'nr-btn n-active'; btnR.className = 'nr-btn'; roundsVal.textContent = defaultRounds(sel.value, false); };
+  btnR.onclick = () => { btnR.className = 'nr-btn r-active'; btnN.className = 'nr-btn'; roundsVal.textContent = defaultRounds(sel.value, true); };
   tog.appendChild(btnN); tog.appendChild(btnR);
   row.appendChild(tog);
 
@@ -814,7 +817,73 @@ function previewPhases() {
 
     // Deep-clone phases to avoid mutating constants
     let phases = JSON.parse(JSON.stringify(ALL_PHASES[del.product] || []));
-    if (isRenewal) phases = phases.slice(2);
+    // Filter by applies_to and substitute renewal phase names
+    phases = phases
+      .filter(p => {
+        if (p.applies_to === 'both') return true;
+        if (p.applies_to === 'new')     return !isRenewal;
+        if (p.applies_to === 'renewal') return  isRenewal;
+        return true; // default include
+      })
+      .map(p => {
+        if (isRenewal && p.renewal_phase_name && p.renewal_phase_name.trim()) {
+          return { ...p, name: p.renewal_phase_name.trim() };
+        }
+        return p;
+      });
+    // ── Expand round groups: repeat tagged phases N times ──
+    const productRoundGroups = ROUND_GROUPS[del.product] || [];
+    if (productRoundGroups.length > 0) {
+      const expandedPhases = [];
+      const usedGroups = new Set();
+
+      phases.forEach(p => {
+        if (!p.round_group_name) {
+          expandedPhases.push(p);
+        } else if (!usedGroups.has(p.round_group_name)) {
+          // First time we see this group - expand it
+          usedGroups.add(p.round_group_name);
+          const groupDef = productRoundGroups.find(rg => rg.group_name === p.round_group_name);
+          const numRounds = del.rounds || (groupDef ? groupDef.default_rounds : 2);
+          // Collect all phases in this group
+          const groupPhases = phases.filter(gp => gp.round_group_name === p.round_group_name);
+          for (let r = 1; r <= numRounds; r++) {
+            groupPhases.forEach(gp => {
+              expandedPhases.push({
+                ...gp,
+                name: numRounds > 1 ? gp.name + ' Rd ' + r : gp.name
+              });
+            });
+          }
+        }
+        // Skip subsequent phases in same group - already handled above
+      });
+      phases = expandedPhases;
+    } else {
+      // No round groups defined - use del.rounds to repeat any phases marked as round_group_name
+      // Simple fallback: phases with round_group_name repeat del.rounds times
+      const expandedPhases = [];
+      const usedGroups = new Set();
+      phases.forEach(p => {
+        if (!p.round_group_name) {
+          expandedPhases.push(p);
+        } else if (!usedGroups.has(p.round_group_name)) {
+          usedGroups.add(p.round_group_name);
+          const groupPhases = phases.filter(gp => gp.round_group_name === p.round_group_name);
+          const numRounds = del.rounds || 2;
+          for (let r = 1; r <= numRounds; r++) {
+            groupPhases.forEach(gp => {
+              expandedPhases.push({
+                ...gp,
+                name: numRounds > 1 ? gp.name + ' Rd ' + r : gp.name
+              });
+            });
+          }
+        }
+      });
+      phases = expandedPhases;
+    }
+
     if (del.printMail) phases.push({ name: 'Print & Mail', dur: 10, owner: 'Flimp', isPrintMail: true });
 
     const block = document.createElement('div');
@@ -1191,7 +1260,7 @@ function updateFeasibility() {
   if (!startVal) { panel.style.display = 'none'; return; }
   panel.style.display = 'block';
 
-  const startDate = new Date(startVal + 'T00:00:00');
+  const startDate = nextWorkDay(new Date(startVal + 'T00:00:00'));
   const dueDate   = dueVal ? new Date(dueVal + 'T00:00:00') : null;
 
   const available = dueDate ? countBusinessDays(startDate, dueDate) : null;
