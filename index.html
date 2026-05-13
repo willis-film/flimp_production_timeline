@@ -1227,7 +1227,7 @@ function updateGantt() {
   // End-timeline bars span their own days only
   const tracks = raw.map(t => {
     const barDays    = t.isEnd ? t.totalDays : (t.totalDays + (t.appendedDays || 0));
-    const trackEnd   = new Date(anchorDate);
+    const trackEnd   = new Date(ganttAnchor);
     const trackStart = subtractBusinessDays(trackEnd, barDays);
     return { ...t, trackStart, trackEnd, barDays };
   });
@@ -1239,20 +1239,27 @@ function updateGantt() {
     const d = t.totalDays + (t.appendedDays || 0);
     return d > max ? d : max;
   }, 0);
-  const scaleDays = Math.max(1, dueVal ? countBusinessDays(startDate, anchorDate) : longestTrack);
+  // If days needed > days available, expand scale to fit and show due date as a line
+  const availableDays = dueVal ? countBusinessDays(startDate, anchorDate) : 0;
+  const scaleDays = Math.max(1, longestTrack, availableDays);
+  // Recompute anchorDate if over budget — extend to fit the longest track
+  const ganttAnchor = longestTrack > availableDays && availableDays > 0
+    ? addBusinessDays(startDate, longestTrack)
+    : anchorDate;
 
   // Month ticks
   const ticks = [];
   const cur = new Date(startDate);
   cur.setDate(1); cur.setMonth(cur.getMonth()+1);
-  while (cur <= anchorDate) {
+  while (cur <= ganttAnchor) {
     const bdSoFar = countBusinessDays(startDate, cur);
     const pct = Math.min(100, (bdSoFar / scaleDays) * 100);
     ticks.push({ label: cur.toLocaleDateString('en-US',{month:'short',year:'2-digit'}), pct });
     cur.setMonth(cur.getMonth()+1);
   }
 
-  const duePct = dueVal ? 100 : null; // due date IS the anchor, always 100%
+  // Due date line position — may be less than 100% if over budget
+  const duePct = dueVal ? Math.min(100, (availableDays / scaleDays) * 100) : null;
 
   let html = '';
 
@@ -1260,7 +1267,7 @@ function updateGantt() {
   html += `<div class="gantt-axis-row"><div style="width:150px;flex-shrink:0"></div><div class="gantt-axis-track">`;
   html += `<span class="gantt-axis-tick" style="left:0;transform:none">${fmtDateShort(startDate)}</span>`;
   ticks.forEach(t => html += `<span class="gantt-axis-tick" style="left:${t.pct}%">${t.label}</span>`);
-  html += `<span class="gantt-axis-tick" style="right:0;left:auto;transform:none">${fmtDateShort(anchorDate)}</span>`;
+  html += `<span class="gantt-axis-tick" style="right:0;left:auto;transform:none">${fmtDateShort(ganttAnchor)}</span>`;
   html += `</div></div>`;
 
   // Total project row
@@ -1291,27 +1298,32 @@ function updateGantt() {
     html += `<div class="gantt-row">
       <div class="gantt-label" title="${esc(t.label)}">${esc(t.label)}</div>
       <div class="gantt-track">
-        ${duePct!==null?`<div class="gantt-due-line" style="left:${duePct}%"><span class="gantt-due-label"></span></div>`:''}
-        <div class="gantt-bar" style="left:${leftPct}%;width:${widthPct}%;background:${t.color};overflow:hidden;position:relative;"
+        ${duePct!==null?`<div class="gantt-due-line" style="left:${duePct}%"><span class="gantt-due-label">Due</span></div>`:''}
+        <div class="gantt-bar" style="left:${leftPct}%;width:${widthPct}%;background:${t.color};overflow:visible;position:relative;"
              title="${esc(t.label)}: ${t.barDays}d — ends ${fmtDateShort(t.trackEnd)}">
           ${widthPct > 10 ? (t.appendedDays > 0 ? (t.barDays - t.appendedDays) : t.barDays)+'d' : ''}
-          ${(() => { const children = appendedChildMap[t.label] || []; if (!children.length) return ''; let html = ''; let rightOffset = 0; [...children].reverse().forEach(child => { const segW = Math.min(60, (child.days / t.barDays) * 100); html += `<div style="position:absolute;right:${rightOffset}%;top:0;bottom:0;width:${segW}%;background:${child.color};opacity:.7;border-left:2px solid rgba(0,0,0,.2)\${rightOffset===0?';border-radius:0 4px 4px 0':''}" title="${esc(child.product)}: ${child.days}d"></div>`; rightOffset += segW; }); return html; })()} 
+          ${(() => { const children = appendedChildMap[t.label] || []; if (!children.length) return ''; let html = ''; let rightOffset = 0; [...children].reverse().forEach(child => { const segW = Math.min(60, (child.days / t.barDays) * 100); html += `<div style="position:absolute;right:${rightOffset}%;top:0;bottom:0;width:${segW}%;background:${child.color};opacity:.75${rightOffset===0?';border-radius:0 4px 4px 0':''}" title="${esc(child.product)}: ${child.days}d"></div><div style="position:absolute;right:${rightOffset+segW}%;top:0;bottom:0;width:3px;background:rgba(0,0,0,.4);z-index:3"></div>`; rightOffset += segW; }); return html; })()}
           ${t.hasPrintMail ? `<div style="position:absolute;right:0;top:0;bottom:0;width:${pmWidthPct}%;background:#FFB21B;border-left:2px solid rgba(0,0,0,.2)" title="Print & Mail: 10 days"></div>` : ''}
         </div>
       </div>
-      <div class="gantt-enddate">${fmtDateShort(anchorDate)}</div>
+      <div class="gantt-enddate">${fmtDateShort(ganttAnchor)}</div>
     </div>`;
 
     // Nested rows — each right-aligned to its position in the chain
     const children = appendedChildMap[t.label] || [];
-    let rightOffsetDays = 0;
+    // Build position map first: each child's right offset from due date
+    const childOffsets = [];
+    let runningOffset = 0;
     [...children].reverse().forEach(child => {
+      childOffsets.unshift({ child, rightOffsetDays: runningOffset });
+      runningOffset += child.days;
+    });
+    childOffsets.forEach(({ child, rightOffsetDays }) => {
       const childWidthPct  = Math.max(1, (child.days / scaleDays) * 100);
       const rightOffsetPct = (rightOffsetDays / scaleDays) * 100;
       const childLeftPct   = Math.max(0, 100 - childWidthPct - rightOffsetPct);
-      const childEndDate   = rightOffsetDays === 0 ? anchorDate : subtractBusinessDays(anchorDate, rightOffsetDays);
+      const childEndDate   = rightOffsetDays === 0 ? ganttAnchor : subtractBusinessDays(ganttAnchor, rightOffsetDays);
       html += "<div class='gantt-nested-row'><div class='gantt-nested-label'><div class='gantt-nested-connector'><div style='width:1px;height:10px;background:rgba(255,255,255,.2)'></div><div style='width:8px;height:1px;background:rgba(255,255,255,.2)'></div></div><span>↳ " + esc(child.product) + "</span></div><div class='gantt-nested-track' style='position:relative'><div class='gantt-nested-bar' style='left:" + childLeftPct + "%;width:" + childWidthPct + "%;background:" + child.color + ";opacity:.75' title='" + esc(child.product) + ": " + child.days + "d'>" + (childWidthPct > 8 ? child.days + 'd' : '') + "</div></div><div class='gantt-enddate' style='font-size:9px;color:rgba(255,255,255,.35)'>" + fmtDateShort(childEndDate) + "</div></div>";
-      rightOffsetDays += child.days;
     });  });
 
   chart.innerHTML = html;
