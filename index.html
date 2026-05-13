@@ -1165,8 +1165,8 @@ function updateGantt() {
   let parallelMax = 0;
   // Build appended days map: product -> total days of its appended end-timeline products
   const appendedDaysMap = {};
-  const delRows = [...document.querySelectorAll('#delRows .del-row')];
-  delRows.forEach(row => {
+  const ganttDelRows1 = [...document.querySelectorAll('#delRows .del-row')];
+  ganttDelRows1.forEach(row => {
     const sel = row.querySelector('select');
     if (!sel || !sel.value || !END_PRODUCTS.has(sel.value)) return;
     const parentSel = row.querySelector('.parent-sel');
@@ -1210,18 +1210,58 @@ function updateGantt() {
     // scaleDays not yet computed - will equal maxTotal in no-due-date case
   }
 
-  // Backward from due date — parents end earlier if they have appended products
-  const tracks = raw.map(t => {
-    const trackEnd   = t.appendedDays > 0
-      ? subtractBusinessDays(anchorDate, t.appendedDays)
-      : new Date(anchorDate);
+  // Backward layout from due date
+  // End-timeline products: trackEnd = anchorDate, trackStart = anchorDate - their days
+  // Parent products: trackEnd = their child's trackStart, trackStart = trackEnd - their days
+  // Non-parent parallel products: trackEnd = anchorDate, trackStart = anchorDate - their days
+
+  // First pass: compute end-timeline track ends (all anchor to due date)
+  const endTrackStarts = {}; // product label -> trackStart of end-timeline product
+  raw.forEach(t => {
+    if (!t.isEnd) return;
+    const trackEnd   = new Date(anchorDate);
     const trackStart = subtractBusinessDays(trackEnd, t.totalDays);
-    return { ...t, trackStart, trackEnd };
+    endTrackStarts[t.label] = trackStart;
+  });
+
+  // Build reverse map: parent product label -> earliest child trackStart
+  const parentChildEnd = {}; // parent label -> Date (when parent must be done by)
+  const ganttDelRows2 = [...document.querySelectorAll('#delRows .del-row')];
+  ganttDelRows2.forEach(row => {
+    const sel = row.querySelector('select');
+    if (!sel || !sel.value || !END_PRODUCTS.has(sel.value)) return;
+    const parentSel = row.querySelector('.parent-sel');
+    if (!parentSel || parentSel.value === '') return;
+    const opt = parentSel.options[parentSel.selectedIndex];
+    if (!opt || !opt.dataset.product) return;
+    const parentLabel  = opt.dataset.product;
+    const childLabel   = sel.value;
+    const childStart   = endTrackStarts[childLabel];
+    if (childStart && (!parentChildEnd[parentLabel] || childStart < parentChildEnd[parentLabel])) {
+      parentChildEnd[parentLabel] = new Date(childStart);
+    }
+  });
+
+  const tracks = raw.map(t => {
+    if (t.isEnd) {
+      const trackEnd   = new Date(anchorDate);
+      const trackStart = subtractBusinessDays(trackEnd, t.totalDays);
+      return { ...t, trackStart, trackEnd };
+    } else {
+      // If this product has a child, it must end by the child's start
+      const trackEnd   = parentChildEnd[t.label]
+        ? new Date(parentChildEnd[t.label])
+        : new Date(anchorDate);
+      const trackStart = subtractBusinessDays(trackEnd, t.totalDays);
+      return { ...t, trackStart, trackEnd };
+    }
   });
 
   // Scale = available business days start→due (or longest track if no due date)
   const longestTrack = raw.reduce((max, t) => {
-    const d = t.isEnd ? parallelMax + t.totalDays : t.totalDays;
+    // For parent products, effective length = their days + appended days
+    // For end-timeline products, they are already counted within their parent
+    const d = t.isEnd ? 0 : (t.totalDays + (t.appendedDays || 0));
     return d > max ? d : max;
   }, 0);
   const scaleDays = Math.max(1, dueVal ? countBusinessDays(startDate, anchorDate) : longestTrack);
@@ -1268,7 +1308,7 @@ function updateGantt() {
   // Per-deliverable rows
   tracks.forEach(t => {
     const widthPct = Math.max(1, (t.totalDays / scaleDays) * 100);
-    const leftPct  = Math.max(0, 100 - widthPct);
+    const leftPct  = Math.max(0, ((scaleDays - countBusinessDays(startDate, t.trackEnd)) / scaleDays) * 100);
     const pmWidthPct = t.hasPrintMail ? Math.min(45, (10 / t.totalDays) * 100) : 0; // stripe within the bar
     html += `<div class="gantt-row">
       <div class="gantt-label" title="${esc(t.label)}">${esc(t.label)}</div>
