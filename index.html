@@ -193,8 +193,8 @@ body{font-family:Calibri,sans-serif;background:#F2F8F0;color:var(--text);min-hei
 .gantt-bar{position:absolute;top:0;height:100%;border-radius:4px 4px 4px 4px;display:flex;align-items:center;justify-content:center;padding:0 6px;font-size:10px;font-weight:700;color:rgba(255,255,255,.9);white-space:nowrap;min-width:4px;transition:width .3s,left .3s}
 .gantt-bar.end-product{opacity:.8}
 .gantt-bar.total-bar{background:rgba(255,255,255,.15)!important;border:1px solid rgba(255,255,255,.2)}
-.gantt-due-line{position:absolute;top:-4px;bottom:-4px;width:2px;background:rgba(255,80,80,.7);border-radius:1px;z-index:2}
-.gantt-due-label{position:absolute;top:-17px;font-size:9px;color:rgba(255,120,120,.9);white-space:nowrap;transform:translateX(-50%);font-family:Calibri,sans-serif}
+.gantt-due-overlay{position:absolute;top:0;bottom:0;width:2px;background:rgba(255,80,80,.8);z-index:10;pointer-events:none}
+.gantt-due-overlay-label{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;color:rgba(255,100,100,.95);white-space:nowrap;font-family:Calibri,sans-serif;letter-spacing:.04em}
 .gantt-nested-row{display:flex;align-items:center;gap:10px;margin-bottom:5px;opacity:.8}
 .gantt-nested-label{width:150px;flex-shrink:0;font-size:10px;color:rgba(255,255,255,.5);font-style:italic;display:flex;align-items:center;gap:0;font-family:Calibri,sans-serif}
 .gantt-nested-connector{display:flex;flex-direction:column;align-items:flex-end;width:18px;flex-shrink:0;margin-right:4px}
@@ -1274,13 +1274,15 @@ function updateGantt() {
   html += `<span class="gantt-axis-tick" style="right:0;left:auto;transform:none">${fmtDateShort(ganttAnchor)}</span>`;
   html += `</div></div>`;
 
+  // Single due date line spanning full chart height
+  // (Due line injected after html build)
+
   // Total project row
   const totalWidthPct = Math.min(100, (longestTrack / scaleDays) * 100);
   const totalLeftPct  = 100 - totalWidthPct;
   html += `<div class="gantt-row">
     <div class="gantt-label" style="color:rgba(255,255,255,.45);font-style:italic">Total project</div>
     <div class="gantt-track">
-      ${duePct!==null?`<div class="gantt-due-line" style="left:${duePct}%"><span class="gantt-due-label">Due</span></div>`:''}
       <div class="gantt-bar total-bar" style="left:${totalLeftPct}%;width:${totalWidthPct}%" title="Total project: ${longestTrack} days">
         ${totalWidthPct > 10 ? longestTrack+'d' : ''}
       </div>
@@ -1302,7 +1304,6 @@ function updateGantt() {
     html += `<div class="gantt-row">
       <div class="gantt-label" title="${esc(t.label)}">${esc(t.label)}</div>
       <div class="gantt-track">
-        ${duePct!==null?`<div class="gantt-due-line" style="left:${duePct}%"><span class="gantt-due-label">Due</span></div>`:''}
         <div class="gantt-bar" style="left:${leftPct}%;width:${widthPct}%;background:${t.color};overflow:visible;position:relative;"
              title="${esc(t.label)}: ${t.barDays}d — ends ${fmtDateShort(t.trackEnd)}">
           ${widthPct > 10 ? (t.appendedDays > 0 ? (t.barDays - t.appendedDays) : t.barDays)+'d' : ''}
@@ -1331,6 +1332,20 @@ function updateGantt() {
     });  });
 
   chart.innerHTML = html;
+  chart.style.position = 'relative';
+  // Inject single due date line over entire chart
+  if (duePct !== null) {
+    // Find the axis row to measure offset
+    const axisRow = chart.querySelector('.gantt-axis-row');
+    const axisH = axisRow ? axisRow.offsetHeight : 20;
+    const dueLine = document.createElement('div');
+    dueLine.style.cssText = 'position:absolute;top:' + axisH + 'px;bottom:0;left:calc(150px + ' + duePct + '% * (100% - 218px) / 100);width:2px;background:rgba(255,80,80,.8);z-index:10;pointer-events:none';
+    const dueLabel = document.createElement('span');
+    dueLabel.textContent = 'Due';
+    dueLabel.style.cssText = 'position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;color:rgba(255,100,100,.95);white-space:nowrap;font-family:Calibri,sans-serif;letter-spacing:.04em';
+    dueLine.appendChild(dueLabel);
+    chart.appendChild(dueLine);
+  }
   wrap.style.display = 'block';
 }
 // ── Phase date recalculation ──────────────────────────────────────────────
