@@ -129,9 +129,9 @@ body{font-family:Calibri,sans-serif;background:#F2F8F0;color:var(--text);min-hei
 .pb-chevron{width:16px;height:16px;flex-shrink:0;transition:transform .2s;color:var(--text-tertiary)}
 .pb-chevron.open{transform:rotate(180deg)}
 .pb-title-wrap{flex:1;min-width:0}
-.pb-title{font-size:13px;font-weight:600;color:var(--text);line-height:1.2}
-.pb-subtitle{font-size:11px;color:var(--text-tertiary);margin-top:0;line-height:1.3}
-.pb-dates{font-size:11px;line-height:1.3;margin-top:1px}
+.pb-title{font-size:15px;font-weight:600;color:var(--text);line-height:1.3;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.pb-title-sub{font-size:11px;font-weight:400;color:var(--text-tertiary);line-height:1.3}
+.pb-dates{font-size:13px;line-height:1.3;margin-top:2px}
 .pb-body{border-top:1px solid var(--border-light);display:block;max-height:0;overflow:hidden;transition:max-height .35s ease}
 .pb-body.open{max-height:2000px}
 .confirm-wrap{display:flex;align-items:center;gap:6px;margin-left:12px;flex-shrink:0}
@@ -139,6 +139,14 @@ body{font-family:Calibri,sans-serif;background:#F2F8F0;color:var(--text);min-hei
 .pb-rounds-label{font-size:11px;color:var(--text-tertiary);font-family:Calibri,sans-serif}
 .pb-rounds-stepper .rounds-val{min-width:18px;text-align:center;font-size:12px}
 .confirm-label{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-tertiary)}
+
+/* ── Phase preconditions checklist ── */
+.pb-preconditions{padding:.55rem 1.1rem;border-bottom:1px solid var(--border-light);background:var(--warm-white);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.pb-preconditions-label{font-size:10px;font-weight:700;color:var(--text-tertiary);letter-spacing:.06em;text-transform:uppercase;margin-right:4px;white-space:nowrap}
+.pc-item{display:inline-flex;align-items:center;gap:5px;padding:3px 9px 3px 7px;border:1px solid var(--border);border-radius:20px;cursor:pointer;user-select:none;font-size:11px;color:var(--text-secondary);background:#fff;transition:all .15s;white-space:nowrap}
+.pc-item:hover{border-color:#aab5d0;background:#f5f7fc}
+.pc-item.pc-checked{border-color:var(--amber);background:#fff8e6;color:#7a5c00}
+.pc-item input[type=checkbox]{width:12px;height:12px;accent-color:var(--amber);cursor:pointer;flex-shrink:0}
 
 /* ── Phase table ── */
 .phase-table{width:100%;border-collapse:collapse}
@@ -467,7 +475,7 @@ body{font-family:Calibri,sans-serif;background:#F2F8F0;color:var(--text);min-hei
   <!-- SECTION 4: GENERATED TIMELINE -->
   <div id="timelineOutput">
     <div class="section-head">
-      <div class="section-num" style="background:var(--green)">5</div>
+      <div class="section-num" style="background:var(--green)">4</div>
       <span class="section-title">Generated Timeline</span>
     </div>
     <div class="tl-actions">
@@ -614,7 +622,8 @@ async function loadReferenceData() {
       if (!PRECONDITIONS[pc.product_name]) PRECONDITIONS[pc.product_name] = [];
       PRECONDITIONS[pc.product_name].push({
         checklist_label: pc.checklist_label,
-        phase_name:      pc.phase_name
+        phase_name:      pc.phase_name,
+        applies_to:      pc.applies_to || 'both'
       });
     });
 
@@ -1017,14 +1026,13 @@ function previewPhases() {
     const titleWrap = document.createElement('div');
     titleWrap.className = 'pb-title-wrap';
     const variantLabel = isNA ? '' : (isRenewal ? ' &bull; Renewal' : ' &bull; New');
+    const isLeaf = !!VALID_PARENTS[del.product];
     titleWrap.innerHTML = `
       <div class="pb-title">
-        <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${esc(dot)};margin-right:6px;vertical-align:middle"></span>
-        ${esc(del.product)}
+        <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${esc(dot)};margin-right:6px;vertical-align:middle"></span>${esc(del.product)}<span class="pb-title-sub">${esc(grp ? grp.group : '')}${variantLabel} &middot; ${phases.length} phases</span>
       </div>
-      <div class="pb-subtitle">${esc(grp ? grp.group : '')}${variantLabel} &middot; ${phases.length} phases</div>
-      <div class="pb-dates" style="min-height:16px"><span class="pb-date-starts"></span><span class="pb-date-sep" style="display:none">→</span><span class="pb-date-ends"></span></div>
-      <div class="pb-feas"><div class="pb-feas-bar-track"><div class="pb-feas-bar-fill"></div></div><div class="pb-feas-diff"></div></div>`;
+      <div class="pb-dates" style="min-height:16px"><span class="pb-total-days" style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-right:8px"></span><span class="pb-date-starts"></span><span class="pb-date-sep" style="display:none">→</span><span class="pb-date-ends"></span></div>
+      <div class="pb-feas"${isLeaf ? ' style="display:none"' : ''}><div class="pb-feas-bar-track"><div class="pb-feas-bar-fill"></div></div><div class="pb-feas-diff"></div></div>`;
 
     const chevron = document.createElement('div');
     chevron.className = 'pb-chevron open';
@@ -1049,7 +1057,11 @@ function previewPhases() {
           const next = Math.max(1, cur + parseInt(btn.dataset.dir));
           valEl.textContent = next;
           block.dataset.rounds = next;
-          rebuildPhaseTable(block);
+          const checkedPhases = new Set(
+            [...block.querySelectorAll('.pb-preconditions input[type=checkbox]:checked')]
+              .map(c => c.dataset.phaseName)
+          );
+          rebuildPhaseTable(block, checkedPhases);
         });
       });
     }
@@ -1086,6 +1098,51 @@ function previewPhases() {
     // Body
     const body = document.createElement('div');
     body.className = 'pb-body open';
+
+    // ── Preconditions checklist (if any exist for this product) ──────────────
+    const precondList = (PRECONDITIONS[del.product] || []).filter(pc => {
+      if (!pc.applies_to || pc.applies_to === 'both') return true;
+      if (pc.applies_to === 'new')     return !isRenewal;
+      if (pc.applies_to === 'renewal') return  isRenewal;
+      return true;
+    });
+    if (precondList.length > 0) {
+      const pcStrip = document.createElement('div');
+      pcStrip.className = 'pb-preconditions';
+      const pcLabel = document.createElement('span');
+      pcLabel.className = 'pb-preconditions-label';
+      pcLabel.textContent = 'Already done:';
+      pcStrip.appendChild(pcLabel);
+
+      precondList.forEach(pc => {
+        const item = document.createElement('label');
+        item.className = 'pc-item';
+        item.title = `Check if "${pc.checklist_label}" is already complete — removes "${pc.phase_name}" phase`;
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.dataset.phaseName = pc.phase_name;
+
+        cb.addEventListener('change', e => {
+          e.stopPropagation();
+          item.classList.toggle('pc-checked', cb.checked);
+          // Rebuild the phase table, passing the full set of checked phase names to skip
+          const checkedPhases = new Set(
+            [...pcStrip.querySelectorAll('input[type=checkbox]:checked')]
+              .map(c => c.dataset.phaseName)
+          );
+          rebuildPhaseTable(block, checkedPhases);
+        });
+
+        const cbText = document.createElement('span');
+        cbText.textContent = pc.checklist_label;
+        item.appendChild(cb);
+        item.appendChild(cbText);
+        pcStrip.appendChild(item);
+      });
+
+      body.appendChild(pcStrip);
+    }
 
     const table = document.createElement('table');
     table.className = 'phase-table';
@@ -1489,7 +1546,7 @@ function updateGantt() {
 // PHASE PREVIEW & FEASIBILITY
 // ════════════════════════════════════════════════════════════════════
 // ── Rebuild phase table for a block (when rounds change) ─────────────────
-function rebuildPhaseTable(block) {
+function rebuildPhaseTable(block, skipPhases) {
   const product    = block.dataset.product;
   const isRenewal  = block.dataset.isrenewal === 'true';
   const rounds     = parseInt(block.dataset.rounds) || 2;
@@ -1512,6 +1569,11 @@ function rebuildPhaseTable(block) {
       }
       return p;
     });
+
+  // Remove phases pre-completed via the preconditions checklist.
+  if (skipPhases && skipPhases.size > 0) {
+    phases = phases.filter(p => !skipPhases.has(p.name));
+  }
 
   // Expand round groups
   const productRoundGroups = ROUND_GROUPS[product] || [];
@@ -1592,7 +1654,7 @@ function rebuildPhaseTable(block) {
   });
 
   // Update subtitle phase count
-  const subtitle = block.querySelector('.pb-subtitle');
+  const subtitle = block.querySelector('.pb-title-sub');
   if (subtitle) {
     const grp = getProductGroup(product);
     const variantLabel = isNA ? '' : (isRenewal ? ' &bull; Renewal' : ' &bull; New');
@@ -1763,10 +1825,12 @@ function recalcPhaseDates(block, blockEndDate) {
     if (dateCells[i]) dateCells[i].textContent = dur > 0 ? fmtDateShort(phaseEnd) : '—';
   });
 
-  // Update header starts/completes
+  // Update header starts/completes and total day count
   const startsEl = block.querySelector('.pb-date-starts');
   const endsEl   = block.querySelector('.pb-date-ends');
   const sepEl    = block.querySelector('.pb-date-sep');
+  const totalEl  = block.querySelector('.pb-total-days');
+  if (totalEl) totalEl.textContent = total > 0 ? `${total}d` : '';
   if (startsEl && endsEl) {
     const starts = subtractBusinessDays(due, total);
     startsEl.innerHTML = `<span class="pb-date-label">Starts</span> ${fmtDateShort(starts)}`;
@@ -1957,7 +2021,6 @@ function generateTimeline() {
   // ── Schedule each deliverable in resolved order ────────────────────────────
   const allMilestones = [];
   let projectEndDate  = new Date(startDate);
-  let totalWorkDays   = 0;
 
   sortedIdxs.forEach(idx => {
     const del    = deliWithIdx[idx];
@@ -1974,7 +2037,6 @@ function generateTimeline() {
 
     phases.forEach(phase => {
       const endDate = addBusinessDays(vDate, phase.dur);
-      totalWorkDays += phase.dur;
       allMilestones.push({ date: endDate, owner: phase.owner, deliverable: del.product, task: phase.name });
       if (endDate > projectEndDate) projectEndDate = new Date(endDate);
       trackEnd = new Date(endDate);
@@ -1986,6 +2048,9 @@ function generateTimeline() {
 
   // Sort chronologically
   allMilestones.sort((a, b) => a.date - b.date);
+
+  // Project span = business days from startDate to the latest phase end across all chains
+  const projectSpanDays = countBusinessDays(startDate, projectEndDate);
 
   // Group by date + owner (Client and Flimp never combined)
   const groups = [];
@@ -2060,7 +2125,7 @@ function generateTimeline() {
   footer.innerHTML = '';
   [
     ['Project Start', fmtDateShort(startDate)],
-    ['Working Days', totalWorkDays],
+    ['Working Days', projectSpanDays],
     ...(dueDate ? [['Due Date', fmtDateShort(dueDate)]] : []),
     ['Projected End', fmtDateShort(projectEndDate)],
     ['Deliverables', deliverables.reduce((a,d) => a + d.count, 0)]
