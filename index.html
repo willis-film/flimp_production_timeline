@@ -69,10 +69,10 @@ body{font-family:Calibri,sans-serif;background:#F2F8F0;color:var(--text);min-hei
 .net-new-label.active .nn-hint{color:var(--blue)}
 
 /* ── Deliverable rows ── */
-.row-headers{display:grid;grid-template-columns:1fr 72px 108px 110px 36px 32px;gap:8px;margin-bottom:6px;padding:0 2px}
+.row-headers{display:grid;grid-template-columns:1fr 72px 108px 110px 32px;gap:8px;margin-bottom:6px;padding:0 2px}
 .row-headers span{font-size:11px;font-weight:600;color:var(--text-tertiary);letter-spacing:.04em;text-transform:uppercase}
 .row-headers span:nth-child(2),.row-headers span:nth-child(3),.row-headers span:nth-child(4){text-align:center}
-.del-row{display:grid;grid-template-columns:1fr 72px 108px 110px 36px 32px;gap:8px;align-items:center;margin-bottom:8px}
+.del-row{display:grid;grid-template-columns:1fr 72px 108px 110px 32px;gap:8px;align-items:center;margin-bottom:8px}
 .del-row select{font-family:Calibri,sans-serif;font-size:13px;height:36px;padding:0 8px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);color:var(--text);width:100%;transition:border-color .15s}
 .del-row select:focus{outline:none;border-color:var(--blue)}
 .del-row input[type=number]{font-family:Calibri,sans-serif;font-size:14px;height:36px;padding:0 8px;border:1px solid var(--border);border-radius:var(--radius);background:#fff;color:var(--text);text-align:center;width:100%}
@@ -195,7 +195,7 @@ body{font-family:Calibri,sans-serif;background:#F2F8F0;color:var(--text);min-hei
 .gantt-bar.total-bar{background:rgba(255,255,255,.15)!important;border:1px solid rgba(255,255,255,.2)}
 .gantt-due-overlay{position:absolute;top:0;bottom:0;width:2px;background:rgba(255,80,80,.8);z-index:10;pointer-events:none}
 .gantt-due-overlay-label{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;color:rgba(255,100,100,.95);white-space:nowrap;font-family:Calibri,sans-serif;letter-spacing:.04em}
-.gantt-nested-row{display:flex;align-items:center;gap:10px;margin-bottom:5px;opacity:.8}
+.gantt-nested-row{display:flex;align-items:center;gap:10px;margin-bottom:5px}
 .gantt-nested-label{width:150px;flex-shrink:0;font-size:10px;color:rgba(255,255,255,.5);font-style:italic;display:flex;align-items:center;gap:0;font-family:Calibri,sans-serif}
 .gantt-nested-connector{display:flex;flex-direction:column;align-items:flex-end;width:18px;flex-shrink:0;margin-right:4px}
 .gantt-nested-track{flex:1;height:16px;background:rgba(255,255,255,.06);border-radius:4px;position:relative;overflow:hidden}
@@ -239,10 +239,66 @@ body{font-family:Calibri,sans-serif;background:#F2F8F0;color:var(--text);min-hei
 </style>
 </head>
 <body>
+<!-- SVG symbol for F glyph — defined once, used in loader -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="F-glyph" viewBox="0 0 86 129" preserveAspectRatio="xMidYMid meet">
+      <g transform="translate(69,2)">
+        <path fill="var(--lime)" d="M0 0 C1.48632812 1.66479492 1.48632812 1.66479492 3.03125 3.98046875 C3.87623047 5.2324707 3.87623047 5.2324707 4.73828125 6.50976562 C5.31964844 7.39341797 5.90101562 8.27707031 6.5 9.1875 C7.08136719 10.05181641 7.66273437 10.91613281 8.26171875 11.80664062 C10.94613467 15.81483601 13.53880537 19.85017277 16 24 C2.94912321 34.41293361 -12.59318979 40.25975455 -29.375 40.0625 C-30.11105469 40.05798828 -30.84710938 40.05347656 -31.60546875 40.04882812 C-33.40368158 40.03715142 -35.20185197 40.01922011 -37 40 C-37 44.95 -37 49.9 -37 55 C-22.15 55 -7.3 55 8 55 C8 64.57 8 74.14 8 84 C-6.52 84 -21.04 84 -36 84 C-36 97.53 -36 111.06 -36 125 C-46.0300203 127.50750507 -56.66129172 126 -67 126 C-67 88.05 -67 50.1 -67 11 C-53.14 10.67 -39.28 10.34 -25 10 C-20.23411901 8.29789965 -6.24763112 0 0 0 Z"/>
+      </g>
+    </symbol>
+  </defs>
+</svg>
+
+<style>
+/* ── F bounce loader ── */
+:root { --line: #c8d8d0; }
+.F {
+  position: absolute;
+  width: 50px; height: 75px;
+  left: 50%; top: 50%;
+  margin-left: -25px; margin-top: -37px;
+  color: var(--lime);
+  display: block;
+  transform-origin: 50% 100%;
+  animation: bounce 1s cubic-bezier(.5,.05,.5,.95) infinite;
+}
+.F svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.F path { fill: currentColor; }
+.lBounce .floor {
+  position: absolute;
+  left: 18%; right: 18%; bottom: 26%;
+  height: 1px;
+  background: var(--line);
+}
+.lBounce .shadow {
+  position: absolute;
+  bottom: 24%; left: 50%;
+  width: 60px; height: 8px;
+  margin-left: -30px;
+  background: rgba(8,33,45,.15);
+  border-radius: 50%;
+  animation: bounce-shadow 1s cubic-bezier(.5,.05,.5,.95) infinite;
+}
+@keyframes bounce {
+  0%   { transform: translateY(-60%) scale(1,    1);    }
+  40%  { transform: translateY(20%)  scale(1.15, .85);  }
+  50%  { transform: translateY(20%)  scale(.85,  1.15); }
+  100% { transform: translateY(-60%) scale(1,    1);    }
+}
+@keyframes bounce-shadow {
+  0%, 100% { transform: scale(.5);  opacity: .25; }
+  40%, 50%  { transform: scale(1.1); opacity: .55; }
+}
+</style>
+
 <div id="loadingOverlay" style="position:fixed;inset:0;background:#F2F8F0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;font-family:Calibri,sans-serif">
-  <div style="width:48px;height:48px;border:4px solid #dde3ec;border-top-color:#08212D;border-radius:50%;animation:spin .8s linear infinite;margin-bottom:1.5rem"></div>
+  <div class="stage lBounce" style="position:relative;width:200px;height:200px;overflow:hidden;margin-bottom:.5rem">
+    <div class="shadow"></div>
+    <div class="floor"></div>
+    <div class="F"><svg><use href="#F-glyph"/></svg></div>
+  </div>
   <div style="font-size:16px;font-weight:600;color:#08212D;margin-bottom:.4rem">Loading timeline data</div>
-  <div style="font-size:13px;color:#7a96a3">Connecting to Supabase…</div>
 </div>
 <div id="loadingError" style="position:fixed;inset:0;background:#F2F8F0;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:9999;font-family:Calibri,sans-serif">
   <div style="font-size:32px;margin-bottom:1rem">⚠️</div>
@@ -250,7 +306,7 @@ body{font-family:Calibri,sans-serif;background:#F2F8F0;color:var(--text);min-hei
   <div style="font-size:13px;color:#7a96a3;margin-bottom:1.5rem">Check your connection and try again</div>
   <button onclick="location.reload()" style="padding:10px 24px;background:#08212D;color:#67E74E;border:none;border-radius:8px;font-family:Calibri,sans-serif;font-size:14px;font-weight:700;cursor:pointer">Retry</button>
 </div>
-<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
 
 <header class="app-header">
   <div class="logo">
@@ -340,7 +396,6 @@ body{font-family:Calibri,sans-serif;background:#F2F8F0;color:var(--text);min-hei
       <span>Count</span>
       <span>New / Renewal</span>
       <span>Rounds of edits</span>
-      <span style="text-align:center">P&amp;M</span>
       <span></span>
     </div>
     <div id="delRows"></div>
@@ -467,28 +522,30 @@ const _supa = supabase.createClient(
 // ════════════════════════════════════════════════════════════════════
 let PRODUCTS      = [];   // [{group, color, items:[name,...]}]
 let NA_PRODUCTS   = new Set();
-let END_PRODUCTS  = new Set();
 let ROUNDS_DEFAULTS = {};
 let ALL_PHASES    = {};   // {product_name: [{name,dur,owner,applies_to,renewal_phase_name,round_group_name,is_pre_completeable}]}
 let ROUND_GROUPS  = {};   // {product_name: [{group_name,default_rounds,group_order}]}
 let PRECONDITIONS = {};   // {product_name: [{checklist_label,phase_name}]}
+let VALID_PARENTS = {};   // {child_product: Set([valid_parent_product, ...])}
 
 async function loadReferenceData() {
   try {
-    // Fetch all four tables in parallel
+    // Fetch all five tables in parallel
     const [
-      { data: products,     error: e1 },
-      { data: phases,       error: e2 },
-      { data: roundGroups,  error: e3 },
-      { data: preconditions,error: e4 }
+      { data: products,      error: e1 },
+      { data: phases,        error: e2 },
+      { data: roundGroups,   error: e3 },
+      { data: preconditions, error: e4 },
+      { data: relationships, error: e5 }
     ] = await Promise.all([
-      _supa.from('products').select('*').order('sort_order'),
+      _supa.from('products').select('*').eq('active', true).order('sort_order'),
       _supa.from('product_phases').select('*').order('phase_order'),
       _supa.from('round_groups').select('*').order('group_order'),
-      _supa.from('phase_preconditions').select('*')
+      _supa.from('phase_preconditions').select('*'),
+      _supa.from('product_relationships').select('*')
     ]);
 
-    if (e1 || e2 || e3 || e4) throw new Error((e1||e2||e3||e4).message);
+    if (e1 || e2 || e3 || e4 || e5) throw new Error((e1||e2||e3||e4||e5).message);
 
     // ── Build PRODUCTS grouped structure ──
     const groupMap = {};
@@ -506,9 +563,8 @@ async function loadReferenceData() {
       return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
     });
 
-    // ── Build NA_PRODUCTS and END_PRODUCTS sets ──
+    // ── Build NA_PRODUCTS set ──
     NA_PRODUCTS  = new Set(products.filter(p => p.is_not_renewable).map(p => p.name));
-    END_PRODUCTS = new Set(products.filter(p => p.is_end_timeline_product).map(p => p.name));
 
     // ── Build ROUNDS_DEFAULTS — store new and renewal rounds for all products ──
     ROUNDS_DEFAULTS = {};
@@ -560,6 +616,13 @@ async function loadReferenceData() {
         checklist_label: pc.checklist_label,
         phase_name:      pc.phase_name
       });
+    });
+
+    // ── Build VALID_PARENTS from product_relationships ──
+    VALID_PARENTS  = {};
+    relationships.forEach(r => {
+      if (!VALID_PARENTS[r.child_product]) VALID_PARENTS[r.child_product] = new Set();
+      VALID_PARENTS[r.child_product].add(r.valid_parent_product);
     });
 
     return true;
@@ -633,6 +696,35 @@ function countBusinessDays(start, end) {
     safety++;
   }
   return count;
+}
+
+function subtractBusinessDays(endDate, days) {
+  if (!days || days <= 0) return new Date(endDate);
+  let d = new Date(endDate);
+  let count = 0;
+  let safety = 0;
+  while (count < days && safety < 2000) {
+    d.setDate(d.getDate() - 1);
+    if (isWorkDay(d)) count++;
+    safety++;
+  }
+  return d;
+}
+
+function previousWorkDay(d) {
+  let pd = new Date(d);
+  let safety = 0;
+  do { pd.setDate(pd.getDate() - 1); safety++; } while (!isWorkDay(pd) && safety < 30);
+  return pd;
+}
+
+// Returns depth of node in dependency graph (0 = root)
+function getDepth(idx, parentIdxMap) {
+  let depth = 0, cur = idx, safety = 0;
+  while (parentIdxMap[cur] !== null && parentIdxMap[cur] !== undefined && safety++ < 20) {
+    depth++; cur = parentIdxMap[cur];
+  }
+  return depth;
 }
 
 function fmtDateShort(d) {
@@ -712,9 +804,9 @@ function buildSelect() {
     const isNA = NA_PRODUCTS.has(this.value);
     tog.classList.toggle('disabled', isNA);
     if (isNA) row.querySelectorAll('.nr-btn').forEach(b => { b.className = 'nr-btn'; });
-    // Show/hide parent selector for end-timeline products
+    // Show/hide parent selector — driven by VALID_PARENTS relationship table
     const parentWrap = row.querySelector('.parent-sel-wrap');
-    if (parentWrap) parentWrap.style.display = END_PRODUCTS.has(this.value) ? 'block' : 'none';
+    if (parentWrap) parentWrap.style.display = VALID_PARENTS[this.value] ? 'block' : 'none';
     refreshParentSelectors();
 
     // Set default rounds based on current N/R state
@@ -767,17 +859,6 @@ function buildDelRow() {
   row.appendChild(stepper);
 
 
-  // Print & Mail checkbox
-  const pmWrap = document.createElement('div');
-  pmWrap.style.cssText = 'display:flex;align-items:center;justify-content:center;height:36px';
-  const pmCb = document.createElement('input');
-  pmCb.type = 'checkbox';
-  pmCb.className = 'pm-checkbox';
-  pmCb.title = 'Include Print & Mail phase (10 business days before delivery)';
-  pmCb.style.cssText = 'width:16px;height:16px;accent-color:var(--dark);cursor:pointer';
-  pmWrap.appendChild(pmCb);
-  row.appendChild(pmWrap);
-
   // Remove button
   const rm = document.createElement('button');
   rm.className = 'rm-btn'; rm.innerHTML = '&times;'; rm.title = 'Remove deliverable';
@@ -824,11 +905,10 @@ function previewPhases() {
   const sdVal = document.getElementById('startDate').value;
   const rows = [...document.querySelectorAll('#delRows .del-row')];
   const deliverables = rows.map(r => ({
-    product: r.querySelector('select').value,
-    count:   parseInt(r.querySelector('input[type=number]').value) || 1,
+    product:   r.querySelector('select').value,
+    count:     parseInt(r.querySelector('input[type=number]').value) || 1,
     isRenewal: r.querySelector('.nr-btn.r-active') !== null,
-    rounds:  parseInt(r.querySelector('.rounds-val').textContent) || 2,
-    printMail: r.querySelector('.pm-checkbox') ? r.querySelector('.pm-checkbox').checked : false
+    rounds:    parseInt(r.querySelector('.rounds-val').textContent) || 2
   })).filter(d => d.product);
 
   if (!deliverables.length) { alert('Please select at least one product.'); return; }
@@ -923,15 +1003,12 @@ function previewPhases() {
     // Store flag on block for rebuild to use
     // (actual removal happens in a post-pass after all blocks are built)
 
-    if (del.printMail) phases.push({ name: 'Print & Mail', dur: 10, owner: 'Flimp', isPrintMail: true });
-
     const block = document.createElement('div');
     block.className = 'pb-block';
     block.dataset.confirmed = 'false';
-    block.dataset.product = del.product;
-    block.dataset.printmail  = del.printMail ? 'true' : 'false';
-    block.dataset.rounds     = del.rounds;
-    block.dataset.isrenewal  = isRenewal ? 'true' : 'false';
+    block.dataset.product   = del.product;
+    block.dataset.rounds    = del.rounds;
+    block.dataset.isrenewal = isRenewal ? 'true' : 'false';
 
     // Header
     const hdr = document.createElement('div');
@@ -1026,7 +1103,6 @@ function previewPhases() {
 
     phases.forEach(phase => {
       const tr = document.createElement('tr');
-      if (phase.isPrintMail) tr.style.cssText = 'background:#FFF8E7;';
       const ownerClass = phase.owner === 'Flimp' ? 'owner-flimp' : 'owner-client';
       // Use DOM methods to avoid XSS when eventually loading from CSV
       const tdName = document.createElement('td');
@@ -1103,7 +1179,7 @@ function previewPhases() {
     const parentProductsWithAppended = new Set();
     allDelRows.forEach(row => {
       const sel = row.querySelector('select');
-      if (!sel || !sel.value || !END_PRODUCTS.has(sel.value)) return;
+      if (!sel || !sel.value || !VALID_PARENTS[sel.value]) return;
       const parentSel = row.querySelector('.parent-sel');
       if (!parentSel || parentSel.value === '') return;
       const opt = parentSel.options[parentSel.selectedIndex];
@@ -1136,21 +1212,53 @@ function previewPhases() {
 // ── Feasibility panel ─────────────────────────────────────────────────────
 
 
-// ── Gantt chart ───────────────────────────────────────────────
-function subtractBusinessDays(endDate, days) {
-  if (!days || days <= 0) return new Date(endDate);
-  let d = new Date(endDate);
-  let count = 0;
-  let safety = 0;
-  while (count < days && safety < 2000) {
-    d.setDate(d.getDate() - 1);
-    const dow = d.getDay();
-    if (dow !== 0 && dow !== 6) count++;
-    safety++;
-  }
-  return d;
+// ── Shared parent-index map builder ──────────────────────────────────────
+// Builds parentIdxMap[i] = rowIdx of parent row, or null.
+//
+// refreshParentSelectors() builds each parent-sel's options by walking
+// allRows in DOM order, filtering to valid parents, and assigning
+// opt.value = 0, 1, 2... (position in that filtered list).
+// opt.dataset.product holds the product name.
+//
+// To resolve the selected option back to a delRow index we walk delRows
+// in the same order, filter to valid parents (skipping self), and find
+// the row at position N in that list — where N = parseInt(parentSel.value).
+function buildParentIdxMap(delRows) {
+  const map = {};
+  delRows.forEach((row, i) => {
+    const childSel = row.querySelector('select');
+    if (!childSel || !childSel.value || !VALID_PARENTS[childSel.value]) {
+      map[i] = null; return;
+    }
+    const parentSel = row.querySelector('.parent-sel');
+    if (!parentSel || parentSel.value === '') { map[i] = null; return; }
+    const parentOpt = parentSel.options[parentSel.selectedIndex];
+    if (!parentOpt || !parentOpt.dataset.product) { map[i] = null; return; }
+
+    const targetPosition = parseInt(parentSel.value, 10); // 0-based index into valid-parent list
+    const validParentSet = VALID_PARENTS[childSel.value];
+
+    // Walk delRows in DOM order (same as refreshParentSelectors), collect all
+    // valid-parent rows (skipping self), and pick the one at targetPosition.
+    let position = 0;
+    let matchedRowIdx = null;
+    for (let j = 0; j < delRows.length; j++) {
+      if (j === i) continue;
+      const otherSel = delRows[j].querySelector('select');
+      if (!otherSel || !otherSel.value) continue;
+      if (!validParentSet.has(otherSel.value)) continue;
+      if (position === targetPosition) {
+        matchedRowIdx = j;
+        break;
+      }
+      position++;
+    }
+    map[i] = matchedRowIdx;
+  });
+  return map;
 }
 
+// ── Gantt chart ───────────────────────────────────────────────
 // ════════════════════════════════════════════════════════════════════
 // GANTT CHART
 // ════════════════════════════════════════════════════════════════════
@@ -1166,185 +1274,212 @@ function updateGantt() {
 
   const startDate = nextWorkDay(new Date(startVal + 'T00:00:00'));
 
-  // Compute parallelMax from phase durations
-  let parallelMax = 0;
-  // Build appended days map: product -> total days of its appended end-timeline products
-  const appendedDaysMap = {};  // parent product -> total unique appended days
-  const appendedChildMap = {};  // parent product -> [{product, days, color}] (unique, sequential)
-  const ganttDelRows1 = [...document.querySelectorAll('#delRows .del-row')];
-  ganttDelRows1.forEach(row => {
-    const sel = row.querySelector('select');
-    if (!sel || !sel.value || !END_PRODUCTS.has(sel.value)) return;
-    const parentSel = row.querySelector('.parent-sel');
-    if (!parentSel || parentSel.value === '') return;
-    const opt = parentSel.options[parentSel.selectedIndex];
-    if (!opt || !opt.dataset.product) return;
-    const parentProduct = opt.dataset.product;
-    const childProduct  = sel.value;
-    // Deduplicate: skip if same product type already added for this parent
-    if (!appendedChildMap[parentProduct]) appendedChildMap[parentProduct] = [];
-    if (appendedChildMap[parentProduct].find(c => c.product === childProduct)) return;
-    // Find the appended block's total days and color
-    const appendedBlock = blocks.find(b => b.dataset.product === childProduct);
-    if (!appendedBlock) return;
-    const appendedDays = [...appendedBlock.querySelectorAll('.pt-dur')]
-      .map(i => Math.max(1, parseInt(i.value)||1))
-      .reduce((a,b) => a+b, 0);
-    const childGrp = getProductGroup(childProduct);
-    appendedChildMap[parentProduct].push({ product: childProduct, days: appendedDays, color: childGrp ? childGrp.color : '#888' });
-    appendedDaysMap[parentProduct] = (appendedDaysMap[parentProduct] || 0) + appendedDays;
-  });
+  // ── Build dependency graph from parent selectors ──
+  const delRows = [...document.querySelectorAll('#delRows .del-row')];
+  const numItems = blocks.length;
 
-  const raw = blocks.map(block => {
-    const product   = block.dataset.product || '';
-    const grp       = getProductGroup(product);
-    const color     = grp ? grp.color : '#888';
-    const isEnd     = END_PRODUCTS.has(product);
-    const durs      = [...block.querySelectorAll('.pt-dur')].map(i => Math.max(1, parseInt(i.value)||1));
-    const totalDays = durs.reduce((a,b)=>a+b,0);
-    const hasPrintMail = block.dataset.printmail === 'true';
-    const appendedDays = appendedDaysMap[product] || 0;
-    if (!isEnd && totalDays > parallelMax) parallelMax = totalDays;
-    return { label: product, color, totalDays, isEnd, hasPrintMail, appendedDays };
-  });
+  // parentIdxMap[i] = index of parent block (= parent delRow index), or null
+  const parentIdxMap = buildParentIdxMap(delRows);
 
-  // Anchor = due date if set, else forward-compute from longest track
-  let anchorDate;
-  if (dueVal) {
-    anchorDate = new Date(dueVal + 'T00:00:00');
-  } else {
-    let maxTotal = 0;
-    raw.forEach(t => {
-      const tt = t.isEnd ? parallelMax + t.totalDays : t.totalDays;
-      if (tt > maxTotal) maxTotal = tt;
+  // ── Depth-first sort: each parent immediately followed by its children ──
+  // This ensures children visually appear under their parent in the Gantt,
+  // not grouped after all roots.
+  const sortedIdxs = [];
+  function dfsVisit(idx) {
+    sortedIdxs.push(idx);
+    // Visit children in their original DOM order
+    blocks.forEach((_, j) => {
+      if (parentIdxMap[j] === idx) dfsVisit(j);
     });
-    anchorDate = addBusinessDays(startDate, maxTotal);
-    // scaleDays not yet computed - will equal maxTotal in no-due-date case
   }
-
-
-
-  const longestTrack = raw.reduce((max, t) => {
-    // Skip end-timeline products — their days are counted within their parent chain
-    if (t.isEnd) return max;
-    const d = t.totalDays + (t.appendedDays || 0);
-    return d > max ? d : max;
-  }, 0);
-
-  // If days needed > days available, expand scale to fit
-  const availableDays = dueVal ? countBusinessDays(startDate, anchorDate) : 0;
-  const scaleDays = Math.max(1, longestTrack, availableDays);
-  const ganttAnchor = longestTrack > availableDays && availableDays > 0
-    ? addBusinessDays(startDate, longestTrack)
-    : anchorDate;
-
-  // Simple backward layout: all bars right-aligned to anchorDate
-  // Parent bars span their own days + appended days (full chain)
-  // End-timeline bars span their own days only
-  const tracks = raw.map(t => {
-    const barDays    = t.isEnd ? t.totalDays : (t.totalDays + (t.appendedDays || 0));
-    const trackEnd   = new Date(ganttAnchor);
-    const trackStart = subtractBusinessDays(trackEnd, barDays);
-    return { ...t, trackStart, trackEnd, barDays };
+  // Start from roots (nodes with no parent), in DOM order
+  blocks.forEach((_, i) => {
+    if (parentIdxMap[i] === null) dfsVisit(i);
   });
 
-    // Scale = available business days start→due (or longest track if no due date)
+  // ── Anchor date: due date if set, otherwise actual chain end ──────────────
+  // If a due date is set but the chain overruns it, extend the visual anchor to
+  // the actual chain end so bars fit within the track. The red due-date line
+  // marks the deadline regardless.
+  const dueDate     = dueVal ? new Date(dueVal + 'T00:00:00') : null;
 
+  // First pass: compute total days per block
+  const blockDays = {};
+  blocks.forEach((block, i) => {
+    const durs = [...block.querySelectorAll('.pt-dur')].map(inp => Math.max(1, parseInt(inp.value)||1));
+    blockDays[i] = durs.reduce((a,b) => a+b, 0);
+  });
 
-  // Month ticks
-  const ticks = [];
-  const cur = new Date(startDate);
-  cur.setDate(1); cur.setMonth(cur.getMonth()+1);
-  while (cur <= ganttAnchor) {
-    const bdSoFar = countBusinessDays(startDate, cur);
-    const pct = Math.min(100, (bdSoFar / scaleDays) * 100);
-    ticks.push({ label: cur.toLocaleDateString('en-US',{month:'short',year:'2-digit'}), pct });
-    cur.setMonth(cur.getMonth()+1);
+  // Compute longest chain days (root days + all descendant days)
+  function chainDays(idx) {
+    const children = blocks.map((_, j) => j).filter(j => parentIdxMap[j] === idx);
+    if (!children.length) return blockDays[idx];
+    return blockDays[idx] + Math.max(...children.map(j => chainDays(j)));
+  }
+  const longestChainDays = Math.max(...blocks.map((_, i) => {
+    if (parentIdxMap[i] !== null) return 0; // only root nodes
+    return chainDays(i);
+  }));
+
+  const chainEndDate = addBusinessDays(startDate, longestChainDays);
+  const anchorDate   = dueDate
+    ? (chainEndDate > dueDate ? chainEndDate : dueDate)
+    : chainEndDate;
+  const scaleDays    = Math.max(1, countBusinessDays(startDate, anchorDate));
+  const availableDays = dueDate ? countBusinessDays(startDate, dueDate) : 0;
+  const duePct = dueDate ? Math.min(100, (availableDays / scaleDays) * 100) : null;
+
+  // ── Compute per-chain anchor dates ────────────────────────────────────────
+  // Each root gets its own anchor: dueDate if its chain fits, its chainEnd if it overruns.
+  // Leaves within a chain all share their root's anchor, so chains that fit still
+  // align to the due-date line while overrunning chains extend past it.
+  const rootAnchor = {}; // rootIdx -> Date
+  blocks.forEach((_, i) => {
+    if (parentIdxMap[i] !== null) return; // only roots
+    const thisChainEnd = addBusinessDays(startDate, chainDays(i));
+    rootAnchor[i] = dueDate
+      ? (thisChainEnd > dueDate ? thisChainEnd : dueDate)
+      : thisChainEnd;
+  });
+
+  // Walk up to root to find anchor for any node
+  function getAnchor(idx) {
+    let cur = idx;
+    while (parentIdxMap[cur] !== null) cur = parentIdxMap[cur];
+    return rootAnchor[cur];
   }
 
-  // Due date line position — may be less than 100% if over budget
-  const duePct = dueVal ? Math.min(100, (availableDays / scaleDays) * 100) : null;
+  // ── Compute end/start dates per block backwards from per-chain anchor ──
+  const blockStart = {};
+  const blockEnd   = {};
+
+  const reverseSorted = [...sortedIdxs].reverse();
+  reverseSorted.forEach(i => {
+    const children = sortedIdxs.filter(j => parentIdxMap[j] === i);
+    if (children.length === 0) {
+      // Leaf: ends at its chain's anchor date
+      const anchor = getAnchor(i);
+      blockEnd[i]   = new Date(anchor);
+      blockStart[i] = subtractBusinessDays(anchor, blockDays[i]);
+    } else {
+      // Parent: ends where its earliest child starts (minus 1 business day)
+      const earliestChildStart = children.reduce((earliest, j) => {
+        return blockStart[j] < earliest ? blockStart[j] : earliest;
+      }, blockStart[children[0]]);
+      blockEnd[i]   = previousWorkDay(earliestChildStart);
+      blockStart[i] = subtractBusinessDays(blockEnd[i], blockDays[i]);
+    }
+  });
+
+  const latestEnd    = Object.values(blockEnd).reduce((max, d) => d > max ? d : max, new Date(startDate));
+  const longestChain = longestChainDays;
+
+  // ── Month ticks ──
+  const ticks = [];
+  const tickCur = new Date(startDate);
+  tickCur.setDate(1); tickCur.setMonth(tickCur.getMonth() + 1);
+  while (tickCur <= anchorDate) {
+    const bd = countBusinessDays(startDate, tickCur);
+    ticks.push({ label: tickCur.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }), pct: Math.min(100, (bd / scaleDays) * 100) });
+    tickCur.setMonth(tickCur.getMonth() + 1);
+  }
 
   let html = '';
 
-  // Axis
+  // Axis row
   html += `<div class="gantt-axis-row"><div style="width:150px;flex-shrink:0"></div><div class="gantt-axis-track">`;
   html += `<span class="gantt-axis-tick" style="left:0;transform:none">${fmtDateShort(startDate)}</span>`;
   ticks.forEach(t => html += `<span class="gantt-axis-tick" style="left:${t.pct}%">${t.label}</span>`);
-  html += `<span class="gantt-axis-tick" style="right:0;left:auto;transform:none">${fmtDateShort(ganttAnchor)}</span>`;
+  html += `<span class="gantt-axis-tick" style="right:0;left:auto;transform:none">${fmtDateShort(anchorDate)}</span>`;
   html += `</div></div>`;
 
-  // Single due date line spanning full chart height
-  // (Due line injected after html build)
-
-  // Total project row
-  const totalWidthPct = Math.min(100, (longestTrack / scaleDays) * 100);
-  const totalLeftPct  = 100 - totalWidthPct;
+  // Total project bar — always flush right, width = longest chain
+  const totalWidthPct = Math.min(100, (longestChainDays / scaleDays) * 100);
+  const totalLeftPct  = Math.max(0, 100 - totalWidthPct);
   html += `<div class="gantt-row">
     <div class="gantt-label" style="color:rgba(255,255,255,.45);font-style:italic">Total project</div>
     <div class="gantt-track">
-      <div class="gantt-bar total-bar" style="left:${totalLeftPct}%;width:${totalWidthPct}%" title="Total project: ${longestTrack} days">
-        ${totalWidthPct > 10 ? longestTrack+'d' : ''}
+      <div class="gantt-bar total-bar" style="left:${totalLeftPct}%;width:${totalWidthPct}%" title="Total project: ${longestChainDays} days">
+        ${totalWidthPct > 10 ? longestChainDays + 'd' : ''}
       </div>
     </div>
     <div class="gantt-enddate">${fmtDateShort(anchorDate)}</div>
   </div>`;
 
-  // Divider
   html += `<div style="border-top:1px solid rgba(255,255,255,.07);margin:6px 0 8px"></div>`;
 
-  // Per-deliverable rows
-  // Filter out end-timeline products from main rows — they appear as nested rows
-  const mainTracks = tracks.filter(t => !t.isEnd);
+  // ── Per-deliverable rows in topological order ──
+  sortedIdxs.forEach(i => {
+    const block    = blocks[i];
+    const product  = block.dataset.product || '';
+    const grp      = getProductGroup(product);
+    const color    = grp ? grp.color : '#888';
+    const parIdx   = parentIdxMap[i];
+    const depth    = getDepth(i, parentIdxMap);
+    const indentPx = depth * 16;
 
-  mainTracks.forEach(t => {
-    const widthPct = Math.max(1, (t.barDays / scaleDays) * 100);
-    const leftPct  = Math.max(0, 100 - widthPct);
-    const pmWidthPct = t.hasPrintMail ? Math.min(45, (10 / t.totalDays) * 100) : 0;
-    html += `<div class="gantt-row">
-      <div class="gantt-label" title="${esc(t.label)}">${esc(t.label)}</div>
-      <div class="gantt-track">
-        <div class="gantt-bar" style="left:${leftPct}%;width:${widthPct}%;background:${t.color};overflow:visible;position:relative;"
-             title="${esc(t.label)}: ${t.barDays}d — ends ${fmtDateShort(t.trackEnd)}">
-          ${widthPct > 10 ? (t.appendedDays > 0 ? (t.barDays - t.appendedDays) : t.barDays)+'d' : ''}
-          ${(() => { const children = appendedChildMap[t.label] || []; if (!children.length) return ''; let html = ''; let rightOffset = 0; [...children].reverse().forEach(child => { const segW = Math.min(60, (child.days / t.barDays) * 100); html += `<div style="position:absolute;right:${rightOffset}%;top:0;bottom:0;width:${segW}%;background:${child.color};opacity:.75${rightOffset===0?';border-radius:0 4px 4px 0':''}" title="${esc(child.product)}: ${child.days}d"></div><div style="position:absolute;right:${rightOffset+segW}%;top:0;bottom:0;width:3px;background:rgba(0,0,0,.4);z-index:3"></div>`; rightOffset += segW; }); return html; })()}
-          ${t.hasPrintMail ? `<div style="position:absolute;right:0;top:0;bottom:0;width:${pmWidthPct}%;background:#FFB21B;border-left:2px solid rgba(0,0,0,.2)" title="Print & Mail: 10 days"></div>` : ''}
+    const bStart    = blockStart[i];
+    const bEnd      = blockEnd[i];
+    const totalDays = blockDays[i];
+    const widthPct  = Math.max(1, (totalDays / scaleDays) * 100);
+
+    // rightOffsetDays = descendant chain days + days between this chain's anchor
+    // and the global anchorDate (so fitting chains don't get pushed to the right edge)
+    function daysAfter(idx) {
+      const children = sortedIdxs.filter(j => parentIdxMap[j] === idx);
+      if (!children.length) return 0;
+      return Math.max(...children.map(j => blockDays[j] + daysAfter(j)));
+    }
+    const thisAnchor   = getAnchor(i);
+    const anchorGapDays = countBusinessDays(thisAnchor, anchorDate); // 0 if this chain overruns
+    const rightOffsetDays = daysAfter(i) + anchorGapDays;
+    const rightOffsetPct  = (rightOffsetDays / scaleDays) * 100;
+    const leftPct = Math.max(0, 100 - widthPct - rightOffsetPct);
+
+    const isChild  = parIdx !== null;
+    const rowClass = isChild ? 'gantt-nested-row' : 'gantt-row';
+
+    // Build tree connector: depth-1 pipes + final └─
+    // e.g. depth 1 → "└─ "  depth 2 → "│  └─ "
+    let connectorHtml = '';
+    if (isChild) {
+      let pipes = '';
+      for (let d = 1; d < depth; d++) {
+        pipes += `<span style="display:inline-block;width:10px;text-align:center;color:rgba(255,255,255,.2)">│</span>`;
+      }
+      connectorHtml = `${pipes}<span style="color:rgba(255,255,255,.3)">└─</span> `;
+    }
+
+    html += `<div class="${rowClass}">
+      <div style="width:150px;flex-shrink:0;font-size:${isChild?'10':'11'}px;color:rgba(255,255,255,${isChild?'.6':'.75'});font-family:Calibri,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;" title="${esc(product)}">${connectorHtml}<span style="overflow:hidden;text-overflow:ellipsis">${esc(product)}</span></div>
+      <div class="${isChild ? 'gantt-nested-track' : 'gantt-track'}" style="position:relative">
+        <div class="${isChild ? 'gantt-nested-bar' : 'gantt-bar'}" style="left:${leftPct}%;width:${widthPct}%;background:${color};position:absolute;top:0;bottom:0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:${isChild?'9':'10'}px;font-weight:700;color:rgba(255,255,255,.9)"
+             title="${esc(product)}: ${totalDays}d">
+          ${widthPct > 8 ? totalDays + 'd' : ''}
         </div>
       </div>
-      <div class="gantt-enddate">${fmtDateShort(ganttAnchor)}</div>
+      <div class="gantt-enddate" style="font-size:${isChild?'9':'10'}px;color:rgba(255,255,255,${isChild?'.4':'.55'})">${fmtDateShort(bEnd)}</div>
     </div>`;
-
-    // Nested rows — each right-aligned to its position in the chain
-    const children = appendedChildMap[t.label] || [];
-    // Build position map first: each child's right offset from due date
-    const childOffsets = [];
-    let runningOffset = 0;
-    [...children].reverse().forEach(child => {
-      childOffsets.unshift({ child, rightOffsetDays: runningOffset });
-      runningOffset += child.days;
-    });
-    childOffsets.forEach(({ child, rightOffsetDays }) => {
-      const childWidthPct  = Math.max(1, (child.days / scaleDays) * 100);
-      const rightOffsetPct = (rightOffsetDays / scaleDays) * 100;
-      const childLeftPct   = Math.max(0, 100 - childWidthPct - rightOffsetPct);
-      const childEndDate   = rightOffsetDays === 0 ? ganttAnchor : subtractBusinessDays(ganttAnchor, rightOffsetDays);
-      html += "<div class='gantt-nested-row'><div class='gantt-nested-label'><div class='gantt-nested-connector'><div style='width:1px;height:10px;background:rgba(255,255,255,.2)'></div><div style='width:8px;height:1px;background:rgba(255,255,255,.2)'></div></div><span>↳ " + esc(child.product) + "</span></div><div class='gantt-nested-track' style='position:relative'><div class='gantt-nested-bar' style='left:" + childLeftPct + "%;width:" + childWidthPct + "%;background:" + child.color + ";opacity:.75' title='" + esc(child.product) + ": " + child.days + "d'>" + (childWidthPct > 8 ? child.days + 'd' : '') + "</div></div><div class='gantt-enddate' style='font-size:9px;color:rgba(255,255,255,.35)'>" + fmtDateShort(childEndDate) + "</div></div>";
-    });  });
+  });
 
   chart.innerHTML = html;
   chart.style.position = 'relative';
-  // Inject single due date line over entire chart
+  chart.style.overflow = 'hidden';
+  // Inject due date line into the axis track (correct horizontal coordinate space)
+  // ganttChart overflow:hidden contains the vertical bleed
   if (duePct !== null) {
-    // Find the axis row to measure offset
-    const axisRow = chart.querySelector('.gantt-axis-row');
-    const axisH = axisRow ? axisRow.offsetHeight : 20;
-    const dueLine = document.createElement('div');
-    dueLine.style.cssText = 'position:absolute;top:' + axisH + 'px;bottom:0;left:calc(150px + ' + duePct + '% * (100% - 218px) / 100);width:2px;background:rgba(255,80,80,.8);z-index:10;pointer-events:none';
-    const dueLabel = document.createElement('span');
-    dueLabel.textContent = 'Due';
-    dueLabel.style.cssText = 'position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;color:rgba(255,100,100,.95);white-space:nowrap;font-family:Calibri,sans-serif;letter-spacing:.04em';
-    dueLine.appendChild(dueLabel);
-    chart.appendChild(dueLine);
+    const axisTrack = chart.querySelector('.gantt-axis-track');
+    if (axisTrack) {
+      axisTrack.style.position = 'relative';
+      axisTrack.style.overflow = 'visible';
+      const dueLine = document.createElement('div');
+      dueLine.style.cssText = 'position:absolute;top:-9999px;bottom:-9999px;left:' + duePct + '%;width:2px;background:rgba(255,80,80,.8);z-index:10;pointer-events:none';
+      const dueLabel = document.createElement('span');
+      dueLabel.textContent = 'Due';
+      dueLabel.style.cssText = 'position:absolute;top:4px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;color:rgba(255,100,100,.95);white-space:nowrap;font-family:Calibri,sans-serif;letter-spacing:.04em';
+      dueLine.appendChild(dueLabel);
+      axisTrack.appendChild(dueLine);
+    }
   }
   wrap.style.display = 'block';
 }
@@ -1357,7 +1492,6 @@ function updateGantt() {
 function rebuildPhaseTable(block) {
   const product    = block.dataset.product;
   const isRenewal  = block.dataset.isrenewal === 'true';
-  const printMail  = block.dataset.printmail === 'true';
   const rounds     = parseInt(block.dataset.rounds) || 2;
   const isNA       = NA_PRODUCTS.has(product);
 
@@ -1407,8 +1541,6 @@ function rebuildPhaseTable(block) {
     phases = expandedPhases;
   }
 
-  if (printMail) phases.push({ name: 'Print & Mail', dur: 10, owner: 'Flimp', isPrintMail: true });
-
   // Rebuild the table body
   const body   = block.querySelector('.pb-body');
   const oldTable = body.querySelector('table');
@@ -1419,7 +1551,6 @@ function rebuildPhaseTable(block) {
 
   phases.forEach(phase => {
     const tr = document.createElement('tr');
-    if (phase.isPrintMail) tr.style.cssText = 'background:#FFF8E7;';
     const ownerClass = phase.owner === 'Flimp' ? 'owner-flimp' : 'owner-client';
 
     const tdName = document.createElement('td');
@@ -1488,13 +1619,13 @@ function refreshParentSelectors() {
     const parentWrap = row.querySelector('.parent-sel-wrap');
     if (!parentWrap) return;
     const sel = row.querySelector('select');
-    if (!sel || !sel.value || !END_PRODUCTS.has(sel.value)) {
+    if (!sel || !sel.value || !VALID_PARENTS[sel.value]) {
       parentWrap.style.display = 'none';
       return;
     }
     parentWrap.style.display = 'block';
 
-    const myGroup = getProductGroup(sel.value);
+    const validParentSet = VALID_PARENTS[sel.value]; // Set of valid parent product names
     const parentSel = parentWrap.querySelector('.parent-sel');
     const curVal = parentSel.value;
 
@@ -1504,9 +1635,8 @@ function refreshParentSelectors() {
       if (otherRow === row) return;
       const info = getRowLabel(otherRow);
       if (!info) return;
-      if (END_PRODUCTS.has(info.product)) return;
-      const grp = getProductGroup(info.product);
-      if (!grp || !myGroup || grp.group !== myGroup.group) return;
+      // Only show rows whose product is a valid parent for this child
+      if (!validParentSet.has(info.product)) return;
       labelCounts[info.label] = (labelCounts[info.label] || 0) + 1;
       options.push({ product: info.product, label: info.label, idx: labelCounts[info.label] });
     });
@@ -1515,7 +1645,7 @@ function refreshParentSelectors() {
       label: labelCounts[o.label] > 1 ? o.label + ' ' + o.idx : o.label
     }));
 
-    parentSel.innerHTML = '<option value=>Select parent deliverable…</option>';
+    parentSel.innerHTML = '<option value="">Select parent deliverable…</option>';
     finalOptions.forEach((o, i) => {
       const opt = document.createElement('option');
       opt.value = i;
@@ -1536,7 +1666,7 @@ function getAppendedDays(parentProduct, parentIsRenewal) {
   let total = 0;
   allRows.forEach(row => {
     const sel = row.querySelector('select');
-    if (!sel || !sel.value || !END_PRODUCTS.has(sel.value)) return;
+    if (!sel || !sel.value || !VALID_PARENTS[sel.value]) return;
     const parentSel = row.querySelector('.parent-sel');
     if (!parentSel || parentSel.value === '') return;
     const opt = parentSel.options[parentSel.selectedIndex];
@@ -1575,7 +1705,7 @@ function recalcBlockFeasibility(block) {
   // Subtract appended product days from effective due date
   const blockProduct  = block.dataset.product;
   const blockIsRenewal = block.dataset.isrenewal === 'true';
-  const appendedDays  = END_PRODUCTS.has(blockProduct) ? 0 : getAppendedDays(blockProduct, blockIsRenewal);
+  const appendedDays  = VALID_PARENTS[blockProduct] ? 0 : getAppendedDays(blockProduct, blockIsRenewal);
   const effectiveAvailable = available - appendedDays;
 
   const fill = block.querySelector('.pb-feas-bar-fill');
@@ -1608,7 +1738,7 @@ function recalcPhaseDates(block, blockEndDate) {
   if (!blockEndDate) {
     const bp = block.dataset.product;
     const bir = block.dataset.isrenewal === 'true';
-    if (bp && !END_PRODUCTS.has(bp)) {
+    if (bp && !VALID_PARENTS[bp]) {
       const appDays = getAppendedDays(bp, bir);
       if (appDays > 0) due = subtractBusinessDays(due, appDays);
     }
@@ -1673,34 +1803,30 @@ function updateFeasibility() {
     return;
   }
 
-  // Build block days map
-  const blockDays = {};
-  blocks.forEach(block => {
-    const product = block.dataset.product || '';
-    blockDays[product] = (blockDays[product] || 0) +
-      [...block.querySelectorAll('.pt-dur')]
-        .reduce((sum, inp) => sum + (Math.max(1, parseInt(inp.value) || 1)), 0);
-  });
-
-  // Build chain lengths: for each parallel product, add days of any appended end-timeline products
+  // Build blockDays keyed by row index (not product name) to handle duplicates
+  // and to feed into buildParentIdxMap-based chain recursion
   const feasDelRows = [...document.querySelectorAll('#delRows .del-row')];
-  const parentAppendedDays = {};
-  feasDelRows.forEach(row => {
-    const sel = row.querySelector('select');
-    if (!sel || !sel.value || !END_PRODUCTS.has(sel.value)) return;
-    const parentSel = row.querySelector('.parent-sel');
-    if (!parentSel || parentSel.value === '') return;
-    const opt = parentSel.options[parentSel.selectedIndex];
-    if (!opt || !opt.dataset.product) return;
-    const parentProduct = opt.dataset.product;
-    parentAppendedDays[parentProduct] = (parentAppendedDays[parentProduct] || 0) + (blockDays[sel.value] || 0);
+  const blockDaysByIdx = {};
+  blocks.forEach((block, i) => {
+    blockDaysByIdx[i] = [...block.querySelectorAll('.pt-dur')]
+      .reduce((sum, inp) => sum + (Math.max(1, parseInt(inp.value) || 1)), 0);
   });
 
-  // Longest chain = max of (parallelDays + appendedDays) across all non-end products
+  // Use the same parent map as the Gantt — handles arbitrary chain depth
+  const feasParentMap = buildParentIdxMap(feasDelRows);
+
+  // Recursive chain length from any node: own days + longest descendant chain
+  function feasChainDays(idx) {
+    const children = blocks.map((_, j) => j).filter(j => feasParentMap[j] === idx);
+    if (!children.length) return blockDaysByIdx[idx] || 0;
+    return (blockDaysByIdx[idx] || 0) + Math.max(...children.map(j => feasChainDays(j)));
+  }
+
+  // Longest chain = max across all root nodes
   let needed = 0;
-  Object.keys(blockDays).forEach(product => {
-    if (END_PRODUCTS.has(product)) return;
-    const chain = (blockDays[product] || 0) + (parentAppendedDays[product] || 0);
+  blocks.forEach((_, i) => {
+    if (feasParentMap[i] !== null) return; // skip non-roots
+    const chain = feasChainDays(i);
     if (chain > needed) needed = chain;
   });
   document.getElementById('feasNeeded').textContent = needed;
@@ -1783,11 +1909,8 @@ function generateTimeline() {
 
   if (!deliverables.length) { alert('Please select at least one product.'); return; }
 
-  const addl = []; // Section 3 removed — no additional items
-
   // Read edited phases from preview blocks (in order)
   const previewBlocks = [...document.querySelectorAll('#pbBlocks .pb-block')];
-  let blockIdx = 0;
 
   function readPhases(block) {
     if (!block) return [];
@@ -1803,64 +1926,62 @@ function generateTimeline() {
     }).filter(p => p.name);
   }
 
-  const parallelDels = deliverables.filter(d => !END_PRODUCTS.has(d.product));
-  const endDels      = deliverables.filter(d => END_PRODUCTS.has(d.product));
+  // ── Build dependency graph from parent selectors ──────────────────────────
+  // Each deliverable gets a unique key: "ProductName||index" to handle duplicates
+  const delRows = [...document.querySelectorAll('#delRows .del-row')];
 
+  // Attach a rowIndex to each deliverable matching its DOM order
+  const deliWithIdx = deliverables.map((del, i) => ({ ...del, rowIdx: i, blockIdx: i }));
+
+  // Build a map: rowIdx -> parent rowIdx (or null if no parent)
+  const parentIdxMap = buildParentIdxMap(delRows);
+
+  // ── Topological sort ───────────────────────────────────────────────────────
+  // Kahn's algorithm: process nodes whose dependencies are already resolved
+  const resolved   = new Set();
+  const endDates   = {};   // rowIdx -> Date (track end date)
+  const sortedIdxs = [];
+
+  // Seed with root nodes (no parent)
+  const queue = deliWithIdx.filter(d => parentIdxMap[d.rowIdx] === null).map(d => d.rowIdx);
+
+  let safety = 0;
+  while (sortedIdxs.length < deliWithIdx.length && safety++ < 200) {
+    // Pull all currently resolvable nodes
+    const ready = deliWithIdx
+      .filter(d => !resolved.has(d.rowIdx) && (parentIdxMap[d.rowIdx] === null || resolved.has(parentIdxMap[d.rowIdx])));
+    if (!ready.length) break; // cycle guard
+    ready.forEach(d => { sortedIdxs.push(d.rowIdx); resolved.add(d.rowIdx); });
+  }
+
+  // ── Schedule each deliverable in resolved order ────────────────────────────
   const allMilestones = [];
-  let parallelEndDate = new Date(startDate);
   let projectEndDate  = new Date(startDate);
   let totalWorkDays   = 0;
 
-  // Build parent end date map: product label -> end date
-  const parentEndDates = {};
+  sortedIdxs.forEach(idx => {
+    const del    = deliWithIdx[idx];
+    const parIdx = parentIdxMap[idx];
 
-  // Pass 1: parallel deliverables — all start on startDate
-  parallelDels.forEach(del => {
-    let vDate = new Date(startDate);
-    const phases = readPhases(previewBlocks[blockIdx++]);
-    let trackEnd = new Date(startDate);
+    // Start date: day after parent ends, or startDate if no parent
+    const startFrom = parIdx !== null && endDates[parIdx]
+      ? nextWorkDay(new Date(endDates[parIdx]))
+      : new Date(startDate);
+
+    let vDate    = new Date(startFrom);
+    let trackEnd = new Date(startFrom);
+    const phases = readPhases(previewBlocks[idx]);
+
     phases.forEach(phase => {
       const endDate = addBusinessDays(vDate, phase.dur);
       totalWorkDays += phase.dur;
-      allMilestones.push({date: endDate, owner: phase.owner, deliverable: del.product, task: phase.name});
-      if (endDate > parallelEndDate) parallelEndDate = new Date(endDate);
-      trackEnd = new Date(endDate);
-      if (endDate > projectEndDate)  projectEndDate  = new Date(endDate);
-      vDate = nextWorkDay(new Date(endDate));
-    });
-    // Store end date keyed by deliverable label for parent lookup
-    const isRen = del.isRenewal;
-    const lbl = del.product + (isRen ? ' (Renewal)' : ' (New)');
-    if (!parentEndDates[lbl] || trackEnd > parentEndDates[lbl]) parentEndDates[lbl] = new Date(trackEnd);
-  });
-
-  // Pass 2: end deliverables — start after parallel block, run in parallel with each other
-  const endStart = parallelDels.length > 0 ? nextWorkDay(new Date(parallelEndDate)) : new Date(startDate);
-  endDels.forEach(del => {
-    // Find parent end date from selector
-    const delRow = [...document.querySelectorAll('#delRows .del-row')]
-      .find(r => r.querySelector('select') && r.querySelector('select').value === del.product
-        && (del.isRenewal ? r.querySelector('.nr-btn.r-active') : !r.querySelector('.nr-btn.r-active')));
-    let parentEnd = new Date(endStart);
-    if (delRow) {
-      const parentSel = delRow.querySelector('.parent-sel');
-      if (parentSel && parentSel.value !== '') {
-        const parentOpt = parentSel.options[parentSel.selectedIndex];
-        if (parentOpt && parentOpt.dataset.product) {
-          const parentLabel = parentOpt.textContent;
-          if (parentEndDates[parentLabel]) parentEnd = new Date(parentEndDates[parentLabel]);
-        }
-      }
-    }
-    let vDate = nextWorkDay(new Date(parentEnd));
-    const phases = readPhases(previewBlocks[blockIdx++]);
-    phases.forEach(phase => {
-      const endDate = addBusinessDays(vDate, phase.dur);
-      totalWorkDays += phase.dur;
-      allMilestones.push({date: endDate, owner: phase.owner, deliverable: del.product, task: phase.name});
+      allMilestones.push({ date: endDate, owner: phase.owner, deliverable: del.product, task: phase.name });
       if (endDate > projectEndDate) projectEndDate = new Date(endDate);
+      trackEnd = new Date(endDate);
       vDate = nextWorkDay(new Date(endDate));
     });
+
+    endDates[idx] = new Date(trackEnd);
   });
 
   // Sort chronologically
@@ -1942,7 +2063,7 @@ function generateTimeline() {
     ['Working Days', totalWorkDays],
     ...(dueDate ? [['Due Date', fmtDateShort(dueDate)]] : []),
     ['Projected End', fmtDateShort(projectEndDate)],
-    ['Deliverables', deliverables.reduce((a,d) => a + d.count, 0) + (addl.length ? ' + ' + addl.join(', ') : '')]
+    ['Deliverables', deliverables.reduce((a,d) => a + d.count, 0)]
   ].forEach(([label, value]) => {
     const span = document.createElement('span');
     span.innerHTML = `<strong>${esc(label)}:</strong> ${esc(String(value))}`;
