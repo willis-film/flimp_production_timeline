@@ -51,17 +51,9 @@
   </div>
   <div class="card">
     <div class="grid2" style="margin-bottom:10px">
-      <div class="field"><label>Client name</label><input type="text" id="clientName" placeholder="e.g. Acme Corporation"></div>
-      <div class="field"><label>Project name</label><input type="text" id="projectName" placeholder="e.g. 2025 Benefits Communication"></div>
+      <div class="field"><label>Client name</label><input type="text" id="clientName" placeholder="ABC Client"></div>
+      <div class="field"><label>Project name</label><input type="text" id="projectName" placeholder="Open Enrollment 2026"></div>
     </div>
-    <div class="net-new-wrap">
-      <label class="net-new-label" id="nnLabel">
-        <input type="checkbox" id="netNewCb" onchange="toggleNetNew()">
-        <span class="nn-text">Net new client</span>
-        <span class="nn-hint">— adds additional context to export</span>
-      </label>
-    </div>
-    <div style="height:14px"></div>
     <div class="grid3" style="margin-bottom:10px">
       <div class="field"><label>Start date</label><input type="date" id="startDate"></div>
       <div class="field"><label>Due date</label><input type="date" id="dueDate"></div>
@@ -192,12 +184,14 @@
       <span class="section-title">Generated Timeline</span>
     </div>
 
-    <div id="nnNoteWrap"></div>
-
     <!-- Tab switcher -->
     <div class="tl-tabs">
-      <button class="tl-tab active" id="tabChron" onclick="switchTab('chron')">Chronological</button>
-      <button class="tl-tab" id="tabWeekly" onclick="switchTab('weekly')">Weekly</button>
+      <button class="tl-tab active" id="tabChron"      onclick="switchTab('chron')">Chronological</button>
+      <button class="tl-tab"        id="tabWeekly"     onclick="switchTab('weekly')">Weekly</button>
+      <button class="tl-tab"        id="tabByProduct"  onclick="switchTab('byProduct')">By Product</button>
+      <button class="tl-tab"        id="tabBasicPdf"   onclick="switchTab('basicPdf')">Basic PDF</button>
+      <button class="tl-tab"        id="tabExpandedPdf" onclick="switchTab('expandedPdf')">Expanded PDF</button>
+      <button class="tl-tab"        id="tabNetNewPdf"  onclick="switchTab('netNewPdf')">Net New PDF</button>
     </div>
 
     <!-- Chronological tab -->
@@ -225,6 +219,65 @@
       <div class="email-tl-wrap">
         <div class="email-tl-inner" id="weeklyTableWrap"></div>
         <div class="email-tl-hint">Cells are editable — make any adjustments before copying.</div>
+      </div>
+    </div>
+
+    <!-- By Product tab -->
+    <div id="panelByProduct" style="display:none">
+      <div class="tl-actions">
+        <button class="tl-action-btn" onclick="copyEmailTable('byProduct')">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="1" width="9" height="11" rx="1"/><rect x="2" y="4" width="9" height="11" rx="1"/></svg>
+          Copy for email
+        </button>
+      </div>
+      <div class="email-tl-wrap">
+        <div class="email-tl-inner" id="byProductTableWrap"></div>
+        <div class="email-tl-hint">Cells are editable — make any adjustments before copying.</div>
+      </div>
+    </div>
+
+    <!-- Basic PDF tab -->
+    <div id="panelBasicPdf" style="display:none">
+      <div class="tl-actions">
+        <button class="tl-action-btn" onclick="downloadPdf('basic')">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 1h7l3 3v11H3V1z"/><path d="M10 1v3h3"/><path d="M5 9h6M5 12h4"/></svg>
+          Download PDF
+        </button>
+      </div>
+      <div class="email-tl-wrap">
+        <div class="email-tl-inner tl-pdf-preview" id="basicPdfPreview">
+          <div class="pdf-coming-soon">Basic PDF preview will appear here after generation.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expanded PDF tab -->
+    <div id="panelExpandedPdf" style="display:none">
+      <div class="tl-actions">
+        <button class="tl-action-btn" onclick="downloadPdf('expanded')">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 1h7l3 3v11H3V1z"/><path d="M10 1v3h3"/><path d="M5 9h6M5 12h4"/></svg>
+          Download PDF
+        </button>
+      </div>
+      <div class="email-tl-wrap">
+        <div class="email-tl-inner tl-pdf-preview" id="expandedPdfPreview">
+          <div class="pdf-coming-soon">Expanded PDF preview will appear here after generation.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Net New Expanded PDF tab -->
+    <div id="panelNetNewPdf" style="display:none">
+      <div class="tl-actions">
+        <button class="tl-action-btn" onclick="downloadPdf('netNew')">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 1h7l3 3v11H3V1z"/><path d="M10 1v3h3"/><path d="M5 9h6M5 12h4"/></svg>
+          Download PDF
+        </button>
+      </div>
+      <div class="email-tl-wrap">
+        <div class="email-tl-inner tl-pdf-preview" id="netNewPdfPreview">
+          <div class="pdf-coming-soon">Net New Expanded PDF preview will appear here after generation.</div>
+        </div>
       </div>
     </div>
 

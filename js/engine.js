@@ -191,7 +191,8 @@ export function scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdx
         date:        endDate,
         owner:       phase.owner,
         deliverable: del.product,
-        task:        phase.name
+        task:        phase.name,
+        isMilestone: phase.is_milestone || false
       });
       if (endDate > projectEndDate) projectEndDate = new Date(endDate);
       trackEnd = new Date(endDate);
@@ -219,5 +220,5 @@ export function scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdx
 
   const projectSpanDays = countBusinessDays(startDate, projectEndDate);
 
-  return { milestoneGroups: groups, projectEndDate, projectSpanDays, deliverables };
+  return { milestoneGroups: groups, projectEndDate, projectSpanDays, deliverables, phasesPerDeliverable };
 }

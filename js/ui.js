@@ -29,12 +29,6 @@ export function defaultRounds(product, isRenewal) {
   return isRenewal ? (r.renewal || 2) : (r.new || 2);
 }
 
-// ── Net new toggle ────────────────────────────────────────────────────────
-export function toggleNetNew() {
-  const cb = document.getElementById('netNewCb');
-  document.getElementById('nnLabel').classList.toggle('active', cb.checked);
-}
-
 // ── Deliverable row builder ───────────────────────────────────────────────
 export function buildSelect() {
   const sel = document.createElement('select');

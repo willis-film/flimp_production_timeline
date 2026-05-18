@@ -136,21 +136,68 @@ function buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, st
   return `<table style="${E.table}"><tbody>${rows}</tbody></table>`;
 }
 
+// ── Build by-product table HTML ───────────────────────────────────────────
+// Each deliverable gets its own section header, then its phases in order
+// with the actual computed end date pulled from milestoneGroups.
+function buildByProductTable({ phasesPerDeliverable, deliverables, milestoneGroups, projectEndDate, projectSpanDays, startDate, dueDate, project }) {
+  const sectionHdr = (label) =>
+    `<tr><td colspan="3" style="${E.weekHdr}">${esc(label)}</td></tr>`;
+
+  const thRow = `
+    <tr>
+      <th style="${E.thFirst}">Owner</th>
+      <th style="text-align:left;padding:0.35rem 0.75rem;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;width:50%;font-family:Verdana,sans-serif;">Phase</th>
+      <th style="${E.thLast}">Due Date</th>
+    </tr>`;
+
+  // Build a lookup: deliverable name + task name → date
+  // (milestoneGroups items carry both)
+  const dateByKey = new Map();
+  milestoneGroups.forEach(group => {
+    group.items.forEach(item => {
+      dateByKey.set(`${item.deliverable}||${item.task}`, { date: group.date, isPastDue: group.isPastDue });
+    });
+  });
+
+  let rows = `<tr><td colspan="3" contenteditable="true" style="${E.title}">${esc(project)}</td></tr>`;
+
+  deliverables.forEach((del, idx) => {
+    const phases = phasesPerDeliverable[idx] || [];
+    if (!phases.length) return;
+
+    const label = `${del.product}${del.isRenewal ? ' — Renewal' : ' — New'}`;
+    rows += sectionHdr(label);
+    rows += thRow;
+
+    phases.forEach(phase => {
+      const key    = `${del.product}||${phase.name}`;
+      const entry  = dateByKey.get(key);
+      const dateStr = entry ? fmtDateShort(entry.date) : '—';
+      const dateSty = entry?.isPastDue ? `${E.tdDate}color:#c00;` : E.tdDate;
+      const rowBg   = entry?.isPastDue ? 'background:#fff0f0;' : '';
+      rows += `
+        <tr style="${rowBg}">
+          <td contenteditable="true" style="${E.tdFirst}">${esc(phase.owner)}</td>
+          <td contenteditable="true" style="${E.tdTask}">${esc(phase.name)}</td>
+          <td contenteditable="true" style="${dateSty}">${esc(dateStr)}</td>
+        </tr>`;
+    });
+  });
+
+  rows += buildFooterRow(startDate, projectSpanDays, dueDate, projectEndDate);
+  return `<table style="${E.table}"><tbody>${rows}</tbody></table>`;
+}
+
 // ── Main render entry point ───────────────────────────────────────────────
 export function renderTimelineTable(data) {
   const output = document.getElementById('timelineOutput');
   document.getElementById('outputDivider').style.display = 'block';
   output.style.display = 'block';
 
-  // Net new note
-  const nnWrap = document.getElementById('nnNoteWrap');
-  nnWrap.innerHTML = data.isNetNew
-    ? `<div class="nn-note"><strong>Net New Client</strong>This project involves a new client relationship with Flimp. Please allow additional time during the Kickoff and onboarding phases for account setup, portal access provisioning, and alignment on Flimp's production process and review expectations. All milestone dates assume timely client responsiveness — delays in content delivery or review rounds will push the schedule accordingly.</div>`
-    : '';
-
-  // Render both tables
-  document.getElementById('chronTableWrap').innerHTML  = buildChronTable(data);
-  document.getElementById('weeklyTableWrap').innerHTML = buildWeeklyTable(data);
+  // Render all three email tables
+  document.getElementById('chronTableWrap').innerHTML     = buildChronTable(data);
+  document.getElementById('weeklyTableWrap').innerHTML    = buildWeeklyTable(data);
+  document.getElementById('byProductTableWrap').innerHTML = buildByProductTable(data);
 
   // Reset to chronological tab on each generate
   switchTab('chron');
@@ -160,11 +207,20 @@ export function renderTimelineTable(data) {
 
 // ── Tab switcher ──────────────────────────────────────────────────────────
 export function switchTab(tab) {
-  const isChron = tab === 'chron';
-  document.getElementById('panelChron').style.display  = isChron ? 'block' : 'none';
-  document.getElementById('panelWeekly').style.display = isChron ? 'none'  : 'block';
-  document.getElementById('tabChron').classList.toggle('active',  isChron);
-  document.getElementById('tabWeekly').classList.toggle('active', !isChron);
+  const tabs = ['chron', 'weekly', 'byProduct', 'basicPdf', 'expandedPdf', 'netNewPdf'];
+  tabs.forEach(t => {
+    const panel = document.getElementById(`panel${t.charAt(0).toUpperCase() + t.slice(1)}`);
+    const btn   = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`);
+    if (panel) panel.style.display = t === tab ? 'block' : 'none';
+    if (btn)   btn.classList.toggle('active', t === tab);
+  });
+}
+
+// ── PDF download (stub — renderers to be built) ───────────────────────────
+export function downloadPdf(type) {
+  // type: 'basic' | 'expanded' | 'netNew'
+  // Will be implemented with jsPDF + html2canvas
+  alert(`${type === 'basic' ? 'Basic' : type === 'expanded' ? 'Expanded' : 'Net New Expanded'} PDF export coming soon.`);
 }
 
 // ── Copy email table as HTML to clipboard ─────────────────────────────────

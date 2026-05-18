@@ -80,7 +80,7 @@ export async function loadReferenceData() {
         applies_to:         ph.applies_to || 'both',
         renewal_phase_name: ph.renewal_phase_name || '',
         round_group_name:   ph.round_group_name   || '',
-        is_pre_completeable: ph.is_pre_completeable || false,
+        is_milestone:       ph.is_milestone       || false,
         phase_order:        ph.phase_order
       });
     });

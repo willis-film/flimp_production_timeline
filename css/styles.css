@@ -50,17 +50,12 @@ body{font-family:Calibri,sans-serif;background:#F2F8F0;color:var(--text);min-hei
 .field input,.field select{font-family:Calibri,sans-serif;font-size:14px;height:38px;padding:0 12px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);color:var(--text);width:100%;transition:border-color .15s,box-shadow .15s}
 .field input:focus,.field select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(54,126,212,.12)}
 
-/* ── Net new checkbox ── */
-.net-new-wrap{margin:10px 0 0}
-.net-new-label{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:all .15s;user-select:none}
-.net-new-label:hover{border-color:#aab5d0}
-.net-new-label.active{border-color:var(--blue);background:var(--blue-bg)}
-.net-new-label input{width:14px;height:14px;accent-color:var(--blue);cursor:pointer}
-.net-new-label .nn-text{font-size:13px;color:var(--text)}
-.net-new-label .nn-hint{font-size:11px;color:var(--text-tertiary);margin-left:2px}
-.net-new-label.active .nn-hint{color:var(--blue)}
-
-/* ── Deliverable rows ── */
+/* ── Email table container ── */
+.email-tl-wrap{background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem}
+.email-tl-inner{padding:1.25rem 1.5rem;overflow-x:auto}
+.email-tl-hint{font-size:11px;color:var(--text-tertiary);padding:.5rem 1.5rem .75rem;border-top:1px solid var(--border-light)}
+.tl-pdf-preview{min-height:120px;display:flex;align-items:center;justify-content:center}
+.pdf-coming-soon{font-size:13px;color:var(--text-tertiary);font-style:italic}
 .row-headers{display:grid;grid-template-columns:1fr 72px 108px 110px 32px;gap:8px;margin-bottom:6px;padding:0 2px}
 .row-headers span{font-size:11px;font-weight:600;color:var(--text-tertiary);letter-spacing:.04em;text-transform:uppercase}
 .row-headers span:nth-child(2),.row-headers span:nth-child(3),.row-headers span:nth-child(4){text-align:center}
@@ -213,11 +208,6 @@ body{font-family:Calibri,sans-serif;background:#F2F8F0;color:var(--text);min-hei
 .tl-tab:hover{color:var(--text)}
 .tl-tab.active{color:var(--dark);border-bottom-color:var(--dark)}
 
-/* ── Email table container ── */
-.email-tl-wrap{background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem}
-.email-tl-inner{padding:1.25rem 1.5rem;overflow-x:auto}
-.email-tl-hint{font-size:11px;color:var(--text-tertiary);padding:.5rem 1.5rem .75rem;border-top:1px solid var(--border-light)}
-
 /* ── Timeline output ── */
 #timelineOutput{display:none}
 .tl-actions{display:flex;gap:8px;margin-bottom:1.25rem}
@@ -238,10 +228,6 @@ body{font-family:Calibri,sans-serif;background:#F2F8F0;color:var(--text);min-hei
 .td-deliverable{color:var(--text-secondary)}
 .unified-tl-footer{padding:.75rem 1.5rem;font-size:12px;color:var(--text-secondary);border-top:1.5px solid var(--border);background:var(--warm-white);display:flex;gap:1.5rem;flex-wrap:wrap}
 .unified-tl-footer span strong{color:var(--text);font-weight:700}
-
-/* ── Net new note ── */
-.nn-note{background:var(--blue-bg);border-left:3px solid var(--blue);border-radius:0 var(--radius) var(--radius) 0;padding:.85rem 1.1rem;margin-bottom:1rem;font-size:13px;color:#1a3d6a;line-height:1.6}
-.nn-note strong{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--blue);margin-bottom:4px}
 
 /* ── Loading animation ── */
 :root { --line: #c8d8d0; }

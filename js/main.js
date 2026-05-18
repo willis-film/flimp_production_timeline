@@ -9,11 +9,11 @@ import { setDays, toISO, nextWorkDay, scheduleTimeline, buildParentIdxMap } from
 import {
   buildDelRow, buildSelect, addRow, updateRemove,
   previewPhases, updateFeasibility, recalcPhaseDates,
-  recalcBlockFeasibility, toggleNetNew
+  recalcBlockFeasibility
 } from './ui.js';
 import {
   renderTimelineTable, copyEmailTable, switchTab,
-  printTimeline, saveTimeline
+  downloadPdf, saveTimeline
 } from './output.js';
 
 // ── Read phases from preview blocks ──────────────────────────────────────
@@ -46,7 +46,7 @@ function generateTimeline() {
   const project  = document.getElementById('projectName').value.trim() || 'Untitled Project';
   const startVal = document.getElementById('startDate').value;
   const dueVal   = document.getElementById('dueDate').value;
-  const isNetNew = document.getElementById('netNewCb').checked;
+  const isNetNew = false; // handled by dedicated Net New PDF tab
 
   if (!startVal) { alert('Please enter a start date.'); return; }
 
@@ -106,12 +106,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Wire global onclick handlers used by inline HTML attributes
   window.previewPhases    = previewPhases;
   window.addRow           = addRow;
-  window.toggleNetNew     = toggleNetNew;
   window.setDays          = setDays;
   window.generateTimeline = generateTimeline;
   window.copyEmailTable   = copyEmailTable;
-  window.printTimeline    = printTimeline;
   window.switchTab        = switchTab;
+  window.downloadPdf      = downloadPdf;
 
   // Save button
   document.querySelector('[data-action="save-timeline"]')?.addEventListener('click', async () => {
