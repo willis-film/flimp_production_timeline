@@ -331,10 +331,10 @@ function pdfHero(client, project, startDate, dueDate, projectSpanDays, projectEn
       border:1px solid ${PDF.border};
     ">
       <!-- Grommets — one in each corner -->
-      <div style="position:absolute;top:8px;left:8px;width:10px;height:10px;border-radius:50%;background:#e8edf2;box-shadow:inset 0 1px 3px rgba(0,0,0,0.35);z-index:2"></div>
-      <div style="position:absolute;top:8px;right:8px;width:10px;height:10px;border-radius:50%;background:#e8edf2;box-shadow:inset 0 1px 3px rgba(0,0,0,0.35);z-index:2"></div>
-      <div style="position:absolute;bottom:8px;left:8px;width:10px;height:10px;border-radius:50%;background:#e8edf2;box-shadow:inset 0 1px 3px rgba(0,0,0,0.35);z-index:2"></div>
-      <div style="position:absolute;bottom:8px;right:8px;width:10px;height:10px;border-radius:50%;background:#e8edf2;box-shadow:inset 0 1px 3px rgba(0,0,0,0.35);z-index:2"></div>
+      <div style="position:absolute;top:5px;left:5px;width:5px;height:5px;border-radius:50%;background:#888888;z-index:2"></div>
+      <div style="position:absolute;top:5px;right:5px;width:5px;height:5px;border-radius:50%;background:#888888;z-index:2"></div>
+      <div style="position:absolute;bottom:5px;left:5px;width:5px;height:5px;border-radius:50%;background:#888888;z-index:2"></div>
+      <div style="position:absolute;bottom:5px;right:5px;width:5px;height:5px;border-radius:50%;background:#888888;z-index:2"></div>
       <div style="display:flex;border-radius:10px;overflow:hidden">
         ${stats.map(statCell).join('')}
       </div>
