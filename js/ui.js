@@ -259,15 +259,30 @@ export function rebuildPhaseTable(block, skipPhases) {
     phases = phases.filter(p => !skipPhases.has(p.name));
   }
 
-  // Expand round groups
+  // Expand round groups — rounds is the outer loop, phases inner,
+  // so output is: Rd1Phase1, Rd1Phase2, Rd2Phase1, Rd2Phase2 (interleaved)
   const expanded = [];
   const roundGroupDefs = ROUND_GROUPS[product] || [];
+  const usedGroups = new Set();
+
   phases.forEach(p => {
     if (!p.round_group_name) { expanded.push(p); return; }
+    if (usedGroups.has(p.round_group_name)) return; // already expanded this group
+    usedGroups.add(p.round_group_name);
+
     const rgDef = roundGroupDefs.find(rg => rg.group_name === p.round_group_name);
-    const rCount = rgDef ? rounds : 1;
+    const fixedTotal = roundGroupDefs
+      .filter(rg => rg.is_user_adjustable === false)
+      .reduce((s, rg) => s + rg.default_rounds, 0);
+    const rCount = (rgDef && rgDef.is_user_adjustable === false)
+      ? rgDef.default_rounds
+      : Math.max(1, rounds - fixedTotal);
+
+    const groupPhases = phases.filter(gp => gp.round_group_name === p.round_group_name);
     for (let r = 1; r <= rCount; r++) {
-      expanded.push({ ...p, name: rCount > 1 ? `${p.name} Rd ${r}` : p.name });
+      groupPhases.forEach(gp => {
+        expanded.push({ ...gp, name: rCount > 1 ? `${gp.name} Rd ${r}` : gp.name });
+      });
     }
   });
 
@@ -346,15 +361,29 @@ export function previewPhases() {
         return p;
       });
 
-    // Expand round groups
+    // Expand round groups — rounds outer, phases inner for correct interleaving
     const roundGroupDefs = ROUND_GROUPS[del.product] || [];
     const expanded = [];
+    const usedGroups = new Set();
+
     phases.forEach(p => {
       if (!p.round_group_name) { expanded.push(p); return; }
-      const rgDef  = roundGroupDefs.find(rg => rg.group_name === p.round_group_name);
-      const rCount = rgDef ? del.rounds : 1;
+      if (usedGroups.has(p.round_group_name)) return;
+      usedGroups.add(p.round_group_name);
+
+      const rgDef = roundGroupDefs.find(rg => rg.group_name === p.round_group_name);
+      const fixedTotal = roundGroupDefs
+        .filter(rg => rg.is_user_adjustable === false)
+        .reduce((s, rg) => s + rg.default_rounds, 0);
+      const rCount = (rgDef && rgDef.is_user_adjustable === false)
+        ? rgDef.default_rounds
+        : Math.max(1, del.rounds - fixedTotal);
+
+      const groupPhases = phases.filter(gp => gp.round_group_name === p.round_group_name);
       for (let r = 1; r <= rCount; r++) {
-        expanded.push({ ...p, name: rCount > 1 ? `${p.name} Rd ${r}` : p.name });
+        groupPhases.forEach(gp => {
+          expanded.push({ ...gp, name: rCount > 1 ? `${gp.name} Rd ${r}` : gp.name });
+        });
       }
     });
 
@@ -418,8 +447,16 @@ export function previewPhases() {
     confirmBox.addEventListener('click', e => {
       e.stopPropagation();
       const confirmed = block.dataset.confirmed !== 'true';
-      block.dataset.confirmed = confirmed;
+      block.dataset.confirmed = confirmed ? 'true' : 'false';
       confirmBox.classList.toggle('confirmed', confirmed);
+      const body = block.querySelector('.pb-body');
+      if (confirmed) {
+        body.classList.remove('open');
+        chevron.classList.remove('open');
+      } else {
+        body.classList.add('open');
+        chevron.classList.add('open');
+      }
       updateGenerateBtn();
     });
     confirmWrap.appendChild(confirmBox); confirmWrap.appendChild(confirmLabel);
