@@ -1,0 +1,153 @@
+// ── main.js ───────────────────────────────────────────────────────────────
+// Entry point for the timeline builder (index.html).
+// Imports from all modules and wires up init, event listeners, and bootstrap.
+// This is the only file referenced in index.html's <script> tag.
+// ─────────────────────────────────────────────────────────────────────────
+
+import { loadReferenceData } from './database.js';
+import { setDays, toISO, nextWorkDay, scheduleTimeline, buildParentIdxMap } from './engine.js';
+import {
+  buildDelRow, buildSelect, addRow, updateRemove,
+  previewPhases, updateFeasibility, recalcPhaseDates,
+  recalcBlockFeasibility, toggleNetNew
+} from './ui.js';
+import {
+  renderTimelineTable, copyTableToClipboard,
+  copyEmailFormat, printTimeline, saveTimeline
+} from './output.js';
+
+// ── Read phases from preview blocks ──────────────────────────────────────
+// Shared between generateTimeline() and the save handler.
+function readPhasesFromDOM() {
+  return [...document.querySelectorAll('#pbBlocks .pb-block')].map(block =>
+    [...block.querySelectorAll('.phase-table tbody tr')].map(tr => ({
+      name:  tr.querySelector('.pt-name')?.value.trim() || '',
+      dur:   Math.max(1, parseInt(tr.querySelector('.pt-dur')?.value || 1) || 1),
+      owner: tr.querySelector('.owner-badge')?.textContent.trim() || 'Flimp'
+    })).filter(p => p.name)
+  );
+}
+
+function readDeliverablesFromDOM() {
+  return [...document.querySelectorAll('#delRows .del-row')]
+    .map(r => ({
+      product:   r.querySelector('select').value,
+      count:     parseInt(r.querySelector('input[type=number]').value) || 1,
+      isRenewal: r.querySelector('.nr-btn.r-active') !== null,
+      rounds:    parseInt(r.querySelector('.rounds-val').textContent) || 2
+    }))
+    .filter(d => d.product);
+}
+
+// ── Generate timeline ─────────────────────────────────────────────────────
+// Bridges the form → engine → output pipeline.
+function generateTimeline() {
+  const client   = document.getElementById('clientName').value.trim() || 'Client';
+  const project  = document.getElementById('projectName').value.trim() || 'Untitled Project';
+  const startVal = document.getElementById('startDate').value;
+  const dueVal   = document.getElementById('dueDate').value;
+  const isNetNew = document.getElementById('netNewCb').checked;
+
+  if (!startVal) { alert('Please enter a start date.'); return; }
+
+  const startDate = nextWorkDay(new Date(startVal + 'T00:00:00'));
+  const dueDate   = dueVal ? new Date(dueVal + 'T00:00:00') : null;
+
+  const deliverables       = readDeliverablesFromDOM();
+  const phasesPerDeliverable = readPhasesFromDOM();
+
+  if (!deliverables.length) { alert('Please select at least one product.'); return; }
+
+  const delRows      = [...document.querySelectorAll('#delRows .del-row')];
+  const parentIdxMap = buildParentIdxMap(delRows);
+  const result       = scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdxMap, startDate, dueDate });
+
+  renderTimelineTable({ ...result, startDate, dueDate, project, client, isNetNew });
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  // Build initial deliverable rows (selects will be empty and rebuilt after loadReferenceData)
+  const dr = document.getElementById('delRows');
+  for (let i = 0; i < 3; i++) dr.appendChild(buildDelRow());
+  updateRemove();
+
+  // Default start date to today
+  document.getElementById('startDate').value = toISO(new Date());
+
+  // Date change listeners
+  document.getElementById('startDate').addEventListener('change', () => {
+    updateFeasibility();
+    document.querySelectorAll('#pbBlocks .pb-block').forEach(b => recalcBlockFeasibility(b));
+  });
+  document.getElementById('dueDate').addEventListener('change', () => {
+    updateFeasibility();
+    document.querySelectorAll('#pbBlocks .pb-block').forEach(b => {
+      recalcPhaseDates(b);
+      recalcBlockFeasibility(b);
+    });
+  });
+
+  // PM localStorage
+  const savedPm = localStorage.getItem('flimp_pm');
+  if (savedPm) {
+    const s = document.getElementById('pmName');
+    if ([...s.options].find(o => o.value === savedPm)) s.value = savedPm;
+  }
+  document.getElementById('pmName').addEventListener('change', function () {
+    if (this.value) localStorage.setItem('flimp_pm', this.value);
+  });
+
+  // Duration input → live feasibility update
+  document.addEventListener('input', e => {
+    if (e.target.classList.contains('pt-dur')) updateFeasibility();
+  });
+
+  // Wire global onclick handlers used by inline HTML attributes
+  window.previewPhases    = previewPhases;
+  window.addRow           = addRow;
+  window.toggleNetNew     = toggleNetNew;
+  window.setDays          = setDays;
+  window.generateTimeline = generateTimeline;
+  window.copyTable        = copyTableToClipboard;
+  window.printTimeline    = printTimeline;
+
+  // Save button
+  document.querySelector('[data-action="save-timeline"]')?.addEventListener('click', async () => {
+    const startVal = document.getElementById('startDate').value;
+    const dueVal   = document.getElementById('dueDate').value;
+    const startDate = nextWorkDay(new Date(startVal + 'T00:00:00'));
+    const dueDate   = dueVal ? new Date(dueVal + 'T00:00:00') : null;
+
+    const deliverables         = readDeliverablesFromDOM();
+    const phasesPerDeliverable = readPhasesFromDOM();
+    const delRows              = [...document.querySelectorAll('#delRows .del-row')];
+    const parentIdxMap         = buildParentIdxMap(delRows);
+    const result               = scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdxMap, startDate, dueDate });
+
+    await saveTimeline({
+      pm:      document.getElementById('pmName').value,
+      client:  document.getElementById('clientName').value.trim(),
+      project: document.getElementById('projectName').value.trim(),
+      startDate, dueDate,
+      ...result
+    });
+  });
+
+  // Bootstrap: load Supabase data then unlock UI
+  const ok = await loadReferenceData();
+  document.getElementById('loadingOverlay').style.display = 'none';
+  if (!ok) {
+    document.getElementById('loadingError').style.display = 'flex';
+    return;
+  }
+
+  // Rebuild product selects now that PRODUCTS is populated
+  document.querySelectorAll('#delRows .del-row').forEach(r => {
+    const sel    = r.querySelector('select');
+    const cur    = sel ? sel.value : '';
+    const newSel = buildSelect();
+    if (cur) newSel.value = cur;
+    sel.replaceWith(newSel);
+  });
+});

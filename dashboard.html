@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flimp Timeline Dashboard</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+
+<header class="app-header">
+  <div class="logo">
+    <span class="logo-wordmark">flimp</span>
+    <span class="logo-sub">/ Dashboard</span>
+  </div>
+  <a href="/" style="height:32px;padding:0 14px;border-radius:8px;font-family:Calibri,sans-serif;font-size:13px;font-weight:500;cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:6px;background:transparent;border:1px solid #ffffff30;color:#ffffffcc;transition:all .15s" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">
+    ← New Timeline
+  </a>
+</header>
+
+<div class="page">
+
+  <div class="section-head">
+    <div class="section-num">—</div>
+    <span class="section-title">Saved Timelines</span>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="dash-filter-bar">
+    <div class="field" style="max-width:260px">
+      <label>Filter by PM</label>
+      <select id="dashPmFilter">
+        <option value="">All PMs</option>
+        <option>Andrea Mendible</option>
+        <option>Andrew Willis</option>
+        <option>Ann-Marie Matzinger</option>
+        <option>Brady Miller</option>
+        <option>Bryna Blosch Veltum</option>
+        <option>Catherine Dreiss</option>
+        <option>Deborah Henrichs</option>
+        <option>Ebony Loyal</option>
+        <option>Emily Dorn</option>
+        <option>Heather Stephenson</option>
+        <option>Helen Harwood</option>
+        <option>Jamie Dupuis</option>
+        <option>Jeff Fritts</option>
+        <option>Jenny Haarsma</option>
+        <option>Jessica Munoz</option>
+        <option>Jordan Wassell</option>
+        <option>Kamala Robinson</option>
+        <option>Kathi Scott</option>
+        <option>Matt Bushlow</option>
+        <option>Mike Behrenhausen</option>
+        <option>Nichole Sumpter</option>
+        <option>Peyton Young</option>
+        <option>Rosangela Azcona</option>
+        <option>Sondra Hawkins</option>
+        <option>Vince Pham</option>
+        <option>Zach Butlein</option>
+      </select>
+    </div>
+    <button class="dash-refresh-btn" id="dashRefresh">↺ Refresh</button>
+  </div>
+
+  <!-- Timeline list -->
+  <div id="dashTimelineList" class="dash-timeline-list">
+    <div class="dash-loading">Loading timelines…</div>
+  </div>
+
+  <!-- Detail panel -->
+  <div id="dashDetail" class="dash-detail" style="display:none"></div>
+
+</div><!-- /.page -->
+
+<script type="module" src="js/dashboard.js"></script>
+</body>
+</html>

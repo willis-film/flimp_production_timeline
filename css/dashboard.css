@@ -1,0 +1,36 @@
+/* ── dashboard.css ────────────────────────────────────────────────────────
+   Dashboard-specific styles. Imports after styles.css so shared variables
+   and base styles are already available.
+───────────────────────────────────────────────────────────────────────── */
+
+/* ── Filter bar ── */
+.dash-filter-bar{display:flex;align-items:flex-end;gap:12px;margin-bottom:1.25rem;flex-wrap:wrap}
+.dash-refresh-btn{height:38px;padding:0 16px;border:1px solid var(--border);border-radius:var(--radius);background:#fff;color:var(--text-secondary);font-family:Calibri,sans-serif;font-size:13px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.dash-refresh-btn:hover{border-color:var(--blue);color:var(--text)}
+
+/* ── Timeline list ── */
+.dash-timeline-list{display:flex;flex-direction:column;gap:.75rem;margin-bottom:2rem}
+.dash-loading{padding:2rem;text-align:center;color:var(--text-tertiary);font-size:13px}
+.dash-error{padding:2rem;text-align:center;color:var(--red);font-size:13px}
+.dash-empty{padding:2rem;text-align:center;color:var(--text-tertiary);font-size:13px}
+
+/* ── Timeline card ── */
+.dash-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;transition:border-color .15s}
+.dash-card:hover{border-color:#aab5d0}
+.dash-card-main{flex:1;min-width:0}
+.dash-card-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-card-meta{font-size:12px;color:var(--text-secondary);margin-bottom:2px}
+.dash-card-dates{font-size:11px;color:var(--text-tertiary)}
+.dash-card-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.dash-version-badge{font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:var(--border-light);color:var(--text-tertiary)}
+.dash-open-btn{height:32px;padding:0 14px;border:1.5px solid var(--dark);border-radius:var(--radius);background:transparent;color:var(--dark);font-family:Calibri,sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
+.dash-open-btn:hover{background:var(--dark);color:var(--lime)}
+
+/* ── Detail panel ── */
+.dash-detail{background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-top:1.5rem}
+.dash-detail-header{background:var(--dark);padding:.85rem 1.25rem;display:flex;align-items:center;justify-content:space-between}
+.dash-detail-title{font-size:16px;font-weight:700;color:#fff}
+.dash-detail-meta{font-size:12px;color:rgba(255,255,255,.5);margin-top:2px}
+.dash-close-btn{height:30px;padding:0 12px;border:1px solid rgba(255,255,255,.2);border-radius:var(--radius);background:transparent;color:rgba(255,255,255,.7);font-family:Calibri,sans-serif;font-size:12px;cursor:pointer;transition:all .15s}
+.dash-close-btn:hover{border-color:var(--red);color:var(--red)}
+.dash-detail-body{overflow-x:auto}
