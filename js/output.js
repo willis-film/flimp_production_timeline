@@ -283,14 +283,14 @@ function pdfHero(client, project, startDate, dueDate, projectSpanDays, projectEn
   const stats = [
     ['Project Start',  fmtDateShort(startDate)],
     ['Working Days',   String(projectSpanDays)],
-    dueDate ? ['Due Date', fmtDateShort(dueDate)] : null,
     ['Projected End',  fmtDateShort(projectEndDate)],
+    dueDate ? ['Due Date', fmtDateShort(dueDate)] : null,
     ['Deliverables',   String(deliverables.reduce((a, d) => a + d.count, 0))],
   ].filter(Boolean);
 
   const statCell = ([label, value]) => `
-    <div style="flex:1;padding:14px 16px;border-right:1px solid ${PDF.border};min-width:0">
-      <div style="font-size:7px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:${PDF.textMuted};margin-bottom:5px;font-family:${PDF.font}">${label}</div>
+    <div style="flex:1;padding:16px 16px;border-right:1px solid ${PDF.border};min-width:0">
+      <div style="font-size:7px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:${PDF.textMuted};margin-bottom:6px;font-family:${PDF.font}">${label}</div>
       <div style="font-size:13px;font-weight:700;color:${PDF.text};font-family:${PDF.font};line-height:1;white-space:nowrap">${value}</div>
     </div>`;
 
@@ -306,15 +306,15 @@ function pdfHero(client, project, startDate, dueDate, projectSpanDays, projectEn
       justify-content:space-between;
       align-items:flex-start;
     ">
-      <!-- Logo left -->
-      <div style="display:flex;align-items:center;padding-top:4px">
-        ${FLIMP_LOGO_SVG}
+      <!-- Client + project left -->
+      <div style="text-align:left">
+        <div style="font-size:20px;font-weight:700;color:#fff;line-height:1.2;font-family:${PDF.font}">${esc(client)}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:4px;font-family:${PDF.font}">${esc(project)}</div>
       </div>
 
-      <!-- Project info right -->
-      <div style="text-align:right">
-        <div style="font-size:20px;font-weight:700;color:#fff;line-height:1.2;font-family:${PDF.font}">${esc(project)}</div>
-        <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:4px;font-family:${PDF.font}">${esc(client)}</div>
+      <!-- Logo right -->
+      <div style="display:flex;align-items:center;padding-top:4px">
+        ${FLIMP_LOGO_SVG}
       </div>
     </div>
 
@@ -337,14 +337,14 @@ function pdfHero(client, project, startDate, dueDate, projectSpanDays, projectEn
 function pdfSection(title) {
   return `
     <div style="
-      display:inline-block;
+      display:block;
       background:${PDF.dark};
       color:#fff;
       font-size:8px;
       font-weight:700;
       letter-spacing:0.1em;
       text-transform:uppercase;
-      padding:6px 14px;
+      padding:7px 14px;
       border-radius:6px;
       margin-bottom:12px;
       font-family:${PDF.font};
@@ -443,18 +443,7 @@ function pdfPhasesByProduct(deliverables, phasesPerDeliverable, milestoneGroups)
 
     return `
       <div style="margin-bottom:20px;break-inside:avoid">
-        <div style="
-          display:inline-block;
-          background:${PDF.dark};
-          color:#fff;
-          font-size:8px;
-          font-weight:700;
-          letter-spacing:0.06em;
-          padding:5px 12px;
-          border-radius:5px;
-          margin-bottom:6px;
-          font-family:${PDF.font};
-        ">${esc(label)}</div>
+        <div style="font-size:10px;font-weight:700;color:${PDF.text};padding:7px 0;border-bottom:1.5px solid ${PDF.dark};margin-bottom:0;font-family:${PDF.font}">${esc(label)}</div>
         <table style="width:100%;border-collapse:collapse">${rows}</table>
       </div>`;
   }).join('');
