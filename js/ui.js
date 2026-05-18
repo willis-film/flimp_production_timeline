@@ -145,6 +145,7 @@ export function addRow() {
 function buildNewPhaseRow() {
   const tr = document.createElement('tr');
   tr.innerHTML = `
+    <td class="phase-drag-handle" title="Drag to reorder">⠿</td>
     <td><input class="pt-name" type="text" value="New phase"></td>
     <td style="text-align:center"><span class="owner-badge owner-flimp">Flimp</span></td>
     <td style="text-align:center"><input class="pt-dur" type="number" min="1" max="120" value="3"></td>
@@ -226,6 +227,53 @@ function getAppendedDays(parentProduct, parentIsRenewal) {
   return total;
 }
 
+// ── Phase row drag-and-drop ───────────────────────────────────────────────
+// Wires HTML5 drag-and-drop reordering on a phase tbody.
+// Called after both previewPhases and rebuildPhaseTable build their rows.
+function makePhaseTbodyDraggable(tbody, block) {
+  let dragSrc = null;
+
+  tbody.querySelectorAll('tr').forEach(row => {
+    row.draggable = true;
+
+    row.addEventListener('dragstart', e => {
+      dragSrc = row;
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    row.addEventListener('dragend', () => {
+      row.classList.remove('dragging');
+      tbody.querySelectorAll('tr').forEach(r => r.classList.remove('drag-over'));
+      dragSrc = null;
+      recalcPhaseDates(block);
+      recalcBlockFeasibility(block);
+    });
+
+    row.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      tbody.querySelectorAll('tr').forEach(r => r.classList.remove('drag-over'));
+      if (row !== dragSrc) row.classList.add('drag-over');
+    });
+
+    row.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!dragSrc || dragSrc === row) return;
+      row.classList.remove('drag-over');
+
+      // Insert dragSrc before or after row depending on cursor position
+      const rect = row.getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      if (e.clientY < midY) {
+        tbody.insertBefore(dragSrc, row);
+      } else {
+        tbody.insertBefore(dragSrc, row.nextSibling);
+      }
+    });
+  });
+}
+
 // ── Rebuild phase table ───────────────────────────────────────────────────
 export function rebuildPhaseTable(block, skipPhases) {
   const product   = block.dataset.product;
@@ -284,10 +332,15 @@ export function rebuildPhaseTable(block, skipPhases) {
   if (!tbody) return;
   tbody.innerHTML = '';
 
+  // Update table header to include drag handle column
+  const thead = block.querySelector('.phase-table thead');
+  if (thead) thead.innerHTML = '<tr><th style="width:22px"></th><th>Phase</th><th style="text-align:center">Owner</th><th style="text-align:center">Days</th><th style="text-align:center">Ends</th><th></th></tr>';
+
   expanded.forEach(phase => {
     const tr = document.createElement('tr');
     const ownerClass = phase.owner === 'Client' ? 'owner-client' : 'owner-flimp';
     tr.innerHTML = `
+      <td class="phase-drag-handle" title="Drag to reorder">⠿</td>
       <td><input class="pt-name" type="text" value="${esc(phase.name)}"></td>
       <td style="text-align:center"><span class="owner-badge ${ownerClass}">${esc(phase.owner)}</span></td>
       <td style="text-align:center"><input class="pt-dur" type="number" min="1" max="120" value="${phase.dur}"></td>
@@ -304,6 +357,8 @@ export function rebuildPhaseTable(block, skipPhases) {
 
     tbody.appendChild(tr);
   });
+
+  makePhaseTbodyDraggable(tbody, block);
 
   const subtitle = block.querySelector('.pb-title-sub');
   if (subtitle) {
@@ -523,13 +578,14 @@ export function previewPhases() {
     const table   = document.createElement('table');
     table.className = 'phase-table';
     const thead   = document.createElement('thead');
-    thead.innerHTML = '<tr><th>Phase</th><th style="text-align:center">Owner</th><th style="text-align:center">Days</th><th style="text-align:center">Ends</th><th></th></tr>';
+    thead.innerHTML = '<tr><th style="width:22px"></th><th>Phase</th><th style="text-align:center">Owner</th><th style="text-align:center">Days</th><th style="text-align:center">Ends</th><th></th></tr>';
     const tbody   = document.createElement('tbody');
 
     expanded.forEach(phase => {
       const tr = document.createElement('tr');
       const ownerClass = phase.owner === 'Client' ? 'owner-client' : 'owner-flimp';
       tr.innerHTML = `
+        <td class="phase-drag-handle" title="Drag to reorder">⠿</td>
         <td><input class="pt-name" type="text" value="${esc(phase.name)}"></td>
         <td style="text-align:center"><span class="owner-badge ${ownerClass}">${esc(phase.owner)}</span></td>
         <td style="text-align:center"><input class="pt-dur" type="number" min="1" max="120" value="${phase.dur}"></td>
@@ -547,6 +603,7 @@ export function previewPhases() {
 
     table.appendChild(thead); table.appendChild(tbody);
     body.appendChild(table);
+    makePhaseTbodyDraggable(tbody, block);
 
     // Add phase button
     const addPhaseBtn = document.createElement('button');
@@ -558,6 +615,8 @@ export function previewPhases() {
       newRow.querySelector('.phase-rm-btn').onclick = () => { newRow.remove(); updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block); };
       newRow.querySelector('.pt-name').focus();
       newRow.querySelector('.pt-name').select();
+      // Re-wire all rows for drag since new row was appended
+      makePhaseTbodyDraggable(tbody, block);
       updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block);
     };
     body.appendChild(addPhaseBtn);

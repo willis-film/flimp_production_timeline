@@ -135,6 +135,11 @@ body{font-family:Calibri,sans-serif;background:#F2F8F0;color:var(--text);min-hei
 .pc-item.pc-checked{border-color:var(--amber);background:#fff8e6;color:#7a5c00}
 .pc-item input[type=checkbox]{width:12px;height:12px;accent-color:var(--amber);cursor:pointer;flex-shrink:0}
 
+.phase-drag-handle{width:18px;cursor:grab;color:var(--text-tertiary);opacity:.4;transition:opacity .12s;text-align:center;font-size:14px;padding:0 4px;user-select:none}
+.phase-drag-handle:hover{opacity:.9}
+tr.drag-over td{background:var(--blue-bg)!important}
+tr.dragging{opacity:.4}
+
 /* ── Phase table ── */
 .phase-table{width:100%;border-collapse:collapse}
 .phase-table th{padding:.5rem .9rem;font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.06em;text-transform:uppercase;text-align:left;border-bottom:1px solid var(--border-light);background:var(--warm-white)}
