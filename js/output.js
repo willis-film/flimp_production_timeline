@@ -236,7 +236,7 @@ const PDF = {
   borderDark: '#08212D',
   warm:       '#FEFBF5',
   red:        '#D83A31',
-  font:       'Calibri, Arial, sans-serif',
+  font:       'Verdana, Geneva, sans-serif',
   pageW:      '816px',   // letter at 96dpi
   pageH:      '1056px',
   margin:     '48px',
@@ -288,20 +288,10 @@ function pdfHero(client, project, startDate, dueDate, projectSpanDays, projectEn
     ['Deliverables',   String(deliverables.reduce((a, d) => a + d.count, 0))],
   ].filter(Boolean);
 
-  // Two rows of stats, roughly half each
-  const mid = Math.ceil(stats.length / 2);
-  const row1 = stats.slice(0, mid);
-  const row2 = stats.slice(mid);
-
   const statCell = ([label, value]) => `
-    <div style="flex:1;padding:14px 20px;border-right:1px solid ${PDF.border}">
-      <div style="font-size:8px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:${PDF.textMuted};margin-bottom:5px;font-family:${PDF.font}">${label}</div>
-      <div style="font-size:16px;font-weight:700;color:${PDF.text};font-family:${PDF.font};line-height:1">${value}</div>
-    </div>`;
-
-  const statRow = (cells, borderTop) => `
-    <div style="display:flex;${borderTop ? `border-top:1px solid ${PDF.border};` : ''}">
-      ${cells.map(statCell).join('')}
+    <div style="flex:1;padding:14px 16px;border-right:1px solid ${PDF.border};min-width:0">
+      <div style="font-size:7px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:${PDF.textMuted};margin-bottom:5px;font-family:${PDF.font}">${label}</div>
+      <div style="font-size:13px;font-weight:700;color:${PDF.text};font-family:${PDF.font};line-height:1;white-space:nowrap">${value}</div>
     </div>`;
 
   return `
@@ -309,8 +299,8 @@ function pdfHero(client, project, startDate, dueDate, projectSpanDays, projectEn
     <div style="
       position:relative;
       background:${PDF.dark};
-      height:180px;
-      padding:28px ${PDF.margin} 0;
+      height:140px;
+      padding:24px ${PDF.margin} 0;
       box-sizing:border-box;
       display:flex;
       justify-content:space-between;
@@ -324,13 +314,13 @@ function pdfHero(client, project, startDate, dueDate, projectSpanDays, projectEn
       <!-- Project info right -->
       <div style="text-align:right">
         <div style="font-size:20px;font-weight:700;color:#fff;line-height:1.2;font-family:${PDF.font}">${esc(project)}</div>
-        <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:5px;font-family:${PDF.font}">${esc(client)}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:4px;font-family:${PDF.font}">${esc(client)}</div>
       </div>
     </div>
 
-    <!-- Summary card overlapping the dark band -->
+    <!-- Summary card overlapping the dark band — all stats in one row -->
     <div style="
-      margin:-60px ${PDF.margin} 32px;
+      margin:-40px ${PDF.margin} 28px;
       background:#fff;
       border-radius:10px;
       box-shadow:0 4px 20px rgba(0,0,0,0.15);
@@ -339,21 +329,24 @@ function pdfHero(client, project, startDate, dueDate, projectSpanDays, projectEn
       z-index:1;
       border:1px solid ${PDF.border};
     ">
-      ${statRow(row1, false)}
-      ${row2.length ? statRow(row2, true) : ''}
+      <div style="display:flex">
+        ${stats.map(statCell).join('')}
+      </div>
     </div>`;
 }
 function pdfSection(title) {
   return `
     <div style="
-      font-size:9px;
+      display:inline-block;
+      background:${PDF.dark};
+      color:#fff;
+      font-size:8px;
       font-weight:700;
       letter-spacing:0.1em;
       text-transform:uppercase;
-      color:${PDF.textMuted};
-      padding:0 0 6px 0;
-      border-bottom:2px solid ${PDF.dark};
-      margin-bottom:0;
+      padding:6px 14px;
+      border-radius:6px;
+      margin-bottom:12px;
       font-family:${PDF.font};
     ">${title}</div>`;
 }
@@ -450,7 +443,18 @@ function pdfPhasesByProduct(deliverables, phasesPerDeliverable, milestoneGroups)
 
     return `
       <div style="margin-bottom:20px;break-inside:avoid">
-        <div style="font-size:10px;font-weight:700;color:${PDF.text};padding:7px 0;border-bottom:1.5px solid ${PDF.dark};margin-bottom:0;font-family:${PDF.font}">${esc(label)}</div>
+        <div style="
+          display:inline-block;
+          background:${PDF.dark};
+          color:#fff;
+          font-size:8px;
+          font-weight:700;
+          letter-spacing:0.06em;
+          padding:5px 12px;
+          border-radius:5px;
+          margin-bottom:6px;
+          font-family:${PDF.font};
+        ">${esc(label)}</div>
         <table style="width:100%;border-collapse:collapse">${rows}</table>
       </div>`;
   }).join('');
