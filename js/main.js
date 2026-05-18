@@ -39,21 +39,22 @@ function readDeliverablesFromDOM() {
     .filter(d => d.product);
 }
 
+// ── Last generated timeline data — used by PDF renderers ─────────────────
+let lastTimelineData = null;
+
 // ── Generate timeline ─────────────────────────────────────────────────────
-// Bridges the form → engine → output pipeline.
 function generateTimeline() {
   const client   = document.getElementById('clientName').value.trim() || 'Client';
   const project  = document.getElementById('projectName').value.trim() || 'Untitled Project';
   const startVal = document.getElementById('startDate').value;
   const dueVal   = document.getElementById('dueDate').value;
-  const isNetNew = false; // handled by dedicated Net New PDF tab
 
   if (!startVal) { alert('Please enter a start date.'); return; }
 
   const startDate = nextWorkDay(new Date(startVal + 'T00:00:00'));
   const dueDate   = dueVal ? new Date(dueVal + 'T00:00:00') : null;
 
-  const deliverables       = readDeliverablesFromDOM();
+  const deliverables         = readDeliverablesFromDOM();
   const phasesPerDeliverable = readPhasesFromDOM();
 
   if (!deliverables.length) { alert('Please select at least one product.'); return; }
@@ -62,7 +63,9 @@ function generateTimeline() {
   const parentIdxMap = buildParentIdxMap(delRows);
   const result       = scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdxMap, startDate, dueDate });
 
-  renderTimelineTable({ ...result, startDate, dueDate, project, client, isNetNew });
+  lastTimelineData = { ...result, startDate, dueDate, project, client };
+
+  renderTimelineTable(lastTimelineData);
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────
@@ -110,7 +113,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.generateTimeline = generateTimeline;
   window.copyEmailTable   = copyEmailTable;
   window.switchTab        = switchTab;
-  window.downloadPdf      = downloadPdf;
+  window.downloadPdf      = (type) => downloadPdf(type, lastTimelineData);
 
   // Save button
   document.querySelector('[data-action="save-timeline"]')?.addEventListener('click', async () => {

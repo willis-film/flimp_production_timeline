@@ -216,11 +216,250 @@ export function switchTab(tab) {
   });
 }
 
-// ── PDF download (stub — renderers to be built) ───────────────────────────
-export function downloadPdf(type) {
-  // type: 'basic' | 'expanded' | 'netNew'
-  // Will be implemented with jsPDF + html2canvas
-  alert(`${type === 'basic' ? 'Basic' : type === 'expanded' ? 'Expanded' : 'Net New Expanded'} PDF export coming soon.`);
+// ── PDF logo placeholder ──────────────────────────────────────────────────
+// Replace the content of FLIMP_LOGO_SVG with your actual SVG markup.
+// Paste everything between (and including) the <svg ...> and </svg> tags.
+const FLIMP_LOGO_SVG = `
+  <!-- PASTE FLIMP LOGO SVG HERE -->
+  <svg viewBox="0 0 120 32" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto">
+    <text x="0" y="24" font-family="Calibri,sans-serif" font-size="28" font-weight="700" fill="#67E74E">flimp</text>
+  </svg>`;
+
+// ── PDF shared design tokens ──────────────────────────────────────────────
+const PDF = {
+  dark:       '#08212D',
+  lime:       '#67E74E',
+  text:       '#08212D',
+  textLight:  '#3d5a68',
+  textMuted:  '#7a96a3',
+  border:     '#dde3ec',
+  borderDark: '#08212D',
+  warm:       '#FEFBF5',
+  red:        '#D83A31',
+  font:       'Calibri, Arial, sans-serif',
+  pageW:      '816px',   // letter at 96dpi
+  pageH:      '1056px',
+  margin:     '48px',
+};
+
+// ── PDF page wrapper ──────────────────────────────────────────────────────
+function pdfPage(content, pageNum, totalPages) {
+  return `
+    <div style="
+      width:${PDF.pageW};
+      min-height:${PDF.pageH};
+      background:#fff;
+      font-family:${PDF.font};
+      color:${PDF.text};
+      position:relative;
+      page-break-after:always;
+      box-sizing:border-box;
+    ">
+      ${content}
+      <div style="
+        position:absolute;
+        bottom:24px;
+        left:${PDF.margin};
+        right:${PDF.margin};
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        border-top:1px solid ${PDF.border};
+        padding-top:10px;
+        font-size:9px;
+        color:${PDF.textMuted};
+        font-family:${PDF.font};
+      ">
+        <span>Prepared by Flimp Communications · ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+        <span>Page ${pageNum} of ${totalPages}</span>
+      </div>
+    </div>`;
+}
+
+// ── PDF page header bar ───────────────────────────────────────────────────
+function pdfHeader(client, project) {
+  return `
+    <div style="
+      background:${PDF.dark};
+      padding:20px ${PDF.margin};
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+    ">
+      <div style="display:flex;align-items:center">
+        ${FLIMP_LOGO_SVG}
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:15px;font-weight:700;color:#fff;line-height:1.2">${esc(project)}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.55);margin-top:3px">${esc(client)}</div>
+      </div>
+    </div>`;
+}
+
+// ── PDF section heading ───────────────────────────────────────────────────
+function pdfSection(title) {
+  return `
+    <div style="
+      font-size:9px;
+      font-weight:700;
+      letter-spacing:0.1em;
+      text-transform:uppercase;
+      color:${PDF.textMuted};
+      padding:0 0 6px 0;
+      border-bottom:2px solid ${PDF.dark};
+      margin-bottom:0;
+      font-family:${PDF.font};
+    ">${title}</div>`;
+}
+
+// ── PDF summary strip ─────────────────────────────────────────────────────
+function pdfSummaryStrip(startDate, dueDate, projectSpanDays, projectEndDate, deliverables) {
+  const items = [
+    ['Project Start',  fmtDateShort(startDate)],
+    ['Working Days',   String(projectSpanDays)],
+    dueDate ? ['Due Date', fmtDateShort(dueDate)] : null,
+    ['Projected End',  fmtDateShort(projectEndDate)],
+    ['Deliverables',   String(deliverables.reduce((a, d) => a + d.count, 0))],
+  ].filter(Boolean);
+
+  const cells = items.map(([label, value]) => `
+    <div style="flex:1;padding:12px 16px;border-right:1px solid ${PDF.border};">
+      <div style="font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};margin-bottom:4px;font-family:${PDF.font}">${label}</div>
+      <div style="font-size:14px;font-weight:700;color:${PDF.text};font-family:${PDF.font}">${value}</div>
+    </div>`).join('');
+
+  return `
+    <div style="display:flex;background:${PDF.warm};border:1px solid ${PDF.border};border-radius:0 0 6px 6px;margin:0 ${PDF.margin} 28px;overflow:hidden">
+      ${cells}
+    </div>`;
+}
+
+// ── PDF milestone table ───────────────────────────────────────────────────
+function pdfMilestoneTable(milestoneGroups, dueDate) {
+  const milestones = milestoneGroups.filter(g => g.items.some(m => m.isMilestone));
+
+  if (!milestones.length) return '';
+
+  const rows = milestones.map(group => {
+    const tasks = [...new Set(group.items.filter(m => m.isMilestone).map(m => m.task))].join(', ');
+    const dels  = [...new Set(group.items.filter(m => m.isMilestone).map(m => m.deliverable))].join(', ');
+    const isPastDue = group.isPastDue;
+    return `
+      <tr>
+        <td style="padding:7px 10px 7px 0;border-bottom:1px solid ${PDF.border};font-size:10px;color:${isPastDue ? PDF.red : PDF.textLight};font-family:${PDF.font};white-space:nowrap;width:70px">${fmtDateShort(group.date)}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${PDF.textMuted};font-family:${PDF.font};width:60px">${esc(group.owner)}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;font-weight:600;color:${isPastDue ? PDF.red : PDF.text};font-family:${PDF.font}">${esc(tasks)}</td>
+        <td style="padding:7px 0 7px 10px;border-bottom:1px solid ${PDF.border};font-size:9px;color:${PDF.textMuted};font-family:${PDF.font}">${esc(dels)}</td>
+      </tr>`;
+  }).join('');
+
+  return `
+    <table style="width:100%;border-collapse:collapse">
+      <thead>
+        <tr>
+          <th style="text-align:left;padding:0 10px 6px 0;font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};border-bottom:1px solid ${PDF.border};font-family:${PDF.font}">Date</th>
+          <th style="text-align:left;padding:0 10px 6px;font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};border-bottom:1px solid ${PDF.border};font-family:${PDF.font}">Party</th>
+          <th style="text-align:left;padding:0 10px 6px;font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};border-bottom:1px solid ${PDF.border};font-family:${PDF.font}">Milestone</th>
+          <th style="text-align:left;padding:0 0 6px 10px;font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};border-bottom:1px solid ${PDF.border};font-family:${PDF.font}">Deliverable</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ── PDF phases-by-deliverable section ────────────────────────────────────
+function pdfPhasesByProduct(deliverables, phasesPerDeliverable, milestoneGroups) {
+  const dateByKey = new Map();
+  milestoneGroups.forEach(group => {
+    group.items.forEach(item => {
+      dateByKey.set(`${item.deliverable}||${item.task}`, { date: group.date, isPastDue: group.isPastDue });
+    });
+  });
+
+  return deliverables.map((del, idx) => {
+    const phases = phasesPerDeliverable[idx] || [];
+    if (!phases.length) return '';
+
+    const label = `${del.product} — ${del.isRenewal ? 'Renewal' : 'New'}`;
+    const rows = phases.map(phase => {
+      const key   = `${del.product}||${phase.name}`;
+      const entry = dateByKey.get(key);
+      const dateStr = entry ? fmtDateShort(entry.date) : '—';
+      const isPastDue = entry?.isPastDue || false;
+      return `
+        <tr>
+          <td style="padding:5px 10px 5px 0;border-bottom:1px solid ${PDF.border};font-size:9px;color:${PDF.textMuted};font-family:${PDF.font};width:55px">${esc(phase.owner)}</td>
+          <td style="padding:5px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${phase.is_milestone ? PDF.text : PDF.textLight};font-weight:${phase.is_milestone ? '600' : '400'};font-family:${PDF.font}">${esc(phase.name)}${phase.is_milestone ? ' ●' : ''}</td>
+          <td style="padding:5px 0 5px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${isPastDue ? PDF.red : PDF.textLight};font-family:${PDF.font};white-space:nowrap;text-align:right">${esc(dateStr)}</td>
+        </tr>`;
+    }).join('');
+
+    return `
+      <div style="margin-bottom:20px;break-inside:avoid">
+        <div style="font-size:10px;font-weight:700;color:${PDF.text};padding:7px 0;border-bottom:1.5px solid ${PDF.dark};margin-bottom:0;font-family:${PDF.font}">${esc(label)}</div>
+        <table style="width:100%;border-collapse:collapse">${rows}</table>
+      </div>`;
+  }).join('');
+}
+
+// ── Build Basic PDF HTML ──────────────────────────────────────────────────
+function buildBasicPdf(data) {
+  const { milestoneGroups, projectEndDate, projectSpanDays, deliverables,
+          phasesPerDeliverable, startDate, dueDate, project, client } = data;
+
+  const hasMilestones = milestoneGroups.some(g => g.items.some(m => m.isMilestone));
+
+  const pageContent = `
+    ${pdfHeader(client, project)}
+
+    ${pdfSummaryStrip(startDate, dueDate, projectSpanDays, projectEndDate, deliverables)}
+
+    <div style="padding:0 ${PDF.margin} 80px">
+
+      ${hasMilestones ? `
+        <div style="margin-bottom:28px">
+          ${pdfSection('Key Milestones')}
+          <div style="padding-top:8px">
+            ${pdfMilestoneTable(milestoneGroups, dueDate)}
+          </div>
+        </div>` : ''}
+
+      <div>
+        ${pdfSection('Phases by Deliverable')}
+        <div style="padding-top:12px">
+          ${pdfPhasesByProduct(deliverables, phasesPerDeliverable, milestoneGroups)}
+        </div>
+      </div>
+
+    </div>`;
+
+  return pdfPage(pageContent, 1, 1);
+}
+
+// ── PDF download entry point ──────────────────────────────────────────────
+export function downloadPdf(type, data) {
+  const canvas = document.getElementById('pdfCanvas');
+  if (!canvas || !data) return;
+
+  let html = '';
+  if (type === 'basic') {
+    html = buildBasicPdf(data);
+  } else {
+    // expanded and netNew to be built
+    alert(`${type === 'expanded' ? 'Expanded' : 'Net New Expanded'} PDF coming soon.`);
+    return;
+  }
+
+  canvas.innerHTML = html;
+  canvas.style.display = 'block';
+
+  // Small delay lets the browser render before print dialog opens
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => {
+      canvas.style.display = 'none';
+    }, 500);
+  }, 150);
 }
 
 // ── Copy email table as HTML to clipboard ─────────────────────────────────

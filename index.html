@@ -290,6 +290,26 @@
 
 </div><!-- /.page -->
 
+<style>
+/* ── PDF print styles ─────────────────────────────────────────────── */
+@media print {
+  body > *:not(#pdfCanvas) { display: none !important; }
+  #pdfCanvas {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    background: #fff;
+  }
+  @page {
+    size: letter portrait;
+    margin: 0;
+  }
+}
+</style>
+
+<!-- Hidden PDF canvas — populated by output.js before window.print() -->
+<div id="pdfCanvas" style="display:none"></div>
+
 <script type="module" src="js/main.js"></script>
 </body>
 </html>
