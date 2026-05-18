@@ -12,8 +12,8 @@ import {
   recalcBlockFeasibility, toggleNetNew
 } from './ui.js';
 import {
-  renderTimelineTable, copyTableToClipboard,
-  copyEmailFormat, printTimeline, saveTimeline
+  renderTimelineTable, copyEmailTable, switchTab,
+  printTimeline, saveTimeline
 } from './output.js';
 
 // ── Read phases from preview blocks ──────────────────────────────────────
@@ -109,8 +109,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.toggleNetNew     = toggleNetNew;
   window.setDays          = setDays;
   window.generateTimeline = generateTimeline;
-  window.copyTable        = copyTableToClipboard;
+  window.copyEmailTable   = copyEmailTable;
   window.printTimeline    = printTimeline;
+  window.switchTab        = switchTab;
 
   // Save button
   document.querySelector('[data-action="save-timeline"]')?.addEventListener('click', async () => {

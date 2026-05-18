@@ -1,145 +1,212 @@
 // ── output.js ─────────────────────────────────────────────────────────────
-// All output format renderers. Consumes the structured data object returned
-// by scheduleTimeline() in engine.js — never calls scheduleTimeline itself.
-//
-// Each renderer is a pure function or a DOM-writing function that targets
-// a specific container. Adding a new format means adding a new export here
-// with no changes to engine.js, ui.js, or main.js.
+// All output format renderers.
+// Formats 1 + 2: editable HTML email tables (chronological and weekly).
+// Formats 3 + 4: PDF exports (to be built).
 // ─────────────────────────────────────────────────────────────────────────
 
 import { esc, fmtDateShort, toISO } from './engine.js';
 import { saveTimelineToDb } from './database.js';
 
-// ── Render the HTML timeline table into #timelineOutput ───────────────────
-export function renderTimelineTable({ milestoneGroups, projectEndDate, projectSpanDays, deliverables, startDate, dueDate, project, isNetNew }) {
+// ── Shared email table styles (Verdana, email-safe, max 550px) ────────────
+const E = {
+  table:   'width:100%;max-width:550px;border-collapse:collapse;font-family:Verdana,sans-serif;font-size:0.72rem;',
+  title:   'padding:0.5rem 0.75rem 0.5rem 0;font-family:Verdana,sans-serif;font-size:0.85rem;font-weight:600;border-bottom:1px solid #ccc;',
+  thFirst: 'text-align:left;padding:0.35rem 0.75rem 0.35rem 0;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;width:18%;font-family:Verdana,sans-serif;',
+  th:      'text-align:left;padding:0.35rem 0.75rem;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;font-family:Verdana,sans-serif;',
+  thDel:   'text-align:left;padding:0.35rem 0.75rem;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;width:12%;font-family:Verdana,sans-serif;',
+  thTask:  'text-align:left;padding:0.35rem 0.75rem;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;width:40%;font-family:Verdana,sans-serif;',
+  thLast:  'text-align:left;padding:0.35rem 0 0.35rem 0.5rem;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;width:10%;font-family:Verdana,sans-serif;',
+  tdFirst: 'padding:0.3rem 0.75rem 0.3rem 0;border-bottom:1px solid #ccc;font-size:0.72rem;font-family:Verdana,sans-serif;',
+  td:      'padding:0.3rem 0.75rem;border-bottom:1px solid #ccc;font-size:0.68rem;font-family:Verdana,sans-serif;',
+  tdTask:  'padding:0.3rem 0.75rem;border-bottom:1px solid #ccc;font-size:0.72rem;font-family:Verdana,sans-serif;max-width:180px;',
+  tdDate:  'padding:0.3rem 0 0.3rem 0.5rem;border-bottom:1px solid #ccc;font-size:0.72rem;font-family:Verdana,sans-serif;white-space:nowrap;',
+  footer:  'padding:0.6rem 0.75rem 0.4rem 0;border-top:2px solid #000;font-size:0.68rem;letter-spacing:0.04em;font-family:Verdana,sans-serif;font-weight:bold;',
+  weekHdr: 'padding:0.45rem 0.75rem 0.45rem 0;font-size:0.65rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;border-bottom:1px solid #ccc;border-top:2px solid #000;font-family:Verdana,sans-serif;color:#333;background:#f5f5f5;',
+};
+
+// ── Shared header rows ────────────────────────────────────────────────────
+function buildTableHeader(project) {
+  return `
+    <tr>
+      <td colspan="4" contenteditable="true" style="${E.title}">${esc(project)}</td>
+    </tr>
+    <tr>
+      <th style="${E.thFirst}">Party</th>
+      <th style="${E.thDel}">Deliverable</th>
+      <th style="${E.thTask}">Task</th>
+      <th style="${E.thLast}">Due Date</th>
+    </tr>`;
+}
+
+// ── Single data row ───────────────────────────────────────────────────────
+function buildDataRow(party, deliverable, task, date, isPastDue) {
+  const rowBg   = isPastDue ? 'background:#fff0f0;' : '';
+  const dateFmt = isPastDue ? `${E.tdDate}color:#c00;` : E.tdDate;
+  return `
+    <tr style="${rowBg}">
+      <td contenteditable="true" style="${E.tdFirst}">${esc(party)}</td>
+      <td contenteditable="true" style="${E.td}">${esc(deliverable)}</td>
+      <td contenteditable="true" style="${E.tdTask}">${esc(task)}</td>
+      <td contenteditable="true" style="${dateFmt}">${esc(date)}</td>
+    </tr>`;
+}
+
+// ── Footer summary row ────────────────────────────────────────────────────
+function buildFooterRow(startDate, projectSpanDays, dueDate, projectEndDate) {
+  const parts = [
+    `Project Start: ${fmtDateShort(startDate)}`,
+    `Working Days: ${projectSpanDays}`,
+    dueDate ? `Due Date: ${fmtDateShort(dueDate)}` : null,
+    `Projected End: ${fmtDateShort(projectEndDate)}`
+  ].filter(Boolean).join('\u00a0\u00a0\u00b7\u00a0\u00a0');
+
+  return `
+    <tr>
+      <td colspan="4" contenteditable="true" style="${E.footer}">${parts}</td>
+    </tr>`;
+}
+
+// ── Build chronological table HTML ────────────────────────────────────────
+function buildChronTable({ milestoneGroups, projectEndDate, projectSpanDays, startDate, dueDate, project }) {
+  let rows = buildTableHeader(project);
+
+  milestoneGroups.forEach(group => {
+    const dels  = [...new Set(group.items.map(m => m.deliverable))].join(', ');
+    const tasks = [...new Set(group.items.map(m => m.task))].join(', ');
+    rows += buildDataRow(group.owner, dels, tasks, fmtDateShort(group.date), group.isPastDue);
+  });
+
+  rows += buildFooterRow(startDate, projectSpanDays, dueDate, projectEndDate);
+  return `<table style="${E.table}"><tbody>${rows}</tbody></table>`;
+}
+
+// ── Build weekly table HTML ───────────────────────────────────────────────
+function buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, startDate, dueDate, project }) {
+  // Get Monday of the week containing a date
+  function weekStart(date) {
+    const d   = new Date(date);
+    const dow = d.getDay();
+    d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  // Bucket milestones by week, preserving order
+  const weekMap = new Map();
+  milestoneGroups.forEach(group => {
+    const ws  = weekStart(group.date);
+    const key = toISO(ws);
+    if (!weekMap.has(key)) weekMap.set(key, { weekDate: ws, groups: [] });
+    weekMap.get(key).groups.push(group);
+  });
+
+  let rows = buildTableHeader(project);
+
+  weekMap.forEach(({ weekDate, groups }) => {
+    // Week header spanning all columns
+    const weekEnd = new Date(weekDate);
+    weekEnd.setDate(weekEnd.getDate() + 4); // Friday
+    const weekLabel = `Week of ${fmtDateShort(weekDate)} – ${fmtDateShort(weekEnd)}`;
+    rows += `<tr><td colspan="4" style="${E.weekHdr}">${weekLabel}</td></tr>`;
+
+    // Within the week, group tasks by deliverable + owner so related items batch together
+    const byKey = new Map();
+    groups.forEach(group => {
+      group.items.forEach(item => {
+        const key = `${item.deliverable}||${group.owner}`;
+        if (!byKey.has(key)) byKey.set(key, {
+          deliverable: item.deliverable,
+          owner:       group.owner,
+          tasks:       [],
+          date:        group.date,
+          isPastDue:   group.isPastDue
+        });
+        byKey.get(key).tasks.push(item.task);
+        // Use the latest date within the group
+        if (group.date > byKey.get(key).date) byKey.get(key).date = group.date;
+      });
+    });
+
+    byKey.forEach(({ deliverable, owner, tasks, date, isPastDue }) => {
+      rows += buildDataRow(owner, deliverable, tasks.join(', '), fmtDateShort(date), isPastDue);
+    });
+  });
+
+  rows += buildFooterRow(startDate, projectSpanDays, dueDate, projectEndDate);
+  return `<table style="${E.table}"><tbody>${rows}</tbody></table>`;
+}
+
+// ── Main render entry point ───────────────────────────────────────────────
+export function renderTimelineTable(data) {
   const output = document.getElementById('timelineOutput');
   document.getElementById('outputDivider').style.display = 'block';
   output.style.display = 'block';
 
   // Net new note
   const nnWrap = document.getElementById('nnNoteWrap');
-  nnWrap.innerHTML = isNetNew
+  nnWrap.innerHTML = data.isNetNew
     ? `<div class="nn-note"><strong>Net New Client</strong>This project involves a new client relationship with Flimp. Please allow additional time during the Kickoff and onboarding phases for account setup, portal access provisioning, and alignment on Flimp's production process and review expectations. All milestone dates assume timely client responsiveness — delays in content delivery or review rounds will push the schedule accordingly.</div>`
     : '';
 
-  document.getElementById('tlTitle').textContent = project;
+  // Render both tables
+  document.getElementById('chronTableWrap').innerHTML  = buildChronTable(data);
+  document.getElementById('weeklyTableWrap').innerHTML = buildWeeklyTable(data);
 
-  const tbody = document.getElementById('tlTableBody');
-  tbody.innerHTML = '';
-  let hasWarning = false;
-
-  milestoneGroups.forEach(group => {
-    if (group.isPastDue) hasWarning = true;
-    const tr = document.createElement('tr');
-    if (group.isPastDue) tr.style.background = 'var(--red-bg)';
-
-    const deliverables_str = [...new Set(group.items.map(m => m.deliverable))].join(', ');
-    const tasks_str        = [...new Set(group.items.map(m => m.task))].join(', ');
-
-    const tdParty = document.createElement('td');
-    tdParty.textContent = group.owner;
-
-    const tdDel = document.createElement('td');
-    tdDel.className = 'td-deliverable';
-    tdDel.textContent = deliverables_str;
-
-    const tdTask = document.createElement('td');
-    tdTask.textContent = tasks_str;
-
-    const tdDate = document.createElement('td');
-    tdDate.className = 'td-date';
-    tdDate.textContent = fmtDateShort(group.date);
-    if (group.isPastDue) tdDate.style.color = 'var(--red)';
-
-    tr.appendChild(tdParty); tr.appendChild(tdDel);
-    tr.appendChild(tdTask);  tr.appendChild(tdDate);
-    tbody.appendChild(tr);
-  });
-
-  if (hasWarning) {
-    const warnTr = document.createElement('tr');
-    const warnTd = document.createElement('td');
-    warnTd.colSpan = 4;
-    warnTd.style.cssText = 'background:var(--red-bg);color:var(--red);font-size:12px;padding:.5rem 1rem;font-weight:600';
-    warnTd.textContent = 'One or more phases extend past the due date. Consider compressing durations in the phase review step.';
-    warnTr.appendChild(warnTd);
-    tbody.appendChild(warnTr);
-  }
-
-  const footer = document.getElementById('tlFooter');
-  footer.innerHTML = '';
-  [
-    ['Project Start',  fmtDateShort(startDate)],
-    ['Working Days',   projectSpanDays],
-    ...(dueDate ? [['Due Date', fmtDateShort(dueDate)]] : []),
-    ['Projected End',  fmtDateShort(projectEndDate)],
-    ['Deliverables',   deliverables.reduce((a, d) => a + d.count, 0)]
-  ].forEach(([label, value]) => {
-    const span = document.createElement('span');
-    span.innerHTML = `<strong>${esc(label)}:</strong> ${esc(String(value))}`;
-    footer.appendChild(span);
-  });
+  // Reset to chronological tab on each generate
+  switchTab('chron');
 
   output.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-// ── Copy tab-separated table to clipboard (paste into Excel / Sheets) ─────
-export function copyTableToClipboard() {
-  const rows   = [...document.querySelectorAll('#tlTableBody tr')];
-  const header = 'Party\tDeliverable\tTask\tDue Date';
-  const lines  = rows.map(r => {
-    const cells = [...r.querySelectorAll('td')];
-    if (cells.length < 4) return null;
-    return cells.slice(0, 4).map(c => c.textContent.trim()).join('\t');
-  }).filter(Boolean);
-
-  navigator.clipboard.writeText([header, ...lines].join('\n')).then(() => {
-    const btn  = document.querySelector('.tl-action-btn:last-child');
-    const orig = btn.innerHTML;
-    btn.textContent = 'Copied!';
-    setTimeout(() => { btn.innerHTML = orig; }, 1500);
-  });
+// ── Tab switcher ──────────────────────────────────────────────────────────
+export function switchTab(tab) {
+  const isChron = tab === 'chron';
+  document.getElementById('panelChron').style.display  = isChron ? 'block' : 'none';
+  document.getElementById('panelWeekly').style.display = isChron ? 'none'  : 'block';
+  document.getElementById('tabChron').classList.toggle('active',  isChron);
+  document.getElementById('tabWeekly').classList.toggle('active', !isChron);
 }
 
-// ── Plain-text email format ───────────────────────────────────────────────
-// Returns a formatted string suitable for pasting into an email body.
-export function renderEmailText({ milestoneGroups, projectEndDate, projectSpanDays, startDate, dueDate, project, client }) {
-  const lines = [
-    `Timeline: ${project}`,
-    `Client: ${client}`,
-    `Start: ${fmtDateShort(startDate)}`,
-    dueDate ? `Due: ${fmtDateShort(dueDate)}` : null,
-    `Projected End: ${fmtDateShort(projectEndDate)}`,
-    `Total Working Days: ${projectSpanDays}`,
-    '',
-    'MILESTONE SCHEDULE',
-    '─'.repeat(48)
-  ].filter(l => l !== null);
+// ── Copy email table as HTML to clipboard ─────────────────────────────────
+// Uses ClipboardItem with text/html MIME type so Outlook and Gmail
+// preserve table formatting when pasted. Falls back to plain text
+// if ClipboardItem isn't supported (Firefox, some mobile browsers).
+export async function copyEmailTable(tab) {
+  const wrapperId = tab === 'chron' ? 'chronTableWrap' : 'weeklyTableWrap';
+  const tableEl   = document.querySelector(`#${wrapperId} table`);
+  if (!tableEl) return;
 
-  let lastDate = null;
-  milestoneGroups.forEach(group => {
-    const dateStr = fmtDateShort(group.date);
-    if (dateStr !== lastDate) {
-      lines.push('');
-      lines.push(dateStr);
-      lastDate = dateStr;
+  const btnSel = tab === 'chron'
+    ? '#panelChron .tl-action-btn'
+    : '#panelWeekly .tl-action-btn';
+  const btn = document.querySelector(btnSel);
+  const origHTML = btn ? btn.innerHTML : '';
+
+  try {
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        'text/html':  new Blob([tableEl.outerHTML],     { type: 'text/html' }),
+        'text/plain': new Blob([tableEl.innerText || ''], { type: 'text/plain' })
+      })
+    ]);
+    if (btn) {
+      btn.textContent = '✓ Copied!';
+      setTimeout(() => { btn.innerHTML = origHTML; }, 1800);
     }
-    const tasks = [...new Set(group.items.map(m => m.task))].join(', ');
-    const dels  = [...new Set(group.items.map(m => m.deliverable))].join(', ');
-    lines.push(`  [${group.owner}] ${tasks} — ${dels}`);
-  });
-
-  return lines.join('\n');
+  } catch {
+    // Fallback to plain text (tab-separated)
+    const plain = [...tableEl.querySelectorAll('tr')]
+      .map(r => [...r.querySelectorAll('td,th')].map(c => c.textContent.trim()).join('\t'))
+      .join('\n');
+    await navigator.clipboard.writeText(plain);
+    if (btn) {
+      btn.textContent = 'Copied (plain text)';
+      setTimeout(() => { btn.innerHTML = origHTML; }, 1800);
+    }
+  }
 }
 
-// ── Copy email-format text to clipboard ───────────────────────────────────
-export async function copyEmailFormat(data) {
-  const text = renderEmailText(data);
-  await navigator.clipboard.writeText(text);
-}
-
-// ── Print / PDF via browser print dialog ──────────────────────────────────
-// The @media print CSS in styles.css hides non-output elements automatically.
+// ── Print / PDF ───────────────────────────────────────────────────────────
 export function printTimeline() {
   window.print();
 }

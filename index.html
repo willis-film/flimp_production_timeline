@@ -191,32 +191,43 @@
       <div class="section-num" style="background:var(--green)">4</div>
       <span class="section-title">Generated Timeline</span>
     </div>
-    <div class="tl-actions">
-      <button class="tl-action-btn" onclick="printTimeline()">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="1" width="10" height="10" rx="1"/><path d="M3 7H1v7h14V7h-2"/><rect x="5" y="11" width="6" height="4"/></svg>
-        Print / PDF
-      </button>
-      <button class="tl-action-btn" onclick="copyTable()">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="1" width="9" height="11" rx="1"/><rect x="2" y="4" width="9" height="11" rx="1"/></svg>
-        Copy table
-      </button>
-    </div>
+
     <div id="nnNoteWrap"></div>
-    <div class="unified-tl-wrap">
-      <div class="unified-tl-title" id="tlTitle"></div>
-      <table class="unified-tl-table" id="tlTable">
-        <thead>
-          <tr>
-            <th>Party</th>
-            <th>Deliverable</th>
-            <th>Task</th>
-            <th style="text-align:right">Due Date</th>
-          </tr>
-        </thead>
-        <tbody id="tlTableBody"></tbody>
-      </table>
-      <div class="unified-tl-footer" id="tlFooter"></div>
+
+    <!-- Tab switcher -->
+    <div class="tl-tabs">
+      <button class="tl-tab active" id="tabChron" onclick="switchTab('chron')">Chronological</button>
+      <button class="tl-tab" id="tabWeekly" onclick="switchTab('weekly')">Weekly</button>
     </div>
+
+    <!-- Chronological tab -->
+    <div id="panelChron">
+      <div class="tl-actions">
+        <button class="tl-action-btn" onclick="copyEmailTable('chron')">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="1" width="9" height="11" rx="1"/><rect x="2" y="4" width="9" height="11" rx="1"/></svg>
+          Copy for email
+        </button>
+      </div>
+      <div class="email-tl-wrap">
+        <div class="email-tl-inner" id="chronTableWrap"></div>
+        <div class="email-tl-hint">Cells are editable — make any adjustments before copying.</div>
+      </div>
+    </div>
+
+    <!-- Weekly tab -->
+    <div id="panelWeekly" style="display:none">
+      <div class="tl-actions">
+        <button class="tl-action-btn" onclick="copyEmailTable('weekly')">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="1" width="9" height="11" rx="1"/><rect x="2" y="4" width="9" height="11" rx="1"/></svg>
+          Copy for email
+        </button>
+      </div>
+      <div class="email-tl-wrap">
+        <div class="email-tl-inner" id="weeklyTableWrap"></div>
+        <div class="email-tl-hint">Cells are editable — make any adjustments before copying.</div>
+      </div>
+    </div>
+
     <div style="display:flex;justify-content:flex-end;margin-top:.75rem">
       <button data-action="save-timeline" style="height:40px;padding:0 24px;background:var(--dark);border:none;border-radius:var(--radius-lg);color:var(--lime);font-family:Calibri,sans-serif;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.02em;transition:all .2s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
         Save timeline
