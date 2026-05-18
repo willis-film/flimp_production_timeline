@@ -276,27 +276,73 @@ function pdfPage(content, pageNum, totalPages) {
     </div>`;
 }
 
-// ── PDF page header bar ───────────────────────────────────────────────────
-function pdfHeader(client, project) {
+// ── PDF hero section — dark band + overlapping summary card ──────────────
+// Mirrors the Flimp Canvas reference layout: full-bleed dark header with
+// a white rounded card overlapping it from below, containing project stats.
+function pdfHero(client, project, startDate, dueDate, projectSpanDays, projectEndDate, deliverables) {
+  const stats = [
+    ['Project Start',  fmtDateShort(startDate)],
+    ['Working Days',   String(projectSpanDays)],
+    dueDate ? ['Due Date', fmtDateShort(dueDate)] : null,
+    ['Projected End',  fmtDateShort(projectEndDate)],
+    ['Deliverables',   String(deliverables.reduce((a, d) => a + d.count, 0))],
+  ].filter(Boolean);
+
+  // Two rows of stats, roughly half each
+  const mid = Math.ceil(stats.length / 2);
+  const row1 = stats.slice(0, mid);
+  const row2 = stats.slice(mid);
+
+  const statCell = ([label, value]) => `
+    <div style="flex:1;padding:14px 20px;border-right:1px solid ${PDF.border}">
+      <div style="font-size:8px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:${PDF.textMuted};margin-bottom:5px;font-family:${PDF.font}">${label}</div>
+      <div style="font-size:16px;font-weight:700;color:${PDF.text};font-family:${PDF.font};line-height:1">${value}</div>
+    </div>`;
+
+  const statRow = (cells, borderTop) => `
+    <div style="display:flex;${borderTop ? `border-top:1px solid ${PDF.border};` : ''}">
+      ${cells.map(statCell).join('')}
+    </div>`;
+
   return `
+    <!-- Dark hero band -->
     <div style="
+      position:relative;
       background:${PDF.dark};
-      padding:20px ${PDF.margin};
+      height:180px;
+      padding:28px ${PDF.margin} 0;
+      box-sizing:border-box;
       display:flex;
       justify-content:space-between;
-      align-items:center;
+      align-items:flex-start;
     ">
-      <div style="display:flex;align-items:center">
+      <!-- Logo left -->
+      <div style="display:flex;align-items:center;padding-top:4px">
         ${FLIMP_LOGO_SVG}
       </div>
+
+      <!-- Project info right -->
       <div style="text-align:right">
-        <div style="font-size:15px;font-weight:700;color:#fff;line-height:1.2">${esc(project)}</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.55);margin-top:3px">${esc(client)}</div>
+        <div style="font-size:20px;font-weight:700;color:#fff;line-height:1.2;font-family:${PDF.font}">${esc(project)}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:5px;font-family:${PDF.font}">${esc(client)}</div>
       </div>
+    </div>
+
+    <!-- Summary card overlapping the dark band -->
+    <div style="
+      margin:-60px ${PDF.margin} 32px;
+      background:#fff;
+      border-radius:10px;
+      box-shadow:0 4px 20px rgba(0,0,0,0.15);
+      overflow:hidden;
+      position:relative;
+      z-index:1;
+      border:1px solid ${PDF.border};
+    ">
+      ${statRow(row1, false)}
+      ${row2.length ? statRow(row2, true) : ''}
     </div>`;
 }
-
-// ── PDF section heading ───────────────────────────────────────────────────
 function pdfSection(title) {
   return `
     <div style="
@@ -312,29 +358,37 @@ function pdfSection(title) {
     ">${title}</div>`;
 }
 
-// ── PDF summary strip ─────────────────────────────────────────────────────
-function pdfSummaryStrip(startDate, dueDate, projectSpanDays, projectEndDate, deliverables) {
-  const items = [
-    ['Project Start',  fmtDateShort(startDate)],
-    ['Working Days',   String(projectSpanDays)],
-    dueDate ? ['Due Date', fmtDateShort(dueDate)] : null,
-    ['Projected End',  fmtDateShort(projectEndDate)],
-    ['Deliverables',   String(deliverables.reduce((a, d) => a + d.count, 0))],
-  ].filter(Boolean);
+// ── Build Basic PDF HTML ──────────────────────────────────────────────────
+function buildBasicPdf(data) {
+  const { milestoneGroups, projectEndDate, projectSpanDays, deliverables,
+          phasesPerDeliverable, startDate, dueDate, project, client } = data;
 
-  const cells = items.map(([label, value]) => `
-    <div style="flex:1;padding:12px 16px;border-right:1px solid ${PDF.border};">
-      <div style="font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};margin-bottom:4px;font-family:${PDF.font}">${label}</div>
-      <div style="font-size:14px;font-weight:700;color:${PDF.text};font-family:${PDF.font}">${value}</div>
-    </div>`).join('');
+  const hasMilestones = milestoneGroups.some(g => g.items.some(m => m.isMilestone));
 
-  return `
-    <div style="display:flex;background:${PDF.warm};border:1px solid ${PDF.border};border-radius:0 0 6px 6px;margin:0 ${PDF.margin} 28px;overflow:hidden">
-      ${cells}
+  const pageContent = `
+    ${pdfHero(client, project, startDate, dueDate, projectSpanDays, projectEndDate, deliverables)}
+
+    <div style="padding:0 ${PDF.margin} 80px">
+
+      ${hasMilestones ? `
+        <div style="margin-bottom:28px">
+          ${pdfSection('Key Milestones')}
+          <div style="padding-top:8px">
+            ${pdfMilestoneTable(milestoneGroups, dueDate)}
+          </div>
+        </div>` : ''}
+
+      <div>
+        ${pdfSection('Phases by Deliverable')}
+        <div style="padding-top:12px">
+          ${pdfPhasesByProduct(deliverables, phasesPerDeliverable, milestoneGroups)}
+        </div>
+      </div>
+
     </div>`;
-}
 
-// ── PDF milestone table ───────────────────────────────────────────────────
+  return pdfPage(pageContent, 1, 1);
+}
 function pdfMilestoneTable(milestoneGroups, dueDate) {
   const milestones = milestoneGroups.filter(g => g.items.some(m => m.isMilestone));
 
@@ -400,40 +454,6 @@ function pdfPhasesByProduct(deliverables, phasesPerDeliverable, milestoneGroups)
         <table style="width:100%;border-collapse:collapse">${rows}</table>
       </div>`;
   }).join('');
-}
-
-// ── Build Basic PDF HTML ──────────────────────────────────────────────────
-function buildBasicPdf(data) {
-  const { milestoneGroups, projectEndDate, projectSpanDays, deliverables,
-          phasesPerDeliverable, startDate, dueDate, project, client } = data;
-
-  const hasMilestones = milestoneGroups.some(g => g.items.some(m => m.isMilestone));
-
-  const pageContent = `
-    ${pdfHeader(client, project)}
-
-    ${pdfSummaryStrip(startDate, dueDate, projectSpanDays, projectEndDate, deliverables)}
-
-    <div style="padding:0 ${PDF.margin} 80px">
-
-      ${hasMilestones ? `
-        <div style="margin-bottom:28px">
-          ${pdfSection('Key Milestones')}
-          <div style="padding-top:8px">
-            ${pdfMilestoneTable(milestoneGroups, dueDate)}
-          </div>
-        </div>` : ''}
-
-      <div>
-        ${pdfSection('Phases by Deliverable')}
-        <div style="padding-top:12px">
-          ${pdfPhasesByProduct(deliverables, phasesPerDeliverable, milestoneGroups)}
-        </div>
-      </div>
-
-    </div>`;
-
-  return pdfPage(pageContent, 1, 1);
 }
 
 // ── PDF preview — renders scaled paper view inline in the tab ─────────────
