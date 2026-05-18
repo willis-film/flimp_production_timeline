@@ -228,21 +228,30 @@ function getAppendedDays(parentProduct, parentIsRenewal) {
 }
 
 // ── Phase row drag-and-drop ───────────────────────────────────────────────
-// Wires HTML5 drag-and-drop reordering on a phase tbody.
-// Called after both previewPhases and rebuildPhaseTable build their rows.
+// Drag only initiates from the ⠿ handle cell — grabbing anywhere else on
+// the row (name input, duration field, etc.) does not trigger reorder.
 function makePhaseTbodyDraggable(tbody, block) {
   let dragSrc = null;
 
   tbody.querySelectorAll('tr').forEach(row => {
-    row.draggable = true;
+    // draggable starts as false; the handle enables it on mousedown only
+    row.draggable = false;
+
+    const handle = row.querySelector('.phase-drag-handle');
+    if (handle) {
+      handle.addEventListener('mousedown', () => { row.draggable = true; });
+      handle.addEventListener('mouseup',   () => { row.draggable = false; });
+    }
 
     row.addEventListener('dragstart', e => {
+      if (!row.draggable) { e.preventDefault(); return; }
       dragSrc = row;
       row.classList.add('dragging');
       e.dataTransfer.effectAllowed = 'move';
     });
 
     row.addEventListener('dragend', () => {
+      row.draggable = false;
       row.classList.remove('dragging');
       tbody.querySelectorAll('tr').forEach(r => r.classList.remove('drag-over'));
       dragSrc = null;
@@ -261,8 +270,6 @@ function makePhaseTbodyDraggable(tbody, block) {
       e.preventDefault();
       if (!dragSrc || dragSrc === row) return;
       row.classList.remove('drag-over');
-
-      // Insert dragSrc before or after row depending on cursor position
       const rect = row.getBoundingClientRect();
       const midY = rect.top + rect.height / 2;
       if (e.clientY < midY) {
