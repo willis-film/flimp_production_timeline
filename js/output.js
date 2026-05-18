@@ -436,6 +436,39 @@ function buildBasicPdf(data) {
   return pdfPage(pageContent, 1, 1);
 }
 
+// ── PDF preview — renders scaled paper view inline in the tab ─────────────
+export function previewPdf(type, data) {
+  const previewIds = {
+    basic:    'basicPdfPreview',
+    expanded: 'expandedPdfPreview',
+    netNew:   'netNewPdfPreview'
+  };
+  const container = document.getElementById(previewIds[type]);
+  if (!container || !data) return;
+
+  let html = '';
+  if (type === 'basic') {
+    html = buildBasicPdf(data);
+  } else {
+    container.innerHTML = '<div class="pdf-coming-soon">This PDF format is coming soon.</div>';
+    return;
+  }
+
+  // Scale the 816px page to fit the container width with some padding
+  const containerWidth = container.clientWidth - 40; // 20px padding each side
+  const scale = Math.min(1, containerWidth / 816);
+
+  container.innerHTML = `
+    <div class="pdf-page-preview" style="
+      width:816px;
+      transform:scale(${scale});
+      transform-origin:top center;
+      margin-bottom:${-(816 * (1 - scale))}px;
+    ">
+      ${html}
+    </div>`;
+}
+
 // ── PDF download entry point ──────────────────────────────────────────────
 export function downloadPdf(type, data) {
   const canvas = document.getElementById('pdfCanvas');

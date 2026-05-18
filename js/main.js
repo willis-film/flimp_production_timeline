@@ -13,7 +13,7 @@ import {
 } from './ui.js';
 import {
   renderTimelineTable, copyEmailTable, switchTab,
-  downloadPdf, saveTimeline
+  previewPdf, downloadPdf, saveTimeline
 } from './output.js';
 
 // ── Read phases from preview blocks ──────────────────────────────────────
@@ -113,6 +113,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.generateTimeline = generateTimeline;
   window.copyEmailTable   = copyEmailTable;
   window.switchTab        = switchTab;
+  window.previewPdf       = (type) => previewPdf(type, lastTimelineData);
   window.downloadPdf      = (type) => downloadPdf(type, lastTimelineData);
 
   // Save button

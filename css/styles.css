@@ -54,8 +54,9 @@ body{font-family:Calibri,sans-serif;background:#F2F8F0;color:var(--text);min-hei
 .email-tl-wrap{background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem}
 .email-tl-inner{padding:1.25rem 1.5rem;overflow-x:auto}
 .email-tl-hint{font-size:11px;color:var(--text-tertiary);padding:.5rem 1.5rem .75rem;border-top:1px solid var(--border-light)}
-.tl-pdf-preview{min-height:120px;display:flex;align-items:center;justify-content:center}
-.pdf-coming-soon{font-size:13px;color:var(--text-tertiary);font-style:italic}
+.tl-pdf-preview{min-height:120px;background:#e8edf2;padding:20px;display:flex;flex-direction:column;align-items:center;gap:16px;border-radius:0 0 var(--radius-lg) var(--radius-lg)}
+.pdf-coming-soon{font-size:13px;color:var(--text-tertiary);font-style:italic;padding:40px 0}
+.pdf-page-preview{background:#fff;box-shadow:0 4px 24px rgba(0,0,0,.18);transform-origin:top center;overflow:hidden;border-radius:2px}
 .row-headers{display:grid;grid-template-columns:1fr 72px 108px 110px 32px;gap:8px;margin-bottom:6px;padding:0 2px}
 .row-headers span{font-size:11px;font-weight:600;color:var(--text-tertiary);letter-spacing:.04em;text-transform:uppercase}
 .row-headers span:nth-child(2),.row-headers span:nth-child(3),.row-headers span:nth-child(4){text-align:center}
