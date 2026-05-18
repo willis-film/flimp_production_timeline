@@ -305,6 +305,8 @@ function pdfHero(client, project, startDate, dueDate, projectSpanDays, projectEn
       display:flex;
       justify-content:space-between;
       align-items:flex-start;
+      -webkit-print-color-adjust:exact;
+      print-color-adjust:exact;
     ">
       <!-- Client + project left -->
       <div style="text-align:left">
@@ -324,12 +326,16 @@ function pdfHero(client, project, startDate, dueDate, projectSpanDays, projectEn
       background:#fff;
       border-radius:10px;
       box-shadow:0 4px 20px rgba(0,0,0,0.15);
-      overflow:hidden;
       position:relative;
       z-index:1;
       border:1px solid ${PDF.border};
     ">
-      <div style="display:flex">
+      <!-- Grommets — one in each corner -->
+      <div style="position:absolute;top:8px;left:8px;width:10px;height:10px;border-radius:50%;background:#e8edf2;box-shadow:inset 0 1px 3px rgba(0,0,0,0.35);z-index:2"></div>
+      <div style="position:absolute;top:8px;right:8px;width:10px;height:10px;border-radius:50%;background:#e8edf2;box-shadow:inset 0 1px 3px rgba(0,0,0,0.35);z-index:2"></div>
+      <div style="position:absolute;bottom:8px;left:8px;width:10px;height:10px;border-radius:50%;background:#e8edf2;box-shadow:inset 0 1px 3px rgba(0,0,0,0.35);z-index:2"></div>
+      <div style="position:absolute;bottom:8px;right:8px;width:10px;height:10px;border-radius:50%;background:#e8edf2;box-shadow:inset 0 1px 3px rgba(0,0,0,0.35);z-index:2"></div>
+      <div style="display:flex;border-radius:10px;overflow:hidden">
         ${stats.map(statCell).join('')}
       </div>
     </div>`;
@@ -348,6 +354,8 @@ function pdfSection(title) {
       border-radius:6px;
       margin-bottom:12px;
       font-family:${PDF.font};
+      -webkit-print-color-adjust:exact;
+      print-color-adjust:exact;
     ">${title}</div>`;
 }
 

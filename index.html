@@ -311,6 +311,12 @@
     position: fixed;
     inset: 0;
     background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  #pdfCanvas * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
   @page {
     size: letter portrait;
