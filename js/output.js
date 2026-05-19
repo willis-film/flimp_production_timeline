@@ -38,6 +38,11 @@ function buildTableHeader(project) {
     </tr>`;
 }
 
+// ── Party name resolver — substitutes "Client" with the actual client name ─
+function partyName(owner, client) {
+  return owner === 'Client' ? (client || 'Client') : owner;
+}
+
 // ── Single data row ───────────────────────────────────────────────────────
 function buildDataRow(party, deliverable, task, date, isPastDue) {
   const rowBg   = isPastDue ? 'background:#fff0f0;' : '';
@@ -67,13 +72,13 @@ function buildFooterRow(startDate, projectSpanDays, dueDate, projectEndDate) {
 }
 
 // ── Build chronological table HTML ────────────────────────────────────────
-function buildChronTable({ milestoneGroups, projectEndDate, projectSpanDays, startDate, dueDate, project }) {
+function buildChronTable({ milestoneGroups, projectEndDate, projectSpanDays, startDate, dueDate, project, client }) {
   let rows = buildTableHeader(project);
 
   milestoneGroups.forEach(group => {
     const dels  = [...new Set(group.items.map(m => m.deliverable))].join(', ');
     const tasks = [...new Set(group.items.map(m => m.task))].join(', ');
-    rows += buildDataRow(group.owner, dels, tasks, fmtDateShort(group.date), group.isPastDue);
+    rows += buildDataRow(partyName(group.owner, client), dels, tasks, fmtDateShort(group.date), group.isPastDue);
   });
 
   rows += buildFooterRow(startDate, projectSpanDays, dueDate, projectEndDate);
@@ -81,7 +86,7 @@ function buildChronTable({ milestoneGroups, projectEndDate, projectSpanDays, sta
 }
 
 // ── Build weekly table HTML ───────────────────────────────────────────────
-function buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, startDate, dueDate, project }) {
+function buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, startDate, dueDate, project, client }) {
   // Get Monday of the week containing a date
   function weekStart(date) {
     const d   = new Date(date);
@@ -128,7 +133,7 @@ function buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, st
     });
 
     byKey.forEach(({ deliverable, owner, tasks, date, isPastDue }) => {
-      rows += buildDataRow(owner, deliverable, tasks.join(', '), fmtDateShort(date), isPastDue);
+      rows += buildDataRow(partyName(owner, client), deliverable, tasks.join(', '), fmtDateShort(date), isPastDue);
     });
   });
 
@@ -139,7 +144,7 @@ function buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, st
 // ── Build by-product table HTML ───────────────────────────────────────────
 // Each deliverable gets its own section header, then its phases in order
 // with the actual computed end date pulled from milestoneGroups.
-function buildByProductTable({ phasesPerDeliverable, deliverables, milestoneGroups, projectEndDate, projectSpanDays, startDate, dueDate, project }) {
+function buildByProductTable({ phasesPerDeliverable, deliverables, milestoneGroups, projectEndDate, projectSpanDays, startDate, dueDate, project, client }) {
   const sectionHdr = (label) =>
     `<tr><td colspan="3" style="${E.weekHdr}">${esc(label)}</td></tr>`;
 
@@ -177,7 +182,7 @@ function buildByProductTable({ phasesPerDeliverable, deliverables, milestoneGrou
       const rowBg   = entry?.isPastDue ? 'background:#fff0f0;' : '';
       rows += `
         <tr style="${rowBg}">
-          <td contenteditable="true" style="${E.tdFirst}">${esc(phase.owner)}</td>
+          <td contenteditable="true" style="${E.tdFirst}">${esc(partyName(phase.owner, client))}</td>
           <td contenteditable="true" style="${E.tdTask}">${esc(phase.name)}</td>
           <td contenteditable="true" style="${dateSty}">${esc(dateStr)}</td>
         </tr>`;
@@ -375,14 +380,14 @@ function buildBasicPdf(data) {
         <div style="margin-bottom:28px">
           ${pdfSection('Key Milestones')}
           <div style="padding-top:8px">
-            ${pdfMilestoneTable(milestoneGroups, dueDate)}
+            ${pdfMilestoneTable(milestoneGroups, dueDate, client)}
           </div>
         </div>` : ''}
 
       <div>
         ${pdfSection('Phases by Deliverable')}
         <div style="padding-top:12px">
-          ${pdfPhasesByProduct(deliverables, phasesPerDeliverable, milestoneGroups)}
+          ${pdfPhasesByProduct(deliverables, phasesPerDeliverable, milestoneGroups, client)}
         </div>
       </div>
 
@@ -390,7 +395,7 @@ function buildBasicPdf(data) {
 
   return pdfPage(pageContent, 1, 1);
 }
-function pdfMilestoneTable(milestoneGroups, dueDate) {
+function pdfMilestoneTable(milestoneGroups, dueDate, client) {
   const milestones = milestoneGroups.filter(g => g.items.some(m => m.isMilestone));
 
   if (!milestones.length) return '';
@@ -402,7 +407,7 @@ function pdfMilestoneTable(milestoneGroups, dueDate) {
     return `
       <tr>
         <td style="padding:7px 10px 7px 0;border-bottom:1px solid ${PDF.border};font-size:10px;color:${isPastDue ? PDF.red : PDF.textLight};font-family:${PDF.font};white-space:nowrap;width:70px">${fmtDateShort(group.date)}</td>
-        <td style="padding:7px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${PDF.textMuted};font-family:${PDF.font};width:60px">${esc(group.owner)}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${PDF.textMuted};font-family:${PDF.font};width:60px">${esc(partyName(group.owner, client))}</td>
         <td style="padding:7px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;font-weight:600;color:${isPastDue ? PDF.red : PDF.text};font-family:${PDF.font}">${esc(tasks)}</td>
         <td style="padding:7px 0 7px 10px;border-bottom:1px solid ${PDF.border};font-size:9px;color:${PDF.textMuted};font-family:${PDF.font}">${esc(dels)}</td>
       </tr>`;
@@ -423,7 +428,7 @@ function pdfMilestoneTable(milestoneGroups, dueDate) {
 }
 
 // ── PDF phases-by-deliverable section ────────────────────────────────────
-function pdfPhasesByProduct(deliverables, phasesPerDeliverable, milestoneGroups) {
+function pdfPhasesByProduct(deliverables, phasesPerDeliverable, milestoneGroups, client) {
   const dateByKey = new Map();
   milestoneGroups.forEach(group => {
     group.items.forEach(item => {
@@ -443,7 +448,7 @@ function pdfPhasesByProduct(deliverables, phasesPerDeliverable, milestoneGroups)
       const isPastDue = entry?.isPastDue || false;
       return `
         <tr>
-          <td style="padding:5px 10px 5px 0;border-bottom:1px solid ${PDF.border};font-size:9px;color:${PDF.textMuted};font-family:${PDF.font};width:55px">${esc(phase.owner)}</td>
+          <td style="padding:5px 10px 5px 0;border-bottom:1px solid ${PDF.border};font-size:9px;color:${PDF.textMuted};font-family:${PDF.font};width:55px">${esc(partyName(phase.owner, client))}</td>
           <td style="padding:5px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${phase.is_milestone ? PDF.text : PDF.textLight};font-weight:${phase.is_milestone ? '600' : '400'};font-family:${PDF.font}">${esc(phase.name)}${phase.is_milestone ? ' ●' : ''}</td>
           <td style="padding:5px 0 5px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${isPastDue ? PDF.red : PDF.textLight};font-family:${PDF.font};white-space:nowrap;text-align:right">${esc(dateStr)}</td>
         </tr>`;
