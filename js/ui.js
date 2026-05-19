@@ -692,6 +692,42 @@ export function previewPhases() {
 }
 
 // ── Per-block feasibility ─────────────────────────────────────────────────
+// ── Get the pb-block that is the parent of a given block (or null) ────────
+function getParentBlock(block) {
+  const allDelRows = [...document.querySelectorAll('#delRows .del-row')];
+  const allBlocks  = [...document.querySelectorAll('#pbBlocks .pb-block')];
+  const parentIdxMap = buildParentIdxMap(allDelRows);
+
+  // Find the del-row index that corresponds to this block
+  const blockProduct   = block.dataset.product;
+  const blockIsRenewal = block.dataset.isrenewal === 'true';
+  const blockDelIdx    = allDelRows.findIndex(row => {
+    const sel = row.querySelector('select');
+    const renewal = row.querySelector('.nr-btn.r-active') !== null;
+    return sel && sel.value === blockProduct && renewal === blockIsRenewal;
+  });
+  if (blockDelIdx === -1) return null;
+
+  const parentDelIdx = parentIdxMap[blockDelIdx];
+  if (parentDelIdx === null || parentDelIdx === undefined) return null;
+
+  const parentRow       = allDelRows[parentDelIdx];
+  const parentProduct   = parentRow?.querySelector('select')?.value;
+  const parentIsRenewal = parentRow?.querySelector('.nr-btn.r-active') !== null;
+  if (!parentProduct) return null;
+
+  return allBlocks.find(b =>
+    b.dataset.product === parentProduct &&
+    (b.dataset.isrenewal === 'true') === parentIsRenewal
+  ) || null;
+}
+
+// ── Sum of all phase durations in a block ─────────────────────────────────
+function getBlockDays(block) {
+  return [...block.querySelectorAll('.pt-dur')]
+    .reduce((s, inp) => s + (Math.max(0, parseInt(inp.value) || 0)), 0);
+}
+
 export function recalcBlockFeasibility(block) {
   const dueVal   = document.getElementById('dueDate').value;
   const startVal = document.getElementById('startDate').value;
@@ -701,13 +737,21 @@ export function recalcBlockFeasibility(block) {
   const start = nextWorkDay(new Date(startVal + 'T00:00:00'));
   const available = countBusinessDays(start, due);
 
-  const durInputs = [...block.querySelectorAll('.pt-dur')];
-  const needed    = durInputs.reduce((s, inp) => s + (Math.max(0, parseInt(inp.value) || 0)), 0);
-
+  const needed         = getBlockDays(block);
   const blockProduct   = block.dataset.product;
   const blockIsRenewal = block.dataset.isrenewal === 'true';
-  const appendedDays   = VALID_PARENTS[blockProduct] ? 0 : getAppendedDays(blockProduct, blockIsRenewal);
-  const effectiveAvailable = available - appendedDays;
+
+  let effectiveAvailable;
+  const parentBlock = getParentBlock(block);
+  if (parentBlock) {
+    // Child block: judged against available window minus parent's own phases
+    const parentDays = getBlockDays(parentBlock);
+    effectiveAvailable = available - parentDays;
+  } else {
+    // Parent block (or standalone): judged against available window minus appended child days
+    const appendedDays = getAppendedDays(blockProduct, blockIsRenewal);
+    effectiveAvailable = available - appendedDays;
+  }
 
   const fill = block.querySelector('.pb-feas-bar-fill');
   const diff = block.querySelector('.pb-feas-diff');
@@ -737,6 +781,27 @@ export function recalcBlockFeasibility(block) {
     } else {
       generateBtn.title = '';
     }
+  }
+
+  // Cascade: when this block's days change, its parent and children need re-evaluation
+  // too since their effectiveAvailable depends on this block's duration.
+  // _cascading flag prevents infinite recursion.
+  if (!block._feasCascading) {
+    block._feasCascading = true;
+    const allBlocks = [...document.querySelectorAll('#pbBlocks .pb-block')];
+
+    // Re-run on parent block (its effectiveAvailable = available - ourDays)
+    const parent = getParentBlock(block);
+    if (parent && !parent._feasCascading) recalcBlockFeasibility(parent);
+
+    // Re-run on child blocks (their effectiveAvailable = available - ourDays)
+    allBlocks.forEach(b => {
+      if (b === block || b._feasCascading) return;
+      const bp = getParentBlock(b);
+      if (bp === block) recalcBlockFeasibility(b);
+    });
+
+    block._feasCascading = false;
   }
 }
 
