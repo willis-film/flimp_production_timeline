@@ -240,6 +240,12 @@ export function scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdx
     }
   });
 
+  // ── Kickoff + Distribution are always milestones regardless of DB flag ───
+  const ALWAYS_MILESTONE = new Set(['kickoff', 'distribution']);
+  allMilestones.forEach(m => {
+    if (ALWAYS_MILESTONE.has(m.task.trim().toLowerCase())) m.isMilestone = true;
+  });
+
   // Group by date + owner — Client and Flimp are never combined
   const groups = [];
   const groupIndex = {};

@@ -29,6 +29,25 @@ export function defaultRounds(product, isRenewal) {
   return isRenewal ? (r.renewal || 2) : (r.new || 2);
 }
 
+// ── Compute fixedTotal for a product+isRenewal combination ───────────────
+// Only counts fixed round groups whose phases survive the applies_to filter.
+// bg initial is applies_to='new' only — so it contributes 0 for renewals.
+function fixedRoundTotal(product, isRenewal) {
+  return (ROUND_GROUPS[product] || [])
+    .filter(rg => rg.is_user_adjustable === false)
+    .filter(rg => {
+      // Check whether this group has at least one phase that survives the filter
+      const groupPhases = (ALL_PHASES[product] || []).filter(p => p.round_group_name === rg.group_name);
+      return groupPhases.some(p => {
+        if (p.applies_to === 'both')    return true;
+        if (p.applies_to === 'new')     return !isRenewal;
+        if (p.applies_to === 'renewal') return  isRenewal;
+        return true;
+      });
+    })
+    .reduce((s, rg) => s + rg.default_rounds, 0);
+}
+
 // ── Deliverable row builder ───────────────────────────────────────────────
 export function buildSelect() {
   const sel = document.createElement('select');
@@ -320,9 +339,7 @@ export function rebuildPhaseTable(block, skipPhases) {
     usedGroups.add(p.round_group_name);
 
     const rgDef = roundGroupDefs.find(rg => rg.group_name === p.round_group_name);
-    const fixedTotal = roundGroupDefs
-      .filter(rg => rg.is_user_adjustable === false)
-      .reduce((s, rg) => s + rg.default_rounds, 0);
+    const fixedTotal = fixedRoundTotal(product, isRenewal);
     const rCount = (rgDef && rgDef.is_user_adjustable === false)
       ? rgDef.default_rounds
       : Math.max(1, rounds - fixedTotal);
@@ -428,9 +445,7 @@ export function previewPhases() {
       usedGroups.add(p.round_group_name);
 
       const rgDef = roundGroupDefs.find(rg => rg.group_name === p.round_group_name);
-      const fixedTotal = roundGroupDefs
-        .filter(rg => rg.is_user_adjustable === false)
-        .reduce((s, rg) => s + rg.default_rounds, 0);
+      const fixedTotal = fixedRoundTotal(del.product, del.isRenewal);
       const rCount = (rgDef && rgDef.is_user_adjustable === false)
         ? rgDef.default_rounds
         : Math.max(1, del.rounds - fixedTotal);
@@ -693,6 +708,23 @@ export function recalcBlockFeasibility(block) {
   if (delta > 5)     { fill.style.cssText = `width:${pct}%;background:var(--green)`; diff.className = 'pb-feas-diff ok';   diff.textContent = `+${delta} days buffer`; }
   else if (delta >= 0) { fill.style.cssText = `width:${pct}%;background:var(--amber)`; diff.className = 'pb-feas-diff warn';  diff.textContent = delta === 0 ? 'Exactly on time' : `+${delta} days`; }
   else               { fill.style.cssText = 'width:100%;background:var(--red)';      diff.className = 'pb-feas-diff over';  diff.textContent = `${delta} days over`; }
+
+  // Re-evaluate generate button — over state may have changed
+  const generateBtn = document.getElementById('generateBtn');
+  if (generateBtn) {
+    const blocks  = [...document.querySelectorAll('#pbBlocks .pb-block')];
+    const total   = blocks.length;
+    const confirmed = blocks.filter(b => b.dataset.confirmed === 'true').length;
+    const anyOver = blocks.some(b => b.querySelector('.pb-feas-diff.over') !== null);
+    generateBtn.disabled = total === 0 || confirmed < total || anyOver;
+    if (anyOver) {
+      generateBtn.title = 'One or more deliverables exceed the available time — reduce durations or extend the due date.';
+    } else if (confirmed < total) {
+      generateBtn.title = 'Confirm all deliverables before generating.';
+    } else {
+      generateBtn.title = '';
+    }
+  }
 }
 
 // ── Phase date recalculation ──────────────────────────────────────────────
@@ -984,6 +1016,20 @@ export function updateGenerateBtn() {
   const total     = blocks.length;
   const confirmed = blocks.filter(b => b.dataset.confirmed === 'true').length;
   psCount.textContent  = `${confirmed} / ${total}`;
-  generateBtn.disabled = total === 0 || confirmed < total;
+
+  // Block generation if any block (confirmed or not) is over its available time
+  const anyOver = blocks.some(b => b.querySelector('.pb-feas-diff.over') !== null);
+
+  generateBtn.disabled = total === 0 || confirmed < total || anyOver;
+
+  // Tooltip hint so the user knows why the button is blocked
+  if (anyOver) {
+    generateBtn.title = 'One or more deliverables exceed the available time — reduce durations or extend the due date.';
+  } else if (confirmed < total) {
+    generateBtn.title = 'Confirm all deliverables before generating.';
+  } else {
+    generateBtn.title = '';
+  }
+
   updateFeasibility();
 }
