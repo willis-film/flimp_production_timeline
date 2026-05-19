@@ -204,6 +204,36 @@ export function scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdx
 
   allMilestones.sort((a, b) => a.date - b.date);
 
+  // ── Kickoff: one entry at the earliest date, listing all deliverables ─────
+  // ── Distribution: one entry at the latest date, listing all deliverables ──
+  const SINGLETON_FIRST = new Set(['kickoff']);
+  const SINGLETON_LAST  = new Set(['distribution']);
+
+  ['kickoff', 'distribution'].forEach(key => {
+    const isFirst = SINGLETON_FIRST.has(key);
+    const matches = allMilestones.filter(m => m.task.trim().toLowerCase() === key);
+    if (matches.length <= 1) return;
+
+    // Pick the anchor date — earliest for Kickoff, latest for Distribution
+    const anchorDate = isFirst
+      ? matches.reduce((a, b) => a.date <= b.date ? a : b).date
+      : matches.reduce((a, b) => a.date >= b.date ? a : b).date;
+
+    // Collect all deliverable names across all instances
+    const allDeliverables = [...new Set(matches.map(m => m.deliverable))];
+
+    // Keep the first match as the surviving entry, update it with merged data
+    const keeper = matches[0];
+    keeper.date        = anchorDate;
+    keeper.deliverable = allDeliverables.join(', ');
+
+    // Remove all other instances
+    for (let i = matches.length - 1; i >= 1; i--) {
+      const idx = allMilestones.indexOf(matches[i]);
+      if (idx !== -1) allMilestones.splice(idx, 1);
+    }
+  });
+
   // Group by date + owner — Client and Flimp are never combined
   const groups = [];
   const groupIndex = {};
