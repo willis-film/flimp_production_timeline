@@ -43,6 +43,14 @@ function partyName(owner, client) {
   return owner === 'Client' ? (client || 'Client') : owner;
 }
 
+// ── Party display for milestone groups — blank for Kickoff and Distribution ─
+const PARTY_BLANK_TASKS = new Set(['kickoff', 'distribution']);
+function groupParty(group, client) {
+  const tasks = group.items.map(m => m.task.trim().toLowerCase());
+  if (tasks.every(t => PARTY_BLANK_TASKS.has(t))) return '';
+  return partyName(group.owner, client);
+}
+
 // ── Single data row ───────────────────────────────────────────────────────
 function buildDataRow(party, deliverable, task, date, isPastDue) {
   const rowBg   = isPastDue ? 'background:#fff0f0;' : '';
@@ -78,7 +86,7 @@ function buildChronTable({ milestoneGroups, projectEndDate, projectSpanDays, sta
   milestoneGroups.forEach(group => {
     const dels  = [...new Set(group.items.map(m => m.deliverable))].join(', ');
     const tasks = [...new Set(group.items.map(m => m.task))].join(', ');
-    rows += buildDataRow(partyName(group.owner, client), dels, tasks, fmtDateShort(group.date), group.isPastDue);
+    rows += buildDataRow(groupParty(group, client), dels, tasks, fmtDateShort(group.date), group.isPastDue);
   });
 
   rows += buildFooterRow(startDate, projectSpanDays, dueDate, projectEndDate);
@@ -133,7 +141,8 @@ function buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, st
     });
 
     byKey.forEach(({ deliverable, owner, tasks, date, isPastDue }) => {
-      rows += buildDataRow(partyName(owner, client), deliverable, tasks.join(', '), fmtDateShort(date), isPastDue);
+      const isBlankParty = tasks.every(t => PARTY_BLANK_TASKS.has(t.trim().toLowerCase()));
+      rows += buildDataRow(isBlankParty ? '' : partyName(owner, client), deliverable, tasks.join(', '), fmtDateShort(date), isPastDue);
     });
   });
 
@@ -407,7 +416,7 @@ function pdfMilestoneTable(milestoneGroups, dueDate, client) {
     return `
       <tr>
         <td style="padding:7px 10px 7px 0;border-bottom:1px solid ${PDF.border};font-size:10px;color:${isPastDue ? PDF.red : PDF.textLight};font-family:${PDF.font};white-space:nowrap;width:70px">${fmtDateShort(group.date)}</td>
-        <td style="padding:7px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${PDF.textMuted};font-family:${PDF.font};width:60px">${esc(partyName(group.owner, client))}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${PDF.textMuted};font-family:${PDF.font};width:60px">${esc(groupParty(group, client))}</td>
         <td style="padding:7px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;font-weight:600;color:${isPastDue ? PDF.red : PDF.text};font-family:${PDF.font}">${esc(tasks)}</td>
         <td style="padding:7px 0 7px 10px;border-bottom:1px solid ${PDF.border};font-size:9px;color:${PDF.textMuted};font-family:${PDF.font}">${esc(dels)}</td>
       </tr>`;

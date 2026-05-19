@@ -9,7 +9,7 @@
 <body>
 
 <!-- Loading overlay -->
-<div id="loadingOverlay" style="position:fixed;inset:0;background:#F2F8F0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;font-family:Calibri,sans-serif;--lime:#67E74E;--line:#c8d8d0">
+<div id="loadingOverlay" style="position:fixed;inset:0;background:#F2F8F0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;font-family:Verdana,sans-serif;--lime:#67E74E;--line:#c8d8d0">
   <div class="stage lBounce" style="position:relative;width:200px;height:200px;overflow:hidden;margin-bottom:.5rem">
     <div class="shadow"></div>
     <div class="floor"></div>
@@ -24,11 +24,11 @@
   <div style="font-size:16px;font-weight:600;color:#08212D;margin-bottom:.4rem">Loading timeline data</div>
 </div>
 
-<div id="loadingError" style="position:fixed;inset:0;background:#F2F8F0;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:9999;font-family:Calibri,sans-serif">
+<div id="loadingError" style="position:fixed;inset:0;background:#F2F8F0;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:9999;font-family:Verdana,sans-serif">
   <div style="font-size:32px;margin-bottom:1rem">⚠️</div>
   <div style="font-size:16px;font-weight:600;color:#D83A31;margin-bottom:.4rem">Failed to load reference data</div>
   <div style="font-size:13px;color:#7a96a3;margin-bottom:1.5rem">Check your connection and try again</div>
-  <button onclick="location.reload()" style="padding:10px 24px;background:#08212D;color:#67E74E;border:none;border-radius:8px;font-family:Calibri,sans-serif;font-size:14px;font-weight:700;cursor:pointer">Retry</button>
+  <button onclick="location.reload()" style="padding:10px 24px;background:#08212D;color:#67E74E;border:none;border-radius:8px;font-family:Verdana,sans-serif;font-size:14px;font-weight:700;cursor:pointer">Retry</button>
 </div>
 
 <header class="app-header">
@@ -36,7 +36,7 @@
     <span class="logo-wordmark">flimp</span>
     <span class="logo-sub">/ Timeline Generator</span>
   </div>
-  <a href="/dashboard" style="height:32px;padding:0 14px;border-radius:8px;font-family:Calibri,sans-serif;font-size:13px;font-weight:500;cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:6px;background:transparent;border:1px solid #ffffff30;color:#ffffffcc;transition:all .15s" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">
+  <a href="/dashboard" style="height:32px;padding:0 14px;border-radius:8px;font-family:Verdana,sans-serif;font-size:13px;font-weight:500;cursor:pointer;text-decoration:none;display:flex;align-items:center;gap:6px;background:transparent;border:1px solid #ffffff30;color:#ffffffcc;transition:all .15s" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">
     <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="4" height="4" rx=".5"/><rect x="8" y="1" width="4" height="4" rx=".5"/><rect x="1" y="8" width="4" height="4" rx=".5"/><rect x="8" y="8" width="4" height="4" rx=".5"/></svg>
     Dashboard
   </a>
@@ -169,6 +169,9 @@
   </div>
 
   <div class="generate-wrap">
+    <div id="overScopeWarning" style="display:none;text-align:center;margin-bottom:.75rem;font-family:Verdana,sans-serif;font-size:13px;color:var(--red);font-weight:600">
+      Cannot generate timeline: One or more project items are over time.
+    </div>
     <button class="generate-btn" id="generateBtn" onclick="generateTimeline()" disabled>Generate Timeline</button>
     <div style="text-align:center;margin-top:.6rem;font-size:12px;color:var(--text-tertiary)">
       Generated timelines can be saved and revisited from the <a href="/dashboard" style="color:var(--blue);text-decoration:none;font-weight:600">Dashboard</a>
@@ -294,7 +297,7 @@
     </div>
 
     <div style="display:flex;justify-content:flex-end;margin-top:.75rem">
-      <button data-action="save-timeline" style="height:40px;padding:0 24px;background:var(--dark);border:none;border-radius:var(--radius-lg);color:var(--lime);font-family:Calibri,sans-serif;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.02em;transition:all .2s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+      <button data-action="save-timeline" style="height:40px;padding:0 24px;background:var(--dark);border:none;border-radius:var(--radius-lg);color:var(--lime);font-family:Verdana,sans-serif;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.02em;transition:all .2s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
         Save timeline
       </button>
     </div>

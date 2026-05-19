@@ -95,7 +95,7 @@ export function buildDelRow() {
 
   const cnt = document.createElement('input');
   cnt.type = 'number'; cnt.min = 1; cnt.max = 99; cnt.value = 1;
-  cnt.style.cssText = 'font-family:Calibri,sans-serif;font-size:14px;height:36px;padding:0 8px;border:1px solid var(--border);border-radius:var(--radius);background:#fff;color:var(--text);text-align:center;width:100%';
+  cnt.style.cssText = 'font-family:Verdana,sans-serif;font-size:14px;height:36px;padding:0 8px;border:1px solid var(--border);border-radius:var(--radius);background:#fff;color:var(--text);text-align:center;width:100%';
   row.appendChild(cnt);
 
   const tog  = document.createElement('div');
@@ -717,6 +717,8 @@ export function recalcBlockFeasibility(block) {
     const confirmed = blocks.filter(b => b.dataset.confirmed === 'true').length;
     const anyOver = blocks.some(b => b.querySelector('.pb-feas-diff.over') !== null);
     generateBtn.disabled = total === 0 || confirmed < total || anyOver;
+    const warn = document.getElementById('overScopeWarning');
+    if (warn) warn.style.display = anyOver ? 'block' : 'none';
     if (anyOver) {
       generateBtn.title = 'One or more deliverables exceed the available time — reduce durations or extend the due date.';
     } else if (confirmed < total) {
@@ -978,7 +980,7 @@ export function updateGantt() {
     }
 
     html += `<div class="${rowClass}">
-      <div style="width:150px;flex-shrink:0;font-size:${isChild?'10':'11'}px;color:rgba(255,255,255,${isChild?'.6':'.75'});font-family:Calibri,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;" title="${esc(product)}">${connectorHtml}<span style="overflow:hidden;text-overflow:ellipsis">${esc(product)}</span></div>
+      <div style="width:150px;flex-shrink:0;font-size:${isChild?'10':'11'}px;color:rgba(255,255,255,${isChild?'.6':'.75'});font-family:Verdana,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;" title="${esc(product)}">${connectorHtml}<span style="overflow:hidden;text-overflow:ellipsis">${esc(product)}</span></div>
       <div class="${isChild?'gantt-nested-track':'gantt-track'}" style="position:relative">
         <div style="left:${leftPct}%;width:${widthPct}%;background:${color};position:absolute;top:0;bottom:0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:${isChild?'9':'10'}px;font-weight:700;color:rgba(255,255,255,.9)" title="${esc(product)}: ${totalDays}d">
           ${widthPct > 8 ? totalDays + 'd' : ''}
@@ -999,7 +1001,7 @@ export function updateGantt() {
       dueLine.style.cssText = `position:absolute;top:-9999px;bottom:-9999px;left:${duePct}%;width:2px;background:rgba(255,80,80,.8);z-index:10;pointer-events:none`;
       const dueLabel = document.createElement('span');
       dueLabel.textContent = 'Due';
-      dueLabel.style.cssText = 'position:absolute;top:4px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;color:rgba(255,100,100,.95);white-space:nowrap;font-family:Calibri,sans-serif;letter-spacing:.04em';
+      dueLabel.style.cssText = 'position:absolute;top:4px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;color:rgba(255,100,100,.95);white-space:nowrap;font-family:Verdana,sans-serif;letter-spacing:.04em';
       dueLine.appendChild(dueLabel);
       axisTrack.appendChild(dueLine);
     }
@@ -1021,6 +1023,9 @@ export function updateGenerateBtn() {
   const anyOver = blocks.some(b => b.querySelector('.pb-feas-diff.over') !== null);
 
   generateBtn.disabled = total === 0 || confirmed < total || anyOver;
+
+  const warn = document.getElementById('overScopeWarning');
+  if (warn) warn.style.display = anyOver ? 'block' : 'none';
 
   // Tooltip hint so the user knows why the button is blocked
   if (anyOver) {
