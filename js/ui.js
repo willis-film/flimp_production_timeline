@@ -721,7 +721,10 @@ export function recalcPhaseDates(block, blockEndDate) {
   durs.forEach((dur, i) => {
     remaining -= dur;
     const phaseEnd = remaining === 0 ? new Date(due) : subtractBusinessDays(due, remaining);
-    if (dateCells[i]) dateCells[i].textContent = dur > 0 ? fmtDateShort(phaseEnd) : '—';
+    if (dateCells[i]) {
+      dateCells[i].textContent = dur > 0 ? fmtDateShort(phaseEnd) : '—';
+      dateCells[i].dataset.endDate = dur > 0 ? toISO(phaseEnd) : '';
+    }
   });
 
   const startsEl = block.querySelector('.pb-date-starts');

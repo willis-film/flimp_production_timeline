@@ -20,11 +20,15 @@ import {
 // Shared between generateTimeline() and the save handler.
 function readPhasesFromDOM() {
   return [...document.querySelectorAll('#pbBlocks .pb-block')].map(block =>
-    [...block.querySelectorAll('.phase-table tbody tr')].map(tr => ({
-      name:  tr.querySelector('.pt-name')?.value.trim() || '',
-      dur:   Math.max(1, parseInt(tr.querySelector('.pt-dur')?.value || 1) || 1),
-      owner: tr.querySelector('.owner-badge')?.textContent.trim() || 'Flimp'
-    })).filter(p => p.name)
+    [...block.querySelectorAll('.phase-table tbody tr')].map(tr => {
+      const endDateStr = tr.querySelector('.phase-end-date')?.dataset.endDate || '';
+      return {
+        name:    tr.querySelector('.pt-name')?.value.trim() || '',
+        dur:     Math.max(1, parseInt(tr.querySelector('.pt-dur')?.value || 1) || 1),
+        owner:   tr.querySelector('.owner-badge')?.textContent.trim() || 'Flimp',
+        endDate: endDateStr ? new Date(endDateStr + 'T00:00:00') : null
+      };
+    }).filter(p => p.name)
   );
 }
 

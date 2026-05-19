@@ -186,7 +186,13 @@ export function scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdx
     const phases = phasesPerDeliverable[idx] || [];
 
     phases.forEach(phase => {
-      const endDate = addBusinessDays(vDate, phase.dur);
+      // Use the exact date computed in the phase preview (backward from due date)
+      // if available. Fall back to forward scheduling from startDate if not set
+      // (e.g. when no due date was set during preview).
+      const endDate = phase.endDate instanceof Date && !isNaN(phase.endDate)
+        ? phase.endDate
+        : addBusinessDays(vDate, phase.dur);
+
       allMilestones.push({
         date:        endDate,
         owner:       phase.owner,
