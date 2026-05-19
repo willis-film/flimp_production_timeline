@@ -51,7 +51,16 @@ function groupParty(group, client) {
   return partyName(group.owner, client);
 }
 
-// ── Single data row ───────────────────────────────────────────────────────
+// ── Deliverable display — child Distribution phases show their parent ──────
+function fmtDeliverable(item) {
+  if (
+    item.task.trim().toLowerCase() === 'distribution' &&
+    item.parentDeliverable
+  ) {
+    return `${item.deliverable} (via ${item.parentDeliverable})`;
+  }
+  return item.deliverable;
+}
 function buildDataRow(party, deliverable, task, date, isPastDue) {
   const rowBg   = isPastDue ? 'background:#fff0f0;' : '';
   const dateFmt = isPastDue ? `${E.tdDate}color:#c00;` : E.tdDate;
@@ -84,7 +93,7 @@ function buildChronTable({ milestoneGroups, projectEndDate, projectSpanDays, sta
   let rows = buildTableHeader(project);
 
   milestoneGroups.forEach(group => {
-    const dels  = [...new Set(group.items.map(m => m.deliverable))].join(', ');
+    const dels  = [...new Set(group.items.map(m => fmtDeliverable(m)))].join(', ');
     const tasks = [...new Set(group.items.map(m => m.task))].join(', ');
     rows += buildDataRow(groupParty(group, client), dels, tasks, fmtDateShort(group.date), group.isPastDue);
   });
@@ -126,9 +135,10 @@ function buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, st
     const byKey = new Map();
     groups.forEach(group => {
       group.items.forEach(item => {
-        const key = `${item.deliverable}||${group.owner}`;
+        const delLabel = fmtDeliverable(item);
+        const key = `${delLabel}||${group.owner}`;
         if (!byKey.has(key)) byKey.set(key, {
-          deliverable: item.deliverable,
+          deliverable: delLabel,
           owner:       group.owner,
           tasks:       [],
           date:        group.date,
@@ -411,7 +421,7 @@ function pdfMilestoneTable(milestoneGroups, dueDate, client) {
 
   const rows = milestones.map(group => {
     const tasks = [...new Set(group.items.filter(m => m.isMilestone).map(m => m.task))].join(', ');
-    const dels  = [...new Set(group.items.filter(m => m.isMilestone).map(m => m.deliverable))].join(', ');
+    const dels  = [...new Set(group.items.filter(m => m.isMilestone).map(m => fmtDeliverable(m)))].join(', ');
     const isPastDue = group.isPastDue;
     return `
       <tr>

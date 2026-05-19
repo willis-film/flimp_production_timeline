@@ -194,11 +194,12 @@ export function scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdx
         : addBusinessDays(vDate, phase.dur);
 
       allMilestones.push({
-        date:        endDate,
-        owner:       phase.owner,
-        deliverable: del.product,
-        task:        phase.name,
-        isMilestone: phase.is_milestone || false
+        date:              endDate,
+        owner:             phase.owner,
+        deliverable:       del.product,
+        parentDeliverable: parIdx !== null ? deliverables[parIdx].product : null,
+        task:              phase.name,
+        isMilestone:       phase.is_milestone || false
       });
       if (endDate > projectEndDate) projectEndDate = new Date(endDate);
       trackEnd = new Date(endDate);
