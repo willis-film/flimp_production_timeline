@@ -653,17 +653,28 @@ export function previewPhases() {
   refreshParentSelectors();
   setTimeout(() => {
     const allDelRows = [...document.querySelectorAll('#delRows .del-row')];
-    const parentProductsWithAppended = new Set();
-    allDelRows.forEach(row => {
-      const sel = row.querySelector('select');
-      if (!sel || !sel.value || !VALID_PARENTS[sel.value]) return;
-      const parentSel = row.querySelector('.parent-sel');
-      if (!parentSel || parentSel.value === '') return;
-      const opt = parentSel.options[parentSel.selectedIndex];
-      if (opt && opt.dataset.product) parentProductsWithAppended.add(opt.dataset.product);
+    const parentIdxMap = buildParentIdxMap(allDelRows);
+    // Collect the exact set of parent row indices that have at least one child
+    const parentIndicesWithAppended = new Set();
+    allDelRows.forEach((row, i) => {
+      if (parentIdxMap[i] !== null && parentIdxMap[i] !== undefined) {
+        parentIndicesWithAppended.add(parentIdxMap[i]);
+      }
     });
-    document.querySelectorAll('#pbBlocks .pb-block').forEach(block => {
-      if (!parentProductsWithAppended.has(block.dataset.product)) return;
+    // For each parent row index, derive the product+isRenewal key and strip Distribution
+    const blocks = [...document.querySelectorAll('#pbBlocks .pb-block')];
+    parentIndicesWithAppended.forEach(parentIdx => {
+      const parentRow = allDelRows[parentIdx];
+      if (!parentRow) return;
+      const parentProduct   = parentRow.querySelector('select')?.value;
+      const parentIsRenewal = parentRow.querySelector('.nr-btn.r-active') !== null;
+      if (!parentProduct) return;
+      // Match the corresponding pb-block (same product + renewal state, in DOM order)
+      const block = blocks.find(b =>
+        b.dataset.product === parentProduct &&
+        (b.dataset.isrenewal === 'true') === parentIsRenewal
+      );
+      if (!block) return;
       const rows2 = [...block.querySelectorAll('tbody tr')];
       for (let i = rows2.length - 1; i >= 0; i--) {
         const nameInput = rows2[i].querySelector('.pt-name');
