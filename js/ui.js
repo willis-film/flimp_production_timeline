@@ -19,6 +19,17 @@ import {
 export { setDays };
 
 // ── Product helpers ───────────────────────────────────────────────────────
+// ── Round-group bracket characters ───────────────────────────────────────
+// Prefix each phase within a round with a box-drawing character so pairs
+// (or larger groups) visually read as a unit.
+// idx = 0-based position within the group, total = number of phases in group.
+function roundBracket(idx, total) {
+  if (total === 1) return '';
+  if (idx === 0)            return '┌ ';
+  if (idx === total - 1)    return '└ ';
+  return '├ ';
+}
+
 export function getProductGroup(name) {
   return PRODUCTS.find(g => g.items.includes(name)) || null;
 }
@@ -346,8 +357,9 @@ export function rebuildPhaseTable(block, skipPhases) {
 
     const groupPhases = phases.filter(gp => gp.round_group_name === p.round_group_name);
     for (let r = 1; r <= rCount; r++) {
-      groupPhases.forEach(gp => {
-        expanded.push({ ...gp, name: rCount > 1 ? `${gp.name} Rd ${r}` : gp.name });
+      groupPhases.forEach((gp, gi) => {
+        const baseName = rCount > 1 ? `${gp.name} Rd ${r}` : gp.name;
+        expanded.push({ ...gp, name: roundBracket(gi, groupPhases.length) + baseName });
       });
     }
   });
@@ -452,8 +464,9 @@ export function previewPhases() {
 
       const groupPhases = phases.filter(gp => gp.round_group_name === p.round_group_name);
       for (let r = 1; r <= rCount; r++) {
-        groupPhases.forEach(gp => {
-          expanded.push({ ...gp, name: rCount > 1 ? `${gp.name} Rd ${r}` : gp.name });
+        groupPhases.forEach((gp, gi) => {
+          const baseName = rCount > 1 ? `${gp.name} Rd ${r}` : gp.name;
+          expanded.push({ ...gp, name: roundBracket(gi, groupPhases.length) + baseName });
         });
       }
     });
