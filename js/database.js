@@ -61,7 +61,7 @@ export async function loadReferenceData() {
     NA_PRODUCTS = new Set(products.filter(p => p.is_not_renewable).map(p => p.name));
 
     // ── PM_ELIGIBLE ──
-    PM_ELIGIBLE = new Set(products.filter(p => p.eligible_pm).map(p => p.name));
+    PM_ELIGIBLE = new Set(products.filter(p => p.eligible_PM).map(p => p.name));
 
     // ── ROUNDS_DEFAULTS ──
     ROUNDS_DEFAULTS = {};
