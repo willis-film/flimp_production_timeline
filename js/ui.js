@@ -839,7 +839,11 @@ export function previewPhases() {
         b.dataset.product === product &&
         (b.dataset.isrenewal === 'true') === isRenewal
       );
-      if (block) stripDistribution(block);
+      if (block) {
+        stripDistribution(block);
+        recalcPhaseDates(block); // re-anchor dates to PM window after strip
+        recalcBlockFeasibility(block);
+      }
     });
   }, 50);
 
@@ -880,6 +884,40 @@ function getParentBlock(block) {
   ) || null;
 }
 
+// ── Shared helper: get effective due date for a block ────────────────────
+// For PM parents: delivery date - 10 biz days
+// For regular parents/standalones: project due date - appended child days
+// Returns a Date or null.
+function getEffectiveDue(block) {
+  const bp  = block.dataset.product;
+  const bir = block.dataset.isrenewal === 'true';
+  const dueVal = document.getElementById('dueDate').value;
+
+  const allDelRows = [...document.querySelectorAll('#delRows .del-row')];
+  const matchedRow = allDelRows.find(r => {
+    const s = r.querySelector('select');
+    const renewal = r.querySelector('.nr-btn.r-active') !== null;
+    return s && s.value === bp && renewal === bir;
+  });
+  const pmDelivery = matchedRow?.dataset.pmDelivery;
+
+  if (pmDelivery) {
+    // PM parent — count back 10 biz days from delivery date
+    let d = new Date(pmDelivery + 'T00:00:00');
+    let daysBack = 0;
+    while (daysBack < 10) { d.setDate(d.getDate() - 1); if (isWorkDay(d)) daysBack++; }
+    return d;
+  }
+
+  if (!dueVal) return null;
+  let due = new Date(dueVal + 'T00:00:00');
+  if (!VALID_PARENTS[bp]) {
+    const appDays = getAppendedDays(bp, bir);
+    if (appDays > 0) due = subtractBusinessDays(due, appDays);
+  }
+  return due;
+}
+
 // ── Sum of all phase durations in a block ─────────────────────────────────
 function getBlockDays(block) {
   return [...block.querySelectorAll('.pt-dur')]
@@ -890,53 +928,30 @@ export function recalcBlockFeasibility(block) {
   const startVal = document.getElementById('startDate').value;
   if (!startVal) return;
 
-  const blockProduct   = block.dataset.product;
-  const blockIsRenewal = block.dataset.isrenewal === 'true';
-
-  // Check if this block is a P&M parent — use delivery date - 10 biz days as effective due
-  const allDelRows  = [...document.querySelectorAll('#delRows .del-row')];
-  const matchedRow  = allDelRows.find(r => {
-    const s = r.querySelector('select');
-    const renewal = r.querySelector('.nr-btn.r-active') !== null;
-    return s && s.value === blockProduct && renewal === blockIsRenewal;
-  });
-  const pmDelivery  = matchedRow?.dataset.pmDelivery || null;
-
-  let dueVal;
-  if (pmDelivery) {
-    // Count back 10 business days from delivery date to get effective due
-    let d = new Date(pmDelivery + 'T00:00:00');
-    let daysBack = 0;
-    while (daysBack < 10) {
-      d.setDate(d.getDate() - 1);
-      if (isWorkDay(d)) daysBack++;
-    }
-    dueVal = toISO(d);
-  } else {
-    dueVal = document.getElementById('dueDate').value;
-  }
-
-  if (!dueVal) return;
-
-  const due   = new Date(dueVal + 'T00:00:00');
-  const start = nextWorkDay(new Date(startVal + 'T00:00:00'));
-  const available = countBusinessDays(start, due);
-
-  const needed = getBlockDays(block);
-
-  let effectiveAvailable;
+  const start       = nextWorkDay(new Date(startVal + 'T00:00:00'));
   const parentBlock = getParentBlock(block);
+
+  let effectiveDue;
   if (parentBlock) {
-    // Child block: judged against available window minus parent's own phases
-    const parentDays = getBlockDays(parentBlock);
-    effectiveAvailable = available - parentDays;
+    // Child block: judged against project due date minus parent days
+    const dueVal = document.getElementById('dueDate').value;
+    effectiveDue = dueVal ? new Date(dueVal + 'T00:00:00') : null;
   } else {
-    // Parent block (or standalone): judged against available window minus appended child days
-    const appendedDays = getAppendedDays(blockProduct, blockIsRenewal);
-    effectiveAvailable = available - appendedDays;
+    // Root block: PM parent uses delivery-10, regular uses due-appended
+    effectiveDue = getEffectiveDue(block);
   }
+  if (!effectiveDue) return;
+
+  const available = countBusinessDays(start, effectiveDue);
+  const needed    = getBlockDays(block);
+
+  const effectiveAvailable = parentBlock
+    ? available - getBlockDays(parentBlock)
+    : available;
 
   const fill = block.querySelector('.pb-feas-bar-fill');
+  const diff = block.querySelector('.pb-feas-diff');
+  if (!fill || !diff || effectiveAvailable <= 0) return;  const fill = block.querySelector('.pb-feas-bar-fill');
   const diff = block.querySelector('.pb-feas-diff');
   if (!fill || !diff || effectiveAvailable <= 0) return;
 
@@ -990,33 +1005,7 @@ export function recalcBlockFeasibility(block) {
 
 // ── Phase date recalculation ──────────────────────────────────────────────
 export function recalcPhaseDates(block, blockEndDate) {
-  const dueVal = document.getElementById('dueDate').value;
-
-  // Check if this block is a PM parent — use delivery - 10 biz days as effective due
-  let due = blockEndDate || null;
-  if (!due) {
-    const bp  = block.dataset.product;
-    const bir = block.dataset.isrenewal === 'true';
-    const allDelRows = [...document.querySelectorAll('#delRows .del-row')];
-    const matchedRow = allDelRows.find(r => {
-      const s = r.querySelector('select');
-      const renewal = r.querySelector('.nr-btn.r-active') !== null;
-      return s && s.value === bp && renewal === bir;
-    });
-    const pmDelivery = matchedRow?.dataset.pmDelivery;
-    if (pmDelivery) {
-      let d = new Date(pmDelivery + 'T00:00:00');
-      let daysBack = 0;
-      while (daysBack < 10) { d.setDate(d.getDate() - 1); if (isWorkDay(d)) daysBack++; }
-      due = d;
-    } else {
-      due = dueVal ? new Date(dueVal + 'T00:00:00') : null;
-      if (due && !VALID_PARENTS[bp]) {
-        const appDays = getAppendedDays(bp, bir);
-        if (appDays > 0) due = subtractBusinessDays(due, appDays);
-      }
-    }
-  }
+  const due = blockEndDate || getEffectiveDue(block);
   if (!due) return;
 
   const durInputs = [...block.querySelectorAll('.pt-dur')];
@@ -1091,11 +1080,29 @@ export function updateFeasibility() {
     return (blockDaysByIdx[idx] || 0) + Math.max(...children.map(j => feasChainDays(j)));
   }
 
+  // For the global panel, needed = longest chain judged against project due date.
+  // PM parent chains are bounded by their delivery window, so we compute their
+  // effective days as: pmWindow - ownDays (available slack for chain).
+  // For simplicity, we report the longest non-PM chain against project due date,
+  // and flag if any PM parent chain exceeds its window.
   let needed = 0;
-  blocks.forEach((_, i) => {
-    if (feasParentMap[i] !== null) return;
+  blocks.forEach((block, i) => {
+    if (feasParentMap[i] !== null) return; // not a root
     const chain = feasChainDays(i);
-    if (chain > needed) needed = chain;
+    // Use PM window if this is a PM parent
+    const effDue = getEffectiveDue(block);
+    const effAvailable = effDue ? countBusinessDays(startDate, effDue) : available;
+    // For the global "needed" number, use project due date baseline for non-PM chains
+    const isPM = !!feasDelRows.find(r => {
+      const s = r.querySelector('select');
+      const renewal = r.querySelector('.nr-btn.r-active') !== null;
+      return s && s.value === block.dataset.product &&
+             (renewal) === (block.dataset.isrenewal === 'true') &&
+             r.dataset.pmDelivery;
+    });
+    if (!isPM && chain > needed) needed = chain;
+    // For PM blocks, count against their own window
+    if (isPM && chain > needed) needed = chain;
   });
   document.getElementById('feasNeeded').textContent = needed;
 
