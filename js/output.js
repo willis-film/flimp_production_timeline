@@ -165,12 +165,11 @@ function buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, st
 // with the actual computed end date pulled from milestoneGroups.
 function buildByProductTable({ phasesPerDeliverable, deliverables, milestoneGroups, projectEndDate, projectSpanDays, startDate, dueDate, project, client }) {
   const sectionHdr = (label) =>
-    `<tr><td colspan="4" style="${E.weekHdr}">${esc(label)}</td></tr>`;
+    `<tr><td colspan="3" style="${E.weekHdr}">${esc(label)}</td></tr>`;
 
   const thRow = `
     <tr>
       <th style="${E.thFirst}">Owner</th>
-      <th style="width:14px;padding:0.35rem 2px 0.35rem 0;border-bottom:2px solid #000;font-family:Verdana,sans-serif;"></th>
       <th style="text-align:left;padding:0.35rem 0.75rem;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;width:50%;font-family:Verdana,sans-serif;">Phase</th>
       <th style="${E.thLast}">Due Date</th>
     </tr>`;
@@ -184,7 +183,7 @@ function buildByProductTable({ phasesPerDeliverable, deliverables, milestoneGrou
     });
   });
 
-  let rows = `<tr><td colspan="4" contenteditable="true" style="${E.title}">${esc(project)}</td></tr>`;
+  let rows = `<tr><td colspan="3" contenteditable="true" style="${E.title}">${esc(project)}</td></tr>`;
 
   deliverables.forEach((del, idx) => {
     const phases = phasesPerDeliverable[idx] || [];
@@ -200,11 +199,9 @@ function buildByProductTable({ phasesPerDeliverable, deliverables, milestoneGrou
       const dateStr = entry ? fmtDateShort(entry.date) : '—';
       const dateSty = entry?.isPastDue ? `${E.tdDate}color:#c00;` : E.tdDate;
       const rowBg   = entry?.isPastDue ? 'background:#fff0f0;' : '';
-      const bk      = phase.bracketChar || '';
       rows += `
         <tr style="${rowBg}">
           <td contenteditable="true" style="${E.tdFirst}">${esc(partyName(phase.owner, client))}</td>
-          <td style="padding:0.3rem 2px 0.3rem 0;border-bottom:1px solid #ccc;font-size:0.65rem;color:#aaa;white-space:nowrap;font-family:Verdana,sans-serif;">${esc(bk)}</td>
           <td contenteditable="true" style="${E.tdTask}">${esc(phase.name)}</td>
           <td contenteditable="true" style="${dateSty}">${esc(dateStr)}</td>
         </tr>`;

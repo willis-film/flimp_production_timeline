@@ -19,17 +19,6 @@ import {
 export { setDays };
 
 // ── Product helpers ───────────────────────────────────────────────────────
-// ── Round-group bracket characters ───────────────────────────────────────
-// Prefix each phase within a round with a box-drawing character so pairs
-// (or larger groups) visually read as a unit.
-// idx = 0-based position within the group, total = number of phases in group.
-function roundBracket(idx, total) {
-  if (total === 1) return '';
-  if (idx === 0)            return '┌ ';
-  if (idx === total - 1)    return '└ ';
-  return '├ ';
-}
-
 export function getProductGroup(name) {
   return PRODUCTS.find(g => g.items.includes(name)) || null;
 }
@@ -176,8 +165,7 @@ function buildNewPhaseRow() {
   const tr = document.createElement('tr');
   tr.innerHTML = `
     <td class="phase-drag-handle" title="Drag to reorder">⠿</td>
-    <td style="padding:0 2px 0 0;font-size:11px;white-space:nowrap;vertical-align:middle"></td>
-    <td class="pt-name-td"><input class="pt-name" type="text" value="New phase"></td>
+    <td><input class="pt-name" type="text" value="New phase"></td>
     <td style="text-align:center"><span class="owner-badge owner-flimp">Flimp</span></td>
     <td style="text-align:center"><input class="pt-dur" type="number" min="1" max="120" value="3"></td>
     <td class="phase-end-date" style="text-align:center;font-size:11px;color:var(--text-muted);white-space:nowrap">—</td>
@@ -358,9 +346,9 @@ export function rebuildPhaseTable(block, skipPhases) {
 
     const groupPhases = phases.filter(gp => gp.round_group_name === p.round_group_name);
     for (let r = 1; r <= rCount; r++) {
-      groupPhases.forEach((gp, gi) => {
+      groupPhases.forEach(gp => {
         const baseName = rCount > 1 ? `${gp.name} Rd ${r}` : gp.name;
-        expanded.push({ ...gp, name: baseName, bracketChar: roundBracket(gi, groupPhases.length) });
+        expanded.push({ ...gp, name: baseName });
       });
     }
   });
@@ -369,18 +357,16 @@ export function rebuildPhaseTable(block, skipPhases) {
   if (!tbody) return;
   tbody.innerHTML = '';
 
-  // Update table header to include drag handle and bracket columns
+  // Update table header to include drag handle column
   const thead = block.querySelector('.phase-table thead');
-  if (thead) thead.innerHTML = '<tr><th style="width:22px"></th><th style="width:14px;padding-right:2px"></th><th>Phase</th><th style="text-align:center">Owner</th><th style="text-align:center">Days</th><th style="text-align:center">Ends</th><th></th></tr>';
+  if (thead) thead.innerHTML = '<tr><th style="width:22px"></th><th>Phase</th><th style="text-align:center">Owner</th><th style="text-align:center">Days</th><th style="text-align:center">Ends</th><th></th></tr>';
 
   expanded.forEach(phase => {
     const tr = document.createElement('tr');
     const ownerClass = phase.owner === 'Client' ? 'owner-client' : 'owner-flimp';
-    const bk = phase.bracketChar || '';
     tr.innerHTML = `
       <td class="phase-drag-handle" title="Drag to reorder">⠿</td>
-      <td data-bracket="${esc(bk)}" style="padding:0 3px 0 0;font-size:11px;color:var(--text-secondary);opacity:0.4;white-space:nowrap;vertical-align:middle">${esc(bk)}</td>
-      <td class="pt-name-td"><input class="pt-name" type="text" value="${esc(phase.name)}"></td>
+      <td><input class="pt-name" type="text" value="${esc(phase.name)}"></td>
       <td style="text-align:center"><span class="owner-badge ${ownerClass}">${esc(phase.owner)}</span></td>
       <td style="text-align:center"><input class="pt-dur" type="number" min="1" max="120" value="${phase.dur}"></td>
       <td class="phase-end-date" style="text-align:center;font-size:11px;color:var(--text-secondary);white-space:nowrap">—</td>
@@ -467,9 +453,9 @@ export function previewPhases() {
 
       const groupPhases = phases.filter(gp => gp.round_group_name === p.round_group_name);
       for (let r = 1; r <= rCount; r++) {
-        groupPhases.forEach((gp, gi) => {
+        groupPhases.forEach(gp => {
           const baseName = rCount > 1 ? `${gp.name} Rd ${r}` : gp.name;
-          expanded.push({ ...gp, name: baseName, bracketChar: roundBracket(gi, groupPhases.length) });
+          expanded.push({ ...gp, name: baseName });
         });
       }
     });
@@ -616,17 +602,15 @@ export function previewPhases() {
     const table   = document.createElement('table');
     table.className = 'phase-table';
     const thead   = document.createElement('thead');
-    thead.innerHTML = '<tr><th style="width:22px"></th><th style="width:14px;padding-right:2px"></th><th>Phase</th><th style="text-align:center">Owner</th><th style="text-align:center">Days</th><th style="text-align:center">Ends</th><th></th></tr>';
+    thead.innerHTML = '<tr><th style="width:22px"></th><th>Phase</th><th style="text-align:center">Owner</th><th style="text-align:center">Days</th><th style="text-align:center">Ends</th><th></th></tr>';
     const tbody   = document.createElement('tbody');
 
     expanded.forEach(phase => {
       const tr = document.createElement('tr');
       const ownerClass = phase.owner === 'Client' ? 'owner-client' : 'owner-flimp';
-      const bk = phase.bracketChar || '';
       tr.innerHTML = `
         <td class="phase-drag-handle" title="Drag to reorder">⠿</td>
-        <td data-bracket="${esc(bk)}" style="padding:0 3px 0 0;font-size:11px;color:var(--text-secondary);opacity:0.4;white-space:nowrap;vertical-align:middle">${esc(bk)}</td>
-        <td class="pt-name-td"><input class="pt-name" type="text" value="${esc(phase.name)}"></td>
+        <td><input class="pt-name" type="text" value="${esc(phase.name)}"></td>
         <td style="text-align:center"><span class="owner-badge ${ownerClass}">${esc(phase.owner)}</span></td>
         <td style="text-align:center"><input class="pt-dur" type="number" min="1" max="120" value="${phase.dur}"></td>
         <td class="phase-end-date" style="text-align:center;font-size:11px;color:var(--text-secondary);white-space:nowrap">—</td>
