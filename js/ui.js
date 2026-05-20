@@ -793,6 +793,7 @@ export function previewPhases() {
 
   // Post-pass: remove Distribution from parents that have appended items
   refreshParentSelectors();
+  refreshPMSelectors(); // stamp data-pm-delivery on del-rows before the timeout reads them
   setTimeout(() => {
     const allDelRows = [...document.querySelectorAll('#delRows .del-row')];
     const parentIdxMap = buildParentIdxMap(allDelRows);
@@ -951,7 +952,6 @@ export function recalcBlockFeasibility(block) {
 
   const fill = block.querySelector('.pb-feas-bar-fill');
   const diff = block.querySelector('.pb-feas-diff');
-  if (!fill || !diff || effectiveAvailable <= 0) return;
   if (!fill || !diff || effectiveAvailable <= 0) return;
 
   const pct   = Math.min(100, (needed / effectiveAvailable) * 100);
