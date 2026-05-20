@@ -871,6 +871,8 @@ export function previewPhases() {
       recalcPhaseDates(block);
       recalcBlockFeasibility(block);
     });
+
+    updateFeasibility(); // recalc global panel now that P&M rows are in DOM
   }, 50);
 
   document.getElementById('phasePreviewSection').style.display = 'block';
