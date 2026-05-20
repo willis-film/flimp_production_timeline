@@ -1277,13 +1277,18 @@ export function updateGantt() {
   html += `<span class="gantt-axis-tick" style="right:0;left:auto;transform:none">${fmtDateShort(anchorDate)}</span>`;
   html += `</div></div>`;
 
-  const totalWidthPct = Math.min(100, (longestChainDays / scaleDays) * 100);
-  const totalLeftPct  = Math.max(0, 100 - totalWidthPct);
+  // Total bar: span from earliest root blockStart to anchorDate (handles PM parents pushing left)
+  const rootIdxs = sortedIdxs.filter(i => parentIdxMap[i] === null);
+  const earliestStart = rootIdxs.reduce((e, i) => blockStart[i] < e ? blockStart[i] : e, blockStart[rootIdxs[0]]);
+  const totalSpanDays = countBusinessDays(earliestStart, anchorDate);
+  const totalStartOffsetDays = countBusinessDays(startDate, earliestStart);
+  const totalWidthPct = Math.min(100, (totalSpanDays / scaleDays) * 100);
+  const totalLeftPct  = Math.max(0, (totalStartOffsetDays / scaleDays) * 100);
   html += `<div class="gantt-row">
     <div class="gantt-label" style="color:rgba(255,255,255,.45);font-style:italic">Total project</div>
     <div class="gantt-track">
-      <div class="gantt-bar total-bar" style="left:${totalLeftPct}%;width:${totalWidthPct}%" title="Total project: ${longestChainDays} days">
-        ${totalWidthPct > 10 ? longestChainDays + 'd' : ''}
+      <div class="gantt-bar total-bar" style="left:${totalLeftPct}%;width:${totalWidthPct}%" title="Total project: ${totalSpanDays} days">
+        ${totalWidthPct > 10 ? totalSpanDays + 'd' : ''}
       </div>
     </div>
     <div class="gantt-enddate">${fmtDateShort(anchorDate)}</div>
