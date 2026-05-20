@@ -150,7 +150,7 @@ tr.dragging{opacity:.4}
 .phase-table{width:100%;border-collapse:collapse}
 .phase-table th{padding:.5rem .9rem;font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.06em;text-transform:uppercase;text-align:left;border-bottom:1px solid var(--border-light);background:var(--warm-white)}
 .phase-table th:nth-child(2),.phase-table th:nth-child(3){text-align:center}
-.phase-table td{padding:.45rem .9rem;border-bottom:1px solid var(--border-light);vertical-align:middle}
+.phase-table td{padding:.2rem .9rem;border-bottom:1px solid var(--border-light);vertical-align:middle}
 .phase-table tr:last-child td{border-bottom:none}
 .phase-table tr:hover td{background:#fafbfd}
 .pt-name{font-family:Verdana,sans-serif;font-size:13px;height:30px;padding:0 8px;border:1px solid transparent;border-radius:5px;color:var(--text);width:100%;background:transparent;transition:border-color .12s}
