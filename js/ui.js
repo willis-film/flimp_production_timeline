@@ -176,6 +176,7 @@ function buildNewPhaseRow() {
   const tr = document.createElement('tr');
   tr.innerHTML = `
     <td class="phase-drag-handle" title="Drag to reorder">⠿</td>
+    <td style="padding:5px 2px 5px 8px;font-size:11px;white-space:nowrap;vertical-align:middle"></td>
     <td><input class="pt-name" type="text" value="New phase"></td>
     <td style="text-align:center"><span class="owner-badge owner-flimp">Flimp</span></td>
     <td style="text-align:center"><input class="pt-dur" type="number" min="1" max="120" value="3"></td>
@@ -359,7 +360,7 @@ export function rebuildPhaseTable(block, skipPhases) {
     for (let r = 1; r <= rCount; r++) {
       groupPhases.forEach((gp, gi) => {
         const baseName = rCount > 1 ? `${gp.name} Rd ${r}` : gp.name;
-        expanded.push({ ...gp, name: roundBracket(gi, groupPhases.length) + baseName });
+        expanded.push({ ...gp, name: baseName, bracketChar: roundBracket(gi, groupPhases.length) });
       });
     }
   });
@@ -368,15 +369,17 @@ export function rebuildPhaseTable(block, skipPhases) {
   if (!tbody) return;
   tbody.innerHTML = '';
 
-  // Update table header to include drag handle column
+  // Update table header to include drag handle and bracket columns
   const thead = block.querySelector('.phase-table thead');
-  if (thead) thead.innerHTML = '<tr><th style="width:22px"></th><th>Phase</th><th style="text-align:center">Owner</th><th style="text-align:center">Days</th><th style="text-align:center">Ends</th><th></th></tr>';
+  if (thead) thead.innerHTML = '<tr><th style="width:22px"></th><th style="width:14px;padding-right:2px"></th><th>Phase</th><th style="text-align:center">Owner</th><th style="text-align:center">Days</th><th style="text-align:center">Ends</th><th></th></tr>';
 
   expanded.forEach(phase => {
     const tr = document.createElement('tr');
     const ownerClass = phase.owner === 'Client' ? 'owner-client' : 'owner-flimp';
+    const bk = phase.bracketChar || '';
     tr.innerHTML = `
       <td class="phase-drag-handle" title="Drag to reorder">⠿</td>
+      <td data-bracket="${esc(bk)}" style="padding:5px 2px 5px 8px;font-size:11px;color:var(--text-secondary);opacity:0.4;white-space:nowrap;vertical-align:middle">${esc(bk)}</td>
       <td><input class="pt-name" type="text" value="${esc(phase.name)}"></td>
       <td style="text-align:center"><span class="owner-badge ${ownerClass}">${esc(phase.owner)}</span></td>
       <td style="text-align:center"><input class="pt-dur" type="number" min="1" max="120" value="${phase.dur}"></td>
@@ -466,7 +469,7 @@ export function previewPhases() {
       for (let r = 1; r <= rCount; r++) {
         groupPhases.forEach((gp, gi) => {
           const baseName = rCount > 1 ? `${gp.name} Rd ${r}` : gp.name;
-          expanded.push({ ...gp, name: roundBracket(gi, groupPhases.length) + baseName });
+          expanded.push({ ...gp, name: baseName, bracketChar: roundBracket(gi, groupPhases.length) });
         });
       }
     });
@@ -613,14 +616,16 @@ export function previewPhases() {
     const table   = document.createElement('table');
     table.className = 'phase-table';
     const thead   = document.createElement('thead');
-    thead.innerHTML = '<tr><th style="width:22px"></th><th>Phase</th><th style="text-align:center">Owner</th><th style="text-align:center">Days</th><th style="text-align:center">Ends</th><th></th></tr>';
+    thead.innerHTML = '<tr><th style="width:22px"></th><th style="width:14px;padding-right:2px"></th><th>Phase</th><th style="text-align:center">Owner</th><th style="text-align:center">Days</th><th style="text-align:center">Ends</th><th></th></tr>';
     const tbody   = document.createElement('tbody');
 
     expanded.forEach(phase => {
       const tr = document.createElement('tr');
       const ownerClass = phase.owner === 'Client' ? 'owner-client' : 'owner-flimp';
+      const bk = phase.bracketChar || '';
       tr.innerHTML = `
         <td class="phase-drag-handle" title="Drag to reorder">⠿</td>
+        <td data-bracket="${esc(bk)}" style="padding:5px 2px 5px 8px;font-size:11px;color:var(--text-secondary);opacity:0.4;white-space:nowrap;vertical-align:middle">${esc(bk)}</td>
         <td><input class="pt-name" type="text" value="${esc(phase.name)}"></td>
         <td style="text-align:center"><span class="owner-badge ${ownerClass}">${esc(phase.owner)}</span></td>
         <td style="text-align:center"><input class="pt-dur" type="number" min="1" max="120" value="${phase.dur}"></td>

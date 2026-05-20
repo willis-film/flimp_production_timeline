@@ -22,11 +22,13 @@ function readPhasesFromDOM() {
   return [...document.querySelectorAll('#pbBlocks .pb-block')].map(block =>
     [...block.querySelectorAll('.phase-table tbody tr')].map(tr => {
       const endDateStr = tr.querySelector('.phase-end-date')?.dataset.endDate || '';
+      const bkCell = tr.querySelector('td[data-bracket]');
       return {
-        name:    tr.querySelector('.pt-name')?.value.trim() || '',
-        dur:     Math.max(1, parseInt(tr.querySelector('.pt-dur')?.value || 1) || 1),
-        owner:   tr.querySelector('.owner-badge')?.textContent.trim() || 'Flimp',
-        endDate: endDateStr ? new Date(endDateStr + 'T00:00:00') : null
+        name:        tr.querySelector('.pt-name')?.value.trim() || '',
+        dur:         Math.max(1, parseInt(tr.querySelector('.pt-dur')?.value || 1) || 1),
+        owner:       tr.querySelector('.owner-badge')?.textContent.trim() || 'Flimp',
+        endDate:     endDateStr ? new Date(endDateStr + 'T00:00:00') : null,
+        bracketChar: bkCell ? (bkCell.dataset.bracket || '') : ''
       };
     }).filter(p => p.name)
   );
