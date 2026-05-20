@@ -115,6 +115,28 @@
     </div>
     <div id="delRows"></div>
     <button class="add-row-btn" onclick="addRow()">+ Add deliverable</button>
+    <div style="display:flex;align-items:center;gap:.5rem;padding:.75rem 1rem 0;border-top:1px solid var(--border-light);margin-top:.75rem">
+      <input type="checkbox" id="pmCheckbox" onchange="togglePMSection()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--blue)">
+      <label for="pmCheckbox" style="font-family:Verdana,sans-serif;font-size:13px;color:var(--text);cursor:pointer;user-select:none">Include Print &amp; Mail</label>
+    </div>
+  </div>
+
+  <!-- SECTION 2.1: PRINT & MAIL -->
+  <div id="pmSection" style="display:none">
+    <div style="height:1rem"></div>
+    <div class="section-head">
+      <div class="section-num" style="font-size:14px">2.1</div>
+      <span class="section-title">Print &amp; Mail</span>
+    </div>
+    <div class="card">
+      <div class="row-headers" style="grid-template-columns:1fr 160px 28px">
+        <span>Parent Deliverable</span>
+        <span>Delivery Date</span>
+        <span></span>
+      </div>
+      <div id="pmRows"></div>
+      <button class="add-row-btn" onclick="addPMRow()">+ Add Print &amp; Mail item</button>
+    </div>
   </div>
 
   <button class="preview-btn" onclick="previewPhases()">&#9654; Preview &amp; Edit Phases</button>

@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import {
-  PRODUCTS, NA_PRODUCTS, ROUNDS_DEFAULTS, ALL_PHASES,
+  PRODUCTS, NA_PRODUCTS, PM_ELIGIBLE, ROUNDS_DEFAULTS, ALL_PHASES,
   ROUND_GROUPS, PRECONDITIONS, VALID_PARENTS
 } from './database.js';
 
@@ -78,6 +78,7 @@ export function buildSelect() {
     const parentWrap = row.querySelector('.parent-sel-wrap');
     if (parentWrap) parentWrap.style.display = VALID_PARENTS[this.value] ? 'block' : 'none';
     refreshParentSelectors();
+    refreshPMSelectors();
     const rdVal = row.querySelector('.rounds-val');
     if (rdVal) {
       const curIsRenewal = row.querySelector('.nr-btn.r-active') !== null;
@@ -136,7 +137,7 @@ export function buildDelRow() {
 
   const rm = document.createElement('button');
   rm.className = 'rm-btn'; rm.innerHTML = '&times;'; rm.title = 'Remove deliverable';
-  rm.onclick = () => { row.remove(); updateRemove(); refreshParentSelectors(); };
+  rm.onclick = () => { row.remove(); updateRemove(); refreshParentSelectors(); refreshPMSelectors(); };
   row.appendChild(rm);
 
   const parentWrap = document.createElement('div');
@@ -158,6 +159,145 @@ export function updateRemove() {
 export function addRow() {
   document.getElementById('delRows').appendChild(buildDelRow());
   updateRemove();
+}
+
+// ── Print & Mail section ──────────────────────────────────────────────────
+export function togglePMSection() {
+  const cb  = document.getElementById('pmCheckbox');
+  const sec = document.getElementById('pmSection');
+  sec.style.display = cb.checked ? 'block' : 'none';
+  if (cb.checked && document.getElementById('pmRows').children.length === 0) {
+    addPMRow();
+  }
+  refreshPMSelectors();
+}
+
+export function buildPMRow() {
+  const row = document.createElement('div');
+  row.className = 'pm-row';
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 160px 28px;gap:.5rem;align-items:center;padding:.4rem .75rem;border-bottom:1px solid var(--border-light)';
+
+  // Parent selector
+  const sel = document.createElement('select');
+  sel.className = 'pm-parent-sel';
+  sel.style.cssText = 'font-family:Verdana,sans-serif;font-size:13px;height:34px;padding:0 8px;border:1px solid var(--border);border-radius:var(--radius);background:#fff;color:var(--text);width:100%';
+  sel.innerHTML = '<option value="">Select deliverable…</option>';
+  sel.onchange = () => refreshPMSelectors();
+  row.appendChild(sel);
+
+  // Delivery date input
+  const dateInp = document.createElement('input');
+  dateInp.type = 'date';
+  dateInp.className = 'pm-delivery-date';
+  dateInp.style.cssText = 'font-family:Verdana,sans-serif;font-size:13px;height:34px;padding:0 8px;border:1px solid var(--border);border-radius:var(--radius);background:#fff;color:var(--text);width:100%';
+  // Default to project due date if set
+  const projectDue = document.getElementById('dueDate')?.value;
+  if (projectDue) dateInp.value = projectDue;
+  dateInp.onchange = () => {
+    refreshPMSelectors();
+    // Re-run feasibility on the matched parent block
+    const selVal = sel.value;
+    if (!selVal) return;
+    const [product, isRenewalStr] = selVal.split('||');
+    const block = [...document.querySelectorAll('#pbBlocks .pb-block')].find(b =>
+      b.dataset.product === product && (b.dataset.isrenewal === 'true') === (isRenewalStr === 'true')
+    );
+    if (block) recalcBlockFeasibility(block);
+  };
+  row.appendChild(dateInp);
+
+  // Remove button
+  const rm = document.createElement('button');
+  rm.className = 'rm-btn'; rm.innerHTML = '&times;'; rm.title = 'Remove';
+  rm.onclick = () => {
+    row.remove();
+    refreshPMSelectors();
+    updateGenerateBtn();
+  };
+  row.appendChild(rm);
+
+  return row;
+}
+
+export function addPMRow() {
+  document.getElementById('pmRows').appendChild(buildPMRow());
+  refreshPMSelectors();
+}
+
+// Rebuild all PM parent selectors — shows only PM_ELIGIBLE products currently
+// in section 2, greys out products already selected in another PM row.
+export function refreshPMSelectors() {
+  const pmRows   = [...document.querySelectorAll('#pmRows .pm-row')];
+  const delRows  = [...document.querySelectorAll('#delRows .del-row')];
+
+  // Collect eligible products currently in section 2
+  const eligibleInSection = [];
+  delRows.forEach((row, idx) => {
+    const sel = row.querySelector('select');
+    if (!sel || !sel.value) return;
+    if (!PM_ELIGIBLE.has(sel.value)) return;
+    const isRenewal = row.querySelector('.nr-btn.r-active') !== null;
+    eligibleInSection.push({ product: sel.value, isRenewal, delIdx: idx });
+  });
+
+  // Collect currently selected values across all PM rows
+  const selectedValues = new Set(
+    pmRows.map(r => r.querySelector('.pm-parent-sel')?.value).filter(Boolean)
+  );
+
+  pmRows.forEach(row => {
+    const sel      = row.querySelector('.pm-parent-sel');
+    const curVal   = sel.value;
+    sel.innerHTML  = '<option value="">Select deliverable…</option>';
+
+    eligibleInSection.forEach(({ product, isRenewal }) => {
+      const label  = `${product}${isRenewal ? ' (Renewal)' : ' (New)'}`;
+      const value  = `${product}||${isRenewal}`;
+      const opt    = document.createElement('option');
+      opt.value    = value;
+      opt.textContent = label;
+      // Grey out if selected in another row
+      if (value !== curVal && selectedValues.has(value)) {
+        opt.disabled = true;
+        opt.style.color = '#aaa';
+      }
+      sel.appendChild(opt);
+    });
+
+    // Restore previously selected value if still available
+    if (curVal) sel.value = curVal;
+  });
+
+  // Stamp data-pm-delivery on del-rows so recalcBlockFeasibility can use it
+  // First clear all
+  delRows.forEach(r => delete r.dataset.pmDelivery);
+  pmRows.forEach(row => {
+    const selVal  = row.querySelector('.pm-parent-sel')?.value;
+    const dateVal = row.querySelector('.pm-delivery-date')?.value;
+    if (!selVal || !dateVal) return;
+    const [product, isRenewalStr] = selVal.split('||');
+    const matchRow = delRows.find(r => {
+      const s = r.querySelector('select');
+      const renewal = r.querySelector('.nr-btn.r-active') !== null;
+      return s && s.value === product && String(renewal) === isRenewalStr;
+    });
+    if (matchRow) matchRow.dataset.pmDelivery = dateVal;
+  });
+}
+
+// Returns array of {product, isRenewal, deliveryDate} for all configured PM rows
+export function readPMConfig() {
+  const cb = document.getElementById('pmCheckbox');
+  if (!cb || !cb.checked) return [];
+  return [...document.querySelectorAll('#pmRows .pm-row')]
+    .map(row => {
+      const selVal  = row.querySelector('.pm-parent-sel')?.value;
+      const dateVal = row.querySelector('.pm-delivery-date')?.value;
+      if (!selVal || !dateVal) return null;
+      const [product, isRenewalStr] = selVal.split('||');
+      return { product, isRenewal: isRenewalStr === 'true', deliveryDate: dateVal };
+    })
+    .filter(Boolean);
 }
 
 // ── New phase row builder ─────────────────────────────────────────────────
@@ -656,27 +796,10 @@ export function previewPhases() {
   setTimeout(() => {
     const allDelRows = [...document.querySelectorAll('#delRows .del-row')];
     const parentIdxMap = buildParentIdxMap(allDelRows);
-    // Collect the exact set of parent row indices that have at least one child
-    const parentIndicesWithAppended = new Set();
-    allDelRows.forEach((row, i) => {
-      if (parentIdxMap[i] !== null && parentIdxMap[i] !== undefined) {
-        parentIndicesWithAppended.add(parentIdxMap[i]);
-      }
-    });
-    // For each parent row index, derive the product+isRenewal key and strip Distribution
     const blocks = [...document.querySelectorAll('#pbBlocks .pb-block')];
-    parentIndicesWithAppended.forEach(parentIdx => {
-      const parentRow = allDelRows[parentIdx];
-      if (!parentRow) return;
-      const parentProduct   = parentRow.querySelector('select')?.value;
-      const parentIsRenewal = parentRow.querySelector('.nr-btn.r-active') !== null;
-      if (!parentProduct) return;
-      // Match the corresponding pb-block (same product + renewal state, in DOM order)
-      const block = blocks.find(b =>
-        b.dataset.product === parentProduct &&
-        (b.dataset.isrenewal === 'true') === parentIsRenewal
-      );
-      if (!block) return;
+
+    // Helper: strip Distribution from a pb-block
+    function stripDistribution(block) {
       const rows2 = [...block.querySelectorAll('tbody tr')];
       for (let i = rows2.length - 1; i >= 0; i--) {
         const nameInput = rows2[i].querySelector('.pt-name');
@@ -684,6 +807,39 @@ export function previewPhases() {
           rows2[i].remove(); recalcPhaseDates(block); recalcBlockFeasibility(block); break;
         }
       }
+    }
+
+    // Regular append parents (via parentIdxMap)
+    const parentIndicesWithAppended = new Set();
+    allDelRows.forEach((row, i) => {
+      if (parentIdxMap[i] !== null && parentIdxMap[i] !== undefined) {
+        parentIndicesWithAppended.add(parentIdxMap[i]);
+      }
+    });
+    parentIndicesWithAppended.forEach(parentIdx => {
+      const parentRow = allDelRows[parentIdx];
+      if (!parentRow) return;
+      const parentProduct   = parentRow.querySelector('select')?.value;
+      const parentIsRenewal = parentRow.querySelector('.nr-btn.r-active') !== null;
+      if (!parentProduct) return;
+      const block = blocks.find(b =>
+        b.dataset.product === parentProduct &&
+        (b.dataset.isrenewal === 'true') === parentIsRenewal
+      );
+      if (block) stripDistribution(block);
+    });
+
+    // PM parents — strip Distribution from any del-row that has data-pm-delivery set
+    allDelRows.forEach(row => {
+      if (!row.dataset.pmDelivery) return;
+      const product   = row.querySelector('select')?.value;
+      const isRenewal = row.querySelector('.nr-btn.r-active') !== null;
+      if (!product) return;
+      const block = blocks.find(b =>
+        b.dataset.product === product &&
+        (b.dataset.isrenewal === 'true') === isRenewal
+      );
+      if (block) stripDistribution(block);
     });
   }, 50);
 
@@ -731,17 +887,42 @@ function getBlockDays(block) {
 }
 
 export function recalcBlockFeasibility(block) {
-  const dueVal   = document.getElementById('dueDate').value;
   const startVal = document.getElementById('startDate').value;
-  if (!dueVal || !startVal) return;
+  if (!startVal) return;
 
-  const due   = new Date(dueVal   + 'T00:00:00');
+  const blockProduct   = block.dataset.product;
+  const blockIsRenewal = block.dataset.isrenewal === 'true';
+
+  // Check if this block is a P&M parent — use delivery date - 10 biz days as effective due
+  const allDelRows  = [...document.querySelectorAll('#delRows .del-row')];
+  const matchedRow  = allDelRows.find(r => {
+    const s = r.querySelector('select');
+    const renewal = r.querySelector('.nr-btn.r-active') !== null;
+    return s && s.value === blockProduct && renewal === blockIsRenewal;
+  });
+  const pmDelivery  = matchedRow?.dataset.pmDelivery || null;
+
+  let dueVal;
+  if (pmDelivery) {
+    // Count back 10 business days from delivery date to get effective due
+    let d = new Date(pmDelivery + 'T00:00:00');
+    let daysBack = 0;
+    while (daysBack < 10) {
+      d.setDate(d.getDate() - 1);
+      if (isWorkDay(d)) daysBack++;
+    }
+    dueVal = toISO(d);
+  } else {
+    dueVal = document.getElementById('dueDate').value;
+  }
+
+  if (!dueVal) return;
+
+  const due   = new Date(dueVal + 'T00:00:00');
   const start = nextWorkDay(new Date(startVal + 'T00:00:00'));
   const available = countBusinessDays(start, due);
 
-  const needed         = getBlockDays(block);
-  const blockProduct   = block.dataset.product;
-  const blockIsRenewal = block.dataset.isrenewal === 'true';
+  const needed = getBlockDays(block);
 
   let effectiveAvailable;
   const parentBlock = getParentBlock(block);
@@ -810,17 +991,33 @@ export function recalcBlockFeasibility(block) {
 // ── Phase date recalculation ──────────────────────────────────────────────
 export function recalcPhaseDates(block, blockEndDate) {
   const dueVal = document.getElementById('dueDate').value;
-  let due = blockEndDate || (dueVal ? new Date(dueVal + 'T00:00:00') : null);
-  if (!due) return;
 
-  if (!blockEndDate) {
+  // Check if this block is a PM parent — use delivery - 10 biz days as effective due
+  let due = blockEndDate || null;
+  if (!due) {
     const bp  = block.dataset.product;
     const bir = block.dataset.isrenewal === 'true';
-    if (bp && !VALID_PARENTS[bp]) {
-      const appDays = getAppendedDays(bp, bir);
-      if (appDays > 0) due = subtractBusinessDays(due, appDays);
+    const allDelRows = [...document.querySelectorAll('#delRows .del-row')];
+    const matchedRow = allDelRows.find(r => {
+      const s = r.querySelector('select');
+      const renewal = r.querySelector('.nr-btn.r-active') !== null;
+      return s && s.value === bp && renewal === bir;
+    });
+    const pmDelivery = matchedRow?.dataset.pmDelivery;
+    if (pmDelivery) {
+      let d = new Date(pmDelivery + 'T00:00:00');
+      let daysBack = 0;
+      while (daysBack < 10) { d.setDate(d.getDate() - 1); if (isWorkDay(d)) daysBack++; }
+      due = d;
+    } else {
+      due = dueVal ? new Date(dueVal + 'T00:00:00') : null;
+      if (due && !VALID_PARENTS[bp]) {
+        const appDays = getAppendedDays(bp, bir);
+        if (appDays > 0) due = subtractBusinessDays(due, appDays);
+      }
     }
   }
+  if (!due) return;
 
   const durInputs = [...block.querySelectorAll('.pt-dur')];
   const dateCells = [...block.querySelectorAll('.phase-end-date')];

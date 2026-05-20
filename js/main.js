@@ -9,7 +9,8 @@ import { setDays, toISO, nextWorkDay, scheduleTimeline, buildParentIdxMap } from
 import {
   buildDelRow, buildSelect, addRow, updateRemove,
   previewPhases, updateFeasibility, recalcPhaseDates,
-  recalcBlockFeasibility
+  recalcBlockFeasibility, togglePMSection, addPMRow,
+  refreshPMSelectors, readPMConfig
 } from './ui.js';
 import {
   renderTimelineTable, copyEmailTable, switchTab,
@@ -65,7 +66,8 @@ function generateTimeline() {
 
   const delRows      = [...document.querySelectorAll('#delRows .del-row')];
   const parentIdxMap = buildParentIdxMap(delRows);
-  const result       = scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdxMap, startDate, dueDate });
+  const pmConfig     = readPMConfig();
+  const result       = scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdxMap, startDate, dueDate, pmConfig });
 
   lastTimelineData = { ...result, startDate, dueDate, project, client };
 
@@ -113,6 +115,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Wire global onclick handlers used by inline HTML attributes
   window.previewPhases    = previewPhases;
   window.addRow           = addRow;
+  window.togglePMSection  = togglePMSection;
+  window.addPMRow         = addPMRow;
   window.setDays          = setDays;
   window.generateTimeline = generateTimeline;
   window.copyEmailTable   = copyEmailTable;

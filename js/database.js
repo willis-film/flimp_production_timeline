@@ -16,6 +16,7 @@ export const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 // Exported so other modules can read them after init.
 export let PRODUCTS       = [];   // [{group, color, items:[name,...]}]
 export let NA_PRODUCTS    = new Set();
+export let PM_ELIGIBLE    = new Set(); // products with eligible_pm = true
 export let ROUNDS_DEFAULTS = {};  // {product: {new, renewal}}
 export let ALL_PHASES     = {};   // {product_name: [{name,dur,owner,applies_to,...}]}
 export let ROUND_GROUPS   = {};   // {product_name: [{group_name,default_rounds,...}]}
@@ -58,6 +59,9 @@ export async function loadReferenceData() {
 
     // ── NA_PRODUCTS ──
     NA_PRODUCTS = new Set(products.filter(p => p.is_not_renewable).map(p => p.name));
+
+    // ── PM_ELIGIBLE ──
+    PM_ELIGIBLE = new Set(products.filter(p => p.eligible_pm).map(p => p.name));
 
     // ── ROUNDS_DEFAULTS ──
     ROUNDS_DEFAULTS = {};
