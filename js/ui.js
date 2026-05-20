@@ -177,7 +177,7 @@ function buildNewPhaseRow() {
   tr.innerHTML = `
     <td class="phase-drag-handle" title="Drag to reorder">⠿</td>
     <td style="padding:0 2px 0 0;font-size:11px;white-space:nowrap;vertical-align:middle"></td>
-    <td><input class="pt-name" type="text" value="New phase"></td>
+    <td class="pt-name-td"><input class="pt-name" type="text" value="New phase"></td>
     <td style="text-align:center"><span class="owner-badge owner-flimp">Flimp</span></td>
     <td style="text-align:center"><input class="pt-dur" type="number" min="1" max="120" value="3"></td>
     <td class="phase-end-date" style="text-align:center;font-size:11px;color:var(--text-muted);white-space:nowrap">—</td>
@@ -379,8 +379,8 @@ export function rebuildPhaseTable(block, skipPhases) {
     const bk = phase.bracketChar || '';
     tr.innerHTML = `
       <td class="phase-drag-handle" title="Drag to reorder">⠿</td>
-      <td data-bracket="${esc(bk)}" style="padding:0 2px 0 0;font-size:11px;color:var(--text-secondary);opacity:0.4;white-space:nowrap;vertical-align:middle">${esc(bk)}</td>
-      <td><input class="pt-name" type="text" value="${esc(phase.name)}"></td>
+      <td data-bracket="${esc(bk)}" style="padding:0 3px 0 0;font-size:11px;color:var(--text-secondary);opacity:0.4;white-space:nowrap;vertical-align:middle">${esc(bk)}</td>
+      <td class="pt-name-td"><input class="pt-name" type="text" value="${esc(phase.name)}"></td>
       <td style="text-align:center"><span class="owner-badge ${ownerClass}">${esc(phase.owner)}</span></td>
       <td style="text-align:center"><input class="pt-dur" type="number" min="1" max="120" value="${phase.dur}"></td>
       <td class="phase-end-date" style="text-align:center;font-size:11px;color:var(--text-secondary);white-space:nowrap">—</td>
@@ -625,8 +625,8 @@ export function previewPhases() {
       const bk = phase.bracketChar || '';
       tr.innerHTML = `
         <td class="phase-drag-handle" title="Drag to reorder">⠿</td>
-        <td data-bracket="${esc(bk)}" style="padding:0 2px 0 0;font-size:11px;color:var(--text-secondary);opacity:0.4;white-space:nowrap;vertical-align:middle">${esc(bk)}</td>
-        <td><input class="pt-name" type="text" value="${esc(phase.name)}"></td>
+        <td data-bracket="${esc(bk)}" style="padding:0 3px 0 0;font-size:11px;color:var(--text-secondary);opacity:0.4;white-space:nowrap;vertical-align:middle">${esc(bk)}</td>
+        <td class="pt-name-td"><input class="pt-name" type="text" value="${esc(phase.name)}"></td>
         <td style="text-align:center"><span class="owner-badge ${ownerClass}">${esc(phase.owner)}</span></td>
         <td style="text-align:center"><input class="pt-dur" type="number" min="1" max="120" value="${phase.dur}"></td>
         <td class="phase-end-date" style="text-align:center;font-size:11px;color:var(--text-secondary);white-space:nowrap">—</td>
