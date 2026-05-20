@@ -830,7 +830,7 @@ export function previewPhases() {
       if (block) stripDistribution(block);
     });
 
-    // PM parents — strip Distribution from any del-row that has data-pm-delivery set
+    // PM parents — strip Distribution, append Print & Mail phase row
     allDelRows.forEach(row => {
       if (!row.dataset.pmDelivery) return;
       const product   = row.querySelector('select')?.value;
@@ -840,11 +840,36 @@ export function previewPhases() {
         b.dataset.product === product &&
         (b.dataset.isrenewal === 'true') === isRenewal
       );
-      if (block) {
-        stripDistribution(block);
-        recalcPhaseDates(block); // re-anchor dates to PM window after strip
-        recalcBlockFeasibility(block);
+      if (!block) return;
+
+      stripDistribution(block);
+
+      // Only append P&M row if not already present
+      const existingPM = [...block.querySelectorAll('.pt-name')]
+        .find(inp => inp.value.startsWith('Print & Mail'));
+      if (!existingPM) {
+        const tbody = block.querySelector('.phase-table tbody');
+        if (tbody) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="phase-drag-handle" title="Drag to reorder">⠿</td>
+            <td><input class="pt-name" type="text" value="Print &amp; Mail"></td>
+            <td style="text-align:center"><span class="owner-badge owner-flimp">Flimp</span></td>
+            <td style="text-align:center"><input class="pt-dur" type="number" min="1" max="120" value="10"></td>
+            <td class="phase-end-date" style="text-align:center;font-size:11px;color:var(--text-secondary);white-space:nowrap">—</td>
+            <td style="text-align:center"><button class="phase-rm-btn" title="Remove phase">&times;</button></td>`;
+          tr.querySelector('.pt-dur').addEventListener('change', () => {
+            updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block);
+          });
+          tr.querySelector('.phase-rm-btn').onclick = () => {
+            tr.remove(); updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block);
+          };
+          tbody.appendChild(tr);
+        }
       }
+
+      recalcPhaseDates(block);
+      recalcBlockFeasibility(block);
     });
   }, 50);
 
@@ -903,11 +928,9 @@ function getEffectiveDue(block) {
   const pmDelivery = matchedRow?.dataset.pmDelivery;
 
   if (pmDelivery) {
-    // PM parent — count back 10 biz days from delivery date
-    let d = new Date(pmDelivery + 'T00:00:00');
-    let daysBack = 0;
-    while (daysBack < 10) { d.setDate(d.getDate() - 1); if (isWorkDay(d)) daysBack++; }
-    return d;
+    // PM parent — delivery date is the hard ceiling; the P&M phase (10 days)
+    // is now a real row in the block so the full chain counts back from here.
+    return new Date(pmDelivery + 'T00:00:00');
   }
 
   if (!dueVal) return null;
@@ -1032,7 +1055,23 @@ export function recalcPhaseDates(block, blockEndDate) {
   if (startsEl && endsEl) {
     const starts = subtractBusinessDays(due, total);
     startsEl.innerHTML = `<span class="pb-date-label">Starts</span> ${fmtDateShort(starts)}`;
-    endsEl.innerHTML   = `<span class="pb-date-label">Completes</span> ${fmtDateShort(due)}`;
+
+    // For PM parents, show both the parent completion date and the delivery date
+    const bp  = block.dataset.product;
+    const bir = block.dataset.isrenewal === 'true';
+    const allDelRows = [...document.querySelectorAll('#delRows .del-row')];
+    const matchedRow = allDelRows.find(r => {
+      const s = r.querySelector('select');
+      const renewal = r.querySelector('.nr-btn.r-active') !== null;
+      return s && s.value === bp && renewal === bir;
+    });
+    const pmDelivery = matchedRow?.dataset.pmDelivery;
+    if (pmDelivery) {
+      const deliveryDate = new Date(pmDelivery + 'T00:00:00');
+      endsEl.innerHTML = `<span class="pb-date-label">P&amp;M Delivery</span> ${fmtDateShort(deliveryDate)}`;
+    } else {
+      endsEl.innerHTML = `<span class="pb-date-label">Completes</span> ${fmtDateShort(due)}`;
+    }
     if (sepEl) sepEl.style.display = '';
   }
 }

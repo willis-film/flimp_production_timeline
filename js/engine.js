@@ -160,39 +160,14 @@ export function buildParentIdxMap(delRows) {
 // Returns: { milestoneGroups, projectEndDate, projectSpanDays, deliverables }
 export function scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdxMap, startDate, dueDate, pmConfig = [] }) {
 
-  // ── Inject Print & Mail phases into parent deliverables ─────────────────
-  // For each P&M config, find the matching deliverable index and:
-  //   1. Remove any existing Distribution phase
-  //   2. Append a 10-day Print & Mail phase
-  //   3. Override that deliverable's effective due date to (deliveryDate - 10 biz days)
-  const pmDeliveryDates = {}; // deliverableIdx → Date (P&M start = deliveryDate - 10 biz days)
-
+  // ── P&M delivery dates — for export phase name labelling ────────────────
+  // P&M phases are already in phasesPerDeliverable (read from DOM preview).
+  // We just build a map of deliverableIdx → deliveryDate for phase naming.
+  const pmDeliveryDates = {};
   pmConfig.forEach(({ product, isRenewal, deliveryDate }) => {
     const delIdx = deliverables.findIndex(d => d.product === product && d.isRenewal === isRenewal);
     if (delIdx === -1) return;
-
-    // Compute P&M start = deliveryDate minus 10 business days
-    const delivery  = new Date(deliveryDate + 'T00:00:00');
-    let pmStart     = new Date(delivery);
-    let daysBack    = 0;
-    while (daysBack < 10) {
-      pmStart.setDate(pmStart.getDate() - 1);
-      if (isWorkDay(pmStart)) daysBack++;
-    }
-    pmDeliveryDates[delIdx] = pmStart;
-
-    // Remove Distribution from this deliverable's phase list
-    phasesPerDeliverable[delIdx] = phasesPerDeliverable[delIdx]
-      .filter(p => p.name.trim().toLowerCase() !== 'distribution');
-
-    // Append Print & Mail phase (10 days, owner Flimp)
-    phasesPerDeliverable[delIdx].push({
-      name:        `Print & Mail — ${product}`,
-      dur:         10,
-      owner:       'Flimp',
-      endDate:     null,
-      bracketChar: ''
-    });
+    pmDeliveryDates[delIdx] = new Date(deliveryDate + 'T00:00:00');
   });
 
   const allMilestones = [];
@@ -225,26 +200,10 @@ export function scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdx
 
     phases.forEach(phase => {
       // Use the exact date computed in the phase preview (backward from due date)
-      // if available. Fall back to forward scheduling from startDate if not set
-      // (e.g. when no due date was set during preview).
-      // For Print & Mail phases, use the configured delivery date as the hard end.
-      let endDate;
-      if (phase.name.startsWith('Print & Mail') && pmDeliveryDates[idx]) {
-        // Find the delivery date for this P&M parent (pmStart + 10 biz days = delivery)
-        const pmStart   = pmDeliveryDates[idx];
-        let delivDate   = new Date(pmStart);
-        let daysAhead   = 0;
-        while (daysAhead < 10) {
-          delivDate.setDate(delivDate.getDate() + 1);
-          if (isWorkDay(delivDate)) daysAhead++;
-        }
-        endDate = delivDate;
-      } else {
-        endDate = phase.endDate instanceof Date && !isNaN(phase.endDate)
-          ? phase.endDate
-          : addBusinessDays(vDate, phase.dur);
-      }
-
+      // if available. Fall back to forward scheduling from startDate if not set.
+      const endDate = phase.endDate instanceof Date && !isNaN(phase.endDate)
+        ? phase.endDate
+        : addBusinessDays(vDate, phase.dur);
       allMilestones.push({
         date:              endDate,
         owner:             phase.owner,
