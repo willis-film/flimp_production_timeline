@@ -1207,7 +1207,14 @@ export function updateGantt() {
   const longestChainDays = Math.max(...blocks.map((_, i) => parentIdxMap[i] !== null ? 0 : chainDays(i)));
 
   const chainEndDate = addBusinessDays(startDate, longestChainDays);
-  const anchorDate   = dueDate ? (chainEndDate > dueDate ? chainEndDate : dueDate) : chainEndDate;
+  // Also consider PM delivery dates when computing the overall scale anchor
+  const allPMDates = delRows
+    .filter(r => r.dataset.pmDelivery)
+    .map(r => new Date(r.dataset.pmDelivery + 'T00:00:00'));
+  const maxPMDate = allPMDates.length ? allPMDates.reduce((m, d) => d > m ? d : m) : null;
+  const anchorDate   = [dueDate, chainEndDate, maxPMDate]
+    .filter(Boolean)
+    .reduce((m, d) => d > m ? d : m, chainEndDate);
   const scaleDays    = Math.max(1, countBusinessDays(startDate, anchorDate));
   const availableDays = dueDate ? countBusinessDays(startDate, dueDate) : 0;
   const duePct        = dueDate ? Math.min(100, (availableDays / scaleDays) * 100) : null;
@@ -1333,7 +1340,7 @@ export function updateGantt() {
         });
         if (!pmR) return fmtDateShort(blockEnd[i]);
         const pmD = new Date(pmR.dataset.pmDelivery + 'T00:00:00');
-        return fmtDateShort(blockEnd[i]) + '<br><span style="color:rgba(255,160,80,.85);font-size:8px">P&M ' + fmtDateShort(pmD) + '</span>';
+        return fmtDateShort(blockEnd[i]) + '<br><span style="color:rgba(255,160,80,.85);font-size:8px">Delivery: ' + fmtDateShort(pmD) + '</span>';
       })()}</div>
     </div>`;
   });
