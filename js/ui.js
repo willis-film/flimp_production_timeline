@@ -951,8 +951,7 @@ export function recalcBlockFeasibility(block) {
 
   const fill = block.querySelector('.pb-feas-bar-fill');
   const diff = block.querySelector('.pb-feas-diff');
-  if (!fill || !diff || effectiveAvailable <= 0) return;  const fill = block.querySelector('.pb-feas-bar-fill');
-  const diff = block.querySelector('.pb-feas-diff');
+  if (!fill || !diff || effectiveAvailable <= 0) return;
   if (!fill || !diff || effectiveAvailable <= 0) return;
 
   const pct   = Math.min(100, (needed / effectiveAvailable) * 100);
