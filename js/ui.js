@@ -1213,10 +1213,24 @@ export function updateGantt() {
   const duePct        = dueDate ? Math.min(100, (availableDays / scaleDays) * 100) : null;
 
   const rootAnchor = {};
-  blocks.forEach((_, i) => {
+  blocks.forEach((block, i) => {
     if (parentIdxMap[i] !== null) return;
     const thisChainEnd = addBusinessDays(startDate, chainDays(i));
-    rootAnchor[i] = dueDate ? (thisChainEnd > dueDate ? thisChainEnd : dueDate) : thisChainEnd;
+    // For PM parent blocks, anchor to PM delivery date instead of project due date
+    const matchedDelRow = delRows.find(r => {
+      const s = r.querySelector('select');
+      const renewal = r.querySelector('.nr-btn.r-active') !== null;
+      return s && s.value === block.dataset.product &&
+             renewal === (block.dataset.isrenewal === 'true') &&
+             r.dataset.pmDelivery;
+    });
+    const pmDelivery = matchedDelRow?.dataset.pmDelivery;
+    if (pmDelivery) {
+      const pmDate = new Date(pmDelivery + 'T00:00:00');
+      rootAnchor[i] = thisChainEnd > pmDate ? thisChainEnd : pmDate;
+    } else {
+      rootAnchor[i] = dueDate ? (thisChainEnd > dueDate ? thisChainEnd : dueDate) : thisChainEnd;
+    }
   });
   function getAnchor(idx) {
     let cur = idx;
@@ -1308,7 +1322,19 @@ export function updateGantt() {
           ${widthPct > 8 ? totalDays + 'd' : ''}
         </div>
       </div>
-      <div class="gantt-enddate" style="font-size:${isChild?'9':'10'}px;color:rgba(255,255,255,${isChild?'.4':'.55'})">${fmtDateShort(blockEnd[i])}</div>
+      <div class="gantt-enddate" style="font-size:${isChild?'9':'10'}px;color:rgba(255,255,255,${isChild?'.4':'.55'});line-height:1.3">${(() => {
+        if (parIdx !== null) return fmtDateShort(blockEnd[i]);
+        const pmR = delRows.find(r => {
+          const s = r.querySelector('select');
+          const renewal = r.querySelector('.nr-btn.r-active') !== null;
+          return s && s.value === product &&
+                 renewal === (block.dataset.isrenewal === 'true') &&
+                 r.dataset.pmDelivery;
+        });
+        if (!pmR) return fmtDateShort(blockEnd[i]);
+        const pmD = new Date(pmR.dataset.pmDelivery + 'T00:00:00');
+        return fmtDateShort(blockEnd[i]) + '<br><span style="color:rgba(255,160,80,.85);font-size:8px">P&M ' + fmtDateShort(pmD) + '</span>';
+      })()}</div>
     </div>`;
   });
 
