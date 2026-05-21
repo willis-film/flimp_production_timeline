@@ -57,10 +57,10 @@ body{font-family:Verdana,sans-serif;background:#F2F8F0;color:var(--text);min-hei
 .tl-pdf-preview{min-height:120px;background:#e8edf2;padding:20px;display:flex;flex-direction:column;align-items:center;gap:16px;border-radius:0 0 var(--radius-lg) var(--radius-lg)}
 .pdf-coming-soon{font-size:13px;color:var(--text-tertiary);font-style:italic;padding:40px 0}
 .pdf-page-preview{background:#fff;box-shadow:0 4px 24px rgba(0,0,0,.18);transform-origin:top center;overflow:hidden;border-radius:2px}
-.row-headers{display:grid;grid-template-columns:1fr 72px 108px 110px 32px;gap:8px;margin-bottom:6px;padding:0 2px}
+.row-headers{display:grid;grid-template-columns:1fr 72px 108px 32px;gap:8px;margin-bottom:6px;padding:0 2px}
 .row-headers span{font-size:11px;font-weight:600;color:var(--text-tertiary);letter-spacing:.04em;text-transform:uppercase}
-.row-headers span:nth-child(2),.row-headers span:nth-child(3),.row-headers span:nth-child(4){text-align:center}
-.del-row{display:grid;grid-template-columns:1fr 72px 108px 110px 32px;gap:8px;align-items:center;margin-bottom:8px}
+.row-headers span:nth-child(2),.row-headers span:nth-child(3){text-align:center}
+.del-row{display:grid;grid-template-columns:1fr 72px 108px 32px;gap:8px;align-items:center;margin-bottom:8px}
 .del-row select{font-family:Verdana,sans-serif;font-size:13px;height:36px;padding:0 8px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);color:var(--text);width:100%;transition:border-color .15s}
 .del-row select:focus{outline:none;border-color:var(--blue)}
 .del-row input[type=number]{font-family:Verdana,sans-serif;font-size:14px;height:36px;padding:0 8px;border:1px solid var(--border);border-radius:var(--radius);background:#fff;color:var(--text);text-align:center;width:100%}
