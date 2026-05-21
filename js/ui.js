@@ -264,6 +264,20 @@ export function refreshPMSelectors() {
     if (curVal) sel.value = curVal;
   });
 
+  // Enable/disable PM checkbox based on whether any eligible products are selected
+  const pmCb    = document.getElementById('pmCheckbox');
+  const pmLabel = pmCb?.nextElementSibling;
+  const hasEligible = eligibleInSection.length > 0;
+  if (pmCb) {
+    pmCb.disabled = !hasEligible;
+    pmCb.style.opacity = hasEligible ? '1' : '0.35';
+    pmCb.style.cursor  = hasEligible ? 'pointer' : 'not-allowed';
+  }
+  if (pmLabel) {
+    pmLabel.style.opacity = hasEligible ? '1' : '0.35';
+    pmLabel.style.cursor  = hasEligible ? 'pointer' : 'not-allowed';
+  }
+
   // Stamp data-pm-delivery on del-rows so recalcBlockFeasibility can use it
   // First clear all
   delRows.forEach(r => delete r.dataset.pmDelivery);
