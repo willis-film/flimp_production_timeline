@@ -1132,25 +1132,38 @@ export function updateFeasibility() {
   // effective days as: pmWindow - ownDays (available slack for chain).
   // For simplicity, we report the longest non-PM chain against project due date,
   // and flag if any PM parent chain exceeds its window.
-  let needed = 0;
+  // Total project span: earliest root blockStart → latest root anchor
+  // Mirrors updateGantt logic so Days Needed = total project length, not longest single chain
+  let earliestRootStart = null;
+  let latestRootAnchor  = null;
   blocks.forEach((block, i) => {
     if (feasParentMap[i] !== null) return; // not a root
     const chain = feasChainDays(i);
-    // Use PM window if this is a PM parent
-    const effDue = getEffectiveDue(block);
-    const effAvailable = effDue ? countBusinessDays(startDate, effDue) : available;
-    // For the global "needed" number, use project due date baseline for non-PM chains
-    const isPM = !!feasDelRows.find(r => {
+    // Determine this root's anchor (PM delivery date or project due date)
+    const pmRow = feasDelRows.find(r => {
       const s = r.querySelector('select');
       const renewal = r.querySelector('.nr-btn.r-active') !== null;
       return s && s.value === block.dataset.product &&
              (renewal) === (block.dataset.isrenewal === 'true') &&
              r.dataset.pmDelivery;
     });
-    if (!isPM && chain > needed) needed = chain;
-    // For PM blocks, count against their own window
-    if (isPM && chain > needed) needed = chain;
+    const pmDelivery = pmRow?.dataset.pmDelivery;
+    let anchor;
+    if (pmDelivery) {
+      const pmDate = new Date(pmDelivery + 'T00:00:00');
+      const chainEnd = addBusinessDays(startDate, chain);
+      anchor = chainEnd > pmDate ? chainEnd : pmDate;
+    } else {
+      const chainEnd = addBusinessDays(startDate, chain);
+      anchor = dueDate ? (chainEnd > dueDate ? chainEnd : dueDate) : chainEnd;
+    }
+    const rootStart = subtractBusinessDays(anchor, chain);
+    if (!earliestRootStart || rootStart < earliestRootStart) earliestRootStart = rootStart;
+    if (!latestRootAnchor  || anchor > latestRootAnchor)    latestRootAnchor  = anchor;
   });
+  const needed = (earliestRootStart && latestRootAnchor)
+    ? countBusinessDays(earliestRootStart, latestRootAnchor)
+    : 0;
   document.getElementById('feasNeeded').textContent = needed;
 
   if (available === null) {
