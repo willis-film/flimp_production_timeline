@@ -1376,7 +1376,7 @@ export function updateGantt() {
         });
         if (!pmR) return fmtDateShort(blockEnd[i]);
         const pmD = new Date(pmR.dataset.pmDelivery + 'T00:00:00');
-        const pmFmt = (pmD.getMonth()+1) + '/' + pmD.getDate();
+        const pmFmt = pmD.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         const prodDue = subtractBusinessDays(pmD, 10);
         return fmtDateShort(prodDue) + '<br><span style="color:rgba(255,160,80,.85);font-size:8px">Del: ' + pmFmt + '</span>';
       })()}</div>
