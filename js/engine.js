@@ -220,6 +220,7 @@ export function scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdx
     endDates[idx] = new Date(trackEnd);
   });
 
+  console.log('[Milestone] allMilestones before dedup:', allMilestones.filter(m => m.isMilestone).map(m => ({ task: m.task, del: m.deliverable, date: m.date?.toDateString() })));
   // For phases marked is_milestone that repeat per deliverable (e.g. round reviews),
   // only the last occurrence per deliverable should be a milestone
   const milestonePhaseNames = new Set(
