@@ -1284,9 +1284,13 @@ export function updateGantt() {
   const ticks = [];
   const tickCur = new Date(startDate);
   tickCur.setDate(1); tickCur.setMonth(tickCur.getMonth() + 1);
-  while (tickCur <= anchorDate) {
+  while (tickCur < anchorDate) {
     const bd = countBusinessDays(startDate, tickCur);
-    ticks.push({ label: tickCur.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }), pct: Math.min(100, (bd / scaleDays) * 100) });
+    const pct = (bd / scaleDays) * 100;
+    // Skip ticks too close to either edge (avoids overlap with fixed start/end labels)
+    if (pct > 5 && pct < 92) {
+      ticks.push({ label: tickCur.toLocaleDateString('en-US', { month: 'short' }) + ' ' + tickCur.getDate(), pct });
+    }
     tickCur.setMonth(tickCur.getMonth() + 1);
   }
 
