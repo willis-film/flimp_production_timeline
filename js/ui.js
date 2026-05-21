@@ -281,7 +281,14 @@ export function refreshPMSelectors() {
       const renewal = r.querySelector('.nr-btn.r-active') !== null;
       return s && s.value === product && String(renewal) === isRenewalStr;
     });
-    if (matchRow) matchRow.dataset.pmDelivery = dateVal;
+    if (matchRow) {
+      // Normalize to prior business day if date falls on weekend/holiday
+      let deliveryDate = new Date(dateVal + 'T00:00:00');
+      while (!isWorkDay(deliveryDate)) {
+        deliveryDate.setDate(deliveryDate.getDate() - 1);
+      }
+      matchRow.dataset.pmDelivery = toISO(deliveryDate);
+    }
   });
 }
 
