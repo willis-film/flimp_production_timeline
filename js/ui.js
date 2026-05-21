@@ -1303,14 +1303,25 @@ export function updateGantt() {
 
   // Total bar: span from earliest root blockStart to anchorDate (handles PM parents pushing left)
   const rootIdxs = sortedIdxs.filter(i => parentIdxMap[i] === null);
-  console.log('[Gantt] Root blockStarts:');
+  console.log('[Gantt] Root block diagnostics:');
   rootIdxs.forEach(i => {
     const block = blocks[i];
     const product = block.dataset.product || `block[${i}]`;
-    console.log(`  [${i}] ${product} | blockStart: ${blockStart[i]?.toDateString()} | rootAnchor: ${rootAnchor[i]?.toDateString()} | chainDays: ${chainDays(i)}`);
+    const cd = chainDays(i);
+    const bs = blockStart[i];
+    const be = blockEnd[i];
+    const anchor = rootAnchor[i];
+    const spanFromStart = bs ? countBusinessDays(bs, anchor) : null;
+    const rehydrated = bs ? addBusinessDays(bs, cd) : null;
+    console.log(
+      `  [${i}] ${product}\n` +
+      `    chainDays: ${cd} | blockStart: ${bs?.toDateString()} | blockEnd: ${be?.toDateString()} | rootAnchor: ${anchor?.toDateString()}\n` +
+      `    countBusinessDays(blockStart→anchor): ${spanFromStart} | addBusinessDays(blockStart, chainDays): ${rehydrated?.toDateString()} | anchorMatch: ${rehydrated?.toDateString() === anchor?.toDateString()}`
+    );
   });
   const earliestStart = rootIdxs.reduce((e, i) => blockStart[i] < e ? blockStart[i] : e, blockStart[rootIdxs[0]]);
-  console.log('[Gantt] earliestStart:', earliestStart?.toDateString(), '| anchorDate:', anchorDate?.toDateString(), '| scaleDays:', scaleDays, '| startDate:', startDate?.toDateString());
+  const totalSpanCheck = countBusinessDays(earliestStart, anchorDate);
+  console.log('[Gantt] earliestStart:', earliestStart?.toDateString(), '| anchorDate:', anchorDate?.toDateString(), '| scaleDays:', scaleDays, '| totalSpanCheck:', totalSpanCheck);
   const totalSpanDays = countBusinessDays(earliestStart, anchorDate);
   const totalStartOffsetDays = countBusinessDays(startDate, earliestStart);
   const totalWidthPct = Math.min(100, (totalSpanDays / scaleDays) * 100);
