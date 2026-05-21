@@ -1332,8 +1332,9 @@ export function updateGantt() {
   }, addBusinessDays(blockStart[rootIdxs[0]], chainDays(rootIdxs[0])));
   const totalSpanDays = countBusinessDays(earliestStart, latestChainEnd);
   const totalWidthPct = Math.min(100, (totalSpanDays / scaleDays) * 100);
-  // Anchor right edge to anchorDate using same right-to-left system as individual bars
-  const totalRightOffsetPct = (countBusinessDays(latestChainEnd, anchorDate) / scaleDays) * 100;
+  // Right edge: if any root has anchorGapDays=0, the chain fills to anchorDate — use 100% right edge
+  const allRootsAtAnchor = rootIdxs.every(i => countBusinessDays(rootAnchor[i], anchorDate) === 0);
+  const totalRightOffsetPct = allRootsAtAnchor ? 0 : (countBusinessDays(latestChainEnd, anchorDate) / scaleDays) * 100;
   const totalLeftPct  = Math.max(0, 100 - totalWidthPct - totalRightOffsetPct);
   html += `<div class="gantt-row">
     <div class="gantt-label" style="color:rgba(255,255,255,.45);font-style:italic">Total project</div>
