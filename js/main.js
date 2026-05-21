@@ -10,7 +10,7 @@ import {
   buildDelRow, buildSelect, addRow, updateRemove,
   previewPhases, updateFeasibility, recalcPhaseDates,
   recalcBlockFeasibility, togglePMSection, addPMRow,
-  refreshPMSelectors, readPMConfig
+  refreshPMSelectors, readPMConfig, lastEarliestStart
 } from './ui.js';
 import {
   renderTimelineTable, copyEmailTable, switchTab,
@@ -71,7 +71,7 @@ function generateTimeline() {
   const pmConfig     = readPMConfig();
   const result       = scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdxMap, startDate, dueDate, pmConfig });
 
-  lastTimelineData = { ...result, startDate, dueDate, project, client };
+  lastTimelineData = { ...result, startDate, dueDate, project, client, earliestStart: lastEarliestStart };
 
   renderTimelineTable(lastTimelineData);
 }

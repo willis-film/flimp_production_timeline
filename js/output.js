@@ -11,11 +11,11 @@ import { saveTimelineToDb } from './database.js';
 const E = {
   table:   'width:100%;max-width:550px;border-collapse:collapse;font-family:Verdana,sans-serif;font-size:0.72rem;',
   title:   'padding:0.5rem 0.75rem 0.5rem 0;font-family:Verdana,sans-serif;font-size:0.85rem;font-weight:600;border-bottom:1px solid #ccc;',
-  thFirst: 'text-align:left;padding:0.35rem 0.75rem 0.35rem 0;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;width:18%;font-family:Verdana,sans-serif;',
-  th:      'text-align:left;padding:0.35rem 0.75rem;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;font-family:Verdana,sans-serif;',
-  thDel:   'text-align:left;padding:0.35rem 0.75rem;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;width:12%;font-family:Verdana,sans-serif;',
-  thTask:  'text-align:left;padding:0.35rem 0.75rem;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;width:40%;font-family:Verdana,sans-serif;',
-  thLast:  'text-align:left;padding:0.35rem 0 0.35rem 0.5rem;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;width:10%;font-family:Verdana,sans-serif;',
+  thFirst: 'text-align:left;padding:0.35rem 0.75rem 0.35rem 0;font-size:0.6rem;font-weight:400;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;width:18%;font-family:Verdana,sans-serif;',
+  th:      'text-align:left;padding:0.35rem 0.75rem;font-size:0.6rem;font-weight:400;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;font-family:Verdana,sans-serif;',
+  thDel:   'text-align:left;padding:0.35rem 0.75rem;font-size:0.6rem;font-weight:400;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;width:12%;font-family:Verdana,sans-serif;',
+  thTask:  'text-align:left;padding:0.35rem 0.75rem;font-size:0.6rem;font-weight:400;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;width:40%;font-family:Verdana,sans-serif;',
+  thLast:  'text-align:left;padding:0.35rem 0 0.35rem 0.5rem;font-size:0.6rem;font-weight:400;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;width:10%;font-family:Verdana,sans-serif;',
   tdFirst: 'padding:0.3rem 0.75rem 0.3rem 0;border-bottom:1px solid #ccc;font-size:0.72rem;font-family:Verdana,sans-serif;',
   td:      'padding:0.3rem 0.75rem;border-bottom:1px solid #ccc;font-size:0.68rem;font-family:Verdana,sans-serif;',
   tdTask:  'padding:0.3rem 0.75rem;border-bottom:1px solid #ccc;font-size:0.72rem;font-family:Verdana,sans-serif;max-width:180px;',
@@ -170,12 +170,12 @@ function buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, st
 // with the actual computed end date pulled from milestoneGroups.
 function buildByProductTable({ phasesPerDeliverable, deliverables, milestoneGroups, projectEndDate, projectSpanDays, startDate, dueDate, project, client }) {
   const sectionHdr = (label) =>
-    `<tr><td colspan="3" style="${E.weekHdr}">${esc(label)}</td></tr>`;
+    `<tr><td colspan="3" style="${E.weekHdr}font-weight:700;font-size:0.7rem;"><strong>${esc(label)}</strong></td></tr>`;
 
   const thRow = `
     <tr>
       <th style="${E.thFirst}">Owner</th>
-      <th style="text-align:left;padding:0.35rem 0.75rem;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;width:50%;font-family:Verdana,sans-serif;">Phase</th>
+      <th style="text-align:left;padding:0.35rem 0.75rem;font-size:0.6rem;font-weight:400;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;width:50%;font-family:Verdana,sans-serif;">Phase</th>
       <th style="${E.thLast}">Due Date</th>
     </tr>`;
 
@@ -318,9 +318,9 @@ function pdfPage(content, pageNum, totalPages) {
 // ── PDF hero section — dark band + overlapping summary card ──────────────
 // Mirrors the Flimp Canvas reference layout: full-bleed dark header with
 // a white rounded card overlapping it from below, containing project stats.
-function pdfHero(client, project, startDate, dueDate, projectSpanDays, projectEndDate, deliverables) {
+function pdfHero(client, project, startDate, dueDate, projectSpanDays, projectEndDate, deliverables, earliestStart = null) {
   const stats = [
-    ['Project Start',  fmtDateShort(startDate)],
+    ['Latest Start',   earliestStart ? fmtDateShort(earliestStart) : '—'],
     ['Working Days',   String(projectSpanDays)],
     ['Projected End',  fmtDateShort(projectEndDate)],
     dueDate ? ['Due Date', fmtDateShort(dueDate)] : null,
@@ -406,7 +406,7 @@ function buildBasicPdf(data) {
   const hasMilestones = milestoneGroups.some(g => g.items.some(m => m.isMilestone));
 
   const pageContent = `
-    ${pdfHero(client, project, startDate, dueDate, projectSpanDays, projectEndDate, deliverables)}
+    ${pdfHero(client, project, startDate, dueDate, projectSpanDays, projectEndDate, deliverables, data.earliestStart)}
 
     <div style="padding:0 ${PDF.margin} 80px">
 

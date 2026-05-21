@@ -89,6 +89,9 @@ export function buildSelect() {
   return sel;
 }
 
+// Exposed so main.js can include it in lastTimelineData for PDF export
+export let lastEarliestStart = null;
+
 export function buildDelRow() {
   const row = document.createElement('div');
   row.className = 'del-row';
@@ -1316,6 +1319,7 @@ export function updateGantt() {
     );
   });
   const earliestStart = rootIdxs.reduce((e, i) => blockStart[i] < e ? blockStart[i] : e, blockStart[rootIdxs[0]]);
+  lastEarliestStart = earliestStart;
   const totalSpanCheck = countBusinessDays(earliestStart, anchorDate);
   console.log('[Gantt] earliestStart:', earliestStart?.toDateString(), '| anchorDate:', anchorDate?.toDateString(), '| scaleDays:', scaleDays, '| totalSpanCheck:', totalSpanCheck);
   // Total span: earliest blockStart → anchorDate, same convention as scaleDays
