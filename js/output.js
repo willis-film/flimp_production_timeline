@@ -61,15 +61,16 @@ function fmtDeliverable(item) {
   }
   return item.deliverable;
 }
-function buildDataRow(party, deliverable, task, date, isPastDue) {
+function buildDataRow(party, deliverable, task, date, isPastDue, extraBottomPad = false) {
   const rowBg   = isPastDue ? 'background:#fff0f0;' : '';
   const dateFmt = isPastDue ? `${E.tdDate}color:#c00;` : E.tdDate;
+  const padExtra = extraBottomPad ? 'padding-bottom:14px;' : '';
   return `
     <tr style="${rowBg}">
-      <td contenteditable="true" style="${E.tdFirst}">${esc(party)}</td>
-      <td contenteditable="true" style="${E.td}">${esc(deliverable)}</td>
-      <td contenteditable="true" style="${E.tdTask}">${esc(task)}</td>
-      <td contenteditable="true" style="${dateFmt}">${esc(date)}</td>
+      <td contenteditable="true" style="${E.tdFirst}${padExtra}">${esc(party)}</td>
+      <td contenteditable="true" style="${E.td}${padExtra}">${esc(deliverable)}</td>
+      <td contenteditable="true" style="${E.tdTask}${padExtra}">${esc(task)}</td>
+      <td contenteditable="true" style="${dateFmt}${padExtra}">${esc(date)}</td>
     </tr>`;
 }
 
@@ -132,10 +133,7 @@ function buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, st
     const weekEnd = new Date(weekDate);
     weekEnd.setDate(weekEnd.getDate() + 4); // Friday
     const weekLabel = `<strong>Week ${weekNum}</strong>&nbsp;&nbsp;<em>${fmtDateShort(weekDate)} – ${fmtDateShort(weekEnd)}</em>`;
-    const weekHdrStyle = weekNum > 1
-      ? E.weekHdr + 'padding-top:14px;'
-      : E.weekHdr;
-    rows += `<tr><td colspan="4" style="${weekHdrStyle}">${weekLabel}</td></tr>`;
+    rows += `<tr><td colspan="4" style="${E.weekHdr}">${weekLabel}</td></tr>`;
 
     // Within the week, group tasks by deliverable + owner so related items batch together
     const byKey = new Map();
@@ -151,14 +149,15 @@ function buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, st
           isPastDue:   group.isPastDue
         });
         byKey.get(key).tasks.push(item.task);
-        // Use the latest date within the group
         if (group.date > byKey.get(key).date) byKey.get(key).date = group.date;
       });
     });
 
-    byKey.forEach(({ deliverable, owner, tasks, date, isPastDue }) => {
+    const weekEntries = [...byKey.values()];
+    weekEntries.forEach(({ deliverable, owner, tasks, date, isPastDue }, idx) => {
       const isBlankParty = tasks.every(t => PARTY_BLANK_TASKS.has(t.trim().toLowerCase()));
-      rows += buildDataRow(isBlankParty ? '' : partyName(owner, client), deliverable, tasks.join(', '), fmtDateShort(date), isPastDue);
+      const isLast = idx === weekEntries.length - 1;
+      rows += buildDataRow(isBlankParty ? '' : partyName(owner, client), deliverable, tasks.join(', '), fmtDateShort(date), isPastDue, isLast);
     });
   });
 
