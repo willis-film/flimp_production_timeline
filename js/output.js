@@ -11,9 +11,9 @@ import { saveTimelineToDb } from './database.js';
 const E = {
   table:   'width:100%;max-width:550px;border-collapse:collapse;font-family:Verdana,sans-serif;font-size:0.72rem;',
   title:   'padding:0.5rem 0.75rem 0.5rem 0;font-family:Verdana,sans-serif;font-size:0.85rem;font-weight:600;border-bottom:1px solid #ccc;',
-  thFirst: 'text-align:left;padding:0.35rem 0.75rem 0.35rem 0;font-size:0.6rem;font-weight:400;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;width:18%;font-family:Verdana,sans-serif;',
+  thFirst: 'text-align:left;padding:0.35rem 0.75rem 0.35rem 0;font-size:0.6rem;font-weight:400;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;width:12%;font-family:Verdana,sans-serif;',
   th:      'text-align:left;padding:0.35rem 0.75rem;font-size:0.6rem;font-weight:400;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;font-family:Verdana,sans-serif;',
-  thDel:   'text-align:left;padding:0.35rem 0.75rem;font-size:0.6rem;font-weight:400;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;width:12%;font-family:Verdana,sans-serif;',
+  thDel:   'text-align:left;padding:0.35rem 0.75rem;font-size:0.6rem;font-weight:400;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;width:22%;font-family:Verdana,sans-serif;',
   thTask:  'text-align:left;padding:0.35rem 0.75rem;font-size:0.6rem;font-weight:400;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;width:40%;font-family:Verdana,sans-serif;',
   thLast:  'text-align:left;padding:0.35rem 0 0.35rem 0.5rem;font-size:0.6rem;font-weight:400;letter-spacing:0.1em;text-transform:uppercase;border-bottom:2px solid #000;width:10%;font-family:Verdana,sans-serif;',
   tdFirst: 'padding:0.3rem 0.75rem 0.3rem 0;border-bottom:1px solid #ccc;font-size:0.72rem;font-family:Verdana,sans-serif;',
