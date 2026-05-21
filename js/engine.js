@@ -220,6 +220,26 @@ export function scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdx
     endDates[idx] = new Date(trackEnd);
   });
 
+  // For phases marked is_milestone that repeat per deliverable (e.g. round reviews),
+  // only the last occurrence per deliverable should be a milestone
+  const milestonePhaseNames = new Set(
+    allMilestones.filter(m => m.isMilestone).map(m => m.task.trim().toLowerCase())
+  );
+  milestonePhaseNames.forEach(phaseName => {
+    const matches = allMilestones.filter(m => m.task.trim().toLowerCase() === phaseName);
+    // Group by deliverable
+    const byDel = {};
+    matches.forEach(m => {
+      if (!byDel[m.deliverable]) byDel[m.deliverable] = [];
+      byDel[m.deliverable].push(m);
+    });
+    // Demote all but the last per deliverable
+    Object.values(byDel).forEach(group => {
+      group.sort((a, b) => a.date - b.date);
+      group.slice(0, -1).forEach(m => { m.isMilestone = false; });
+    });
+  });
+
   allMilestones.sort((a, b) => a.date - b.date);
 
   // ── Kickoff: one entry at the earliest date, listing all deliverables ─────
