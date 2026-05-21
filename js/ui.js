@@ -1279,7 +1279,14 @@ export function updateGantt() {
 
   // Total bar: span from earliest root blockStart to anchorDate (handles PM parents pushing left)
   const rootIdxs = sortedIdxs.filter(i => parentIdxMap[i] === null);
+  console.log('[Gantt] Root blockStarts:');
+  rootIdxs.forEach(i => {
+    const block = blocks[i];
+    const product = block.dataset.product || `block[${i}]`;
+    console.log(`  [${i}] ${product} | blockStart: ${blockStart[i]?.toDateString()} | rootAnchor: ${rootAnchor[i]?.toDateString()} | chainDays: ${chainDays(i)}`);
+  });
   const earliestStart = rootIdxs.reduce((e, i) => blockStart[i] < e ? blockStart[i] : e, blockStart[rootIdxs[0]]);
+  console.log('[Gantt] earliestStart:', earliestStart?.toDateString(), '| anchorDate:', anchorDate?.toDateString(), '| scaleDays:', scaleDays, '| startDate:', startDate?.toDateString());
   const totalSpanDays = countBusinessDays(earliestStart, anchorDate);
   const totalStartOffsetDays = countBusinessDays(startDate, earliestStart);
   const totalWidthPct = Math.min(100, (totalSpanDays / scaleDays) * 100);
