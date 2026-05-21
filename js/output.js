@@ -127,15 +127,15 @@ function buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, st
 
   weekMap.forEach(({ weekDate, groups }) => {
     weekNum++;
-    // Thin spacer row before all but the first week header
-    if (weekNum > 1) {
-      rows += `<tr><td colspan="4" style="padding:4px 0;border:none"></td></tr>`;
-    }
     // Week header: "Week 1  Jun 22 - Jun 26"
+    // Extra top padding on all but first week to create breathing room after last phase
     const weekEnd = new Date(weekDate);
     weekEnd.setDate(weekEnd.getDate() + 4); // Friday
     const weekLabel = `<strong>Week ${weekNum}</strong>&nbsp;&nbsp;<em>${fmtDateShort(weekDate)} – ${fmtDateShort(weekEnd)}</em>`;
-    rows += `<tr><td colspan="4" style="${E.weekHdr}">${weekLabel}</td></tr>`;
+    const weekHdrStyle = weekNum > 1
+      ? E.weekHdr + 'padding-top:14px;'
+      : E.weekHdr;
+    rows += `<tr><td colspan="4" style="${weekHdrStyle}">${weekLabel}</td></tr>`;
 
     // Within the week, group tasks by deliverable + owner so related items batch together
     const byKey = new Map();
