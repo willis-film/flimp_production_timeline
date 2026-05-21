@@ -937,6 +937,7 @@ function getEffectiveDue(block) {
 
   if (!dueVal) return null;
   let due = new Date(dueVal + 'T00:00:00');
+  while (!isWorkDay(due)) due.setDate(due.getDate() - 1);
   if (!VALID_PARENTS[bp]) {
     const appDays = getAppendedDays(bp, bir);
     if (appDays > 0) due = subtractBusinessDays(due, appDays);
@@ -961,7 +962,7 @@ export function recalcBlockFeasibility(block) {
   if (parentBlock) {
     // Child block: judged against project due date minus parent days
     const dueVal = document.getElementById('dueDate').value;
-    effectiveDue = dueVal ? new Date(dueVal + 'T00:00:00') : null;
+    effectiveDue = dueVal ? (() => { let d = new Date(dueVal + 'T00:00:00'); while (!isWorkDay(d)) d.setDate(d.getDate() - 1); return d; })() : null;
   } else {
     // Root block: PM parent uses delivery-10, regular uses due-appended
     effectiveDue = getEffectiveDue(block);
@@ -1089,7 +1090,7 @@ export function updateFeasibility() {
   panel.style.display = 'block';
 
   const startDate = nextWorkDay(new Date(startVal + 'T00:00:00'));
-  const dueDate   = dueVal ? new Date(dueVal + 'T00:00:00') : null;
+  const dueDate   = dueVal ? (() => { let d = new Date(dueVal + 'T00:00:00'); while (!isWorkDay(d)) d.setDate(d.getDate() - 1); return d; })() : null;
   const available = dueDate ? countBusinessDays(startDate, dueDate) : null;
 
   document.getElementById('feasAvailable').textContent = available !== null ? available : '—';
@@ -1204,7 +1205,7 @@ export function updateGantt() {
   }
   blocks.forEach((_, i) => { if (parentIdxMap[i] === null) dfsVisit(i); });
 
-  const dueDate = dueVal ? new Date(dueVal + 'T00:00:00') : null;
+  const dueDate = dueVal ? (() => { let d = new Date(dueVal + 'T00:00:00'); while (!isWorkDay(d)) d.setDate(d.getDate() - 1); return d; })() : null;
 
   const blockDays = {};
   blocks.forEach((block, i) => {
