@@ -491,7 +491,7 @@ function pdfPhasesByProduct(deliverables, phasesPerDeliverable, milestoneGroups,
     }).join('');
 
     return `
-      <div style="margin-bottom:20px;break-inside:avoid">
+      <div style="margin-bottom:20px;break-inside:avoid;padding-top:8px">
         <div style="font-size:10px;font-weight:700;color:${PDF.text};padding:7px 0;border-bottom:1.5px solid ${PDF.dark};margin-bottom:0;font-family:${PDF.font}">${esc(label)}</div>
         <table style="width:100%;border-collapse:collapse">${rows}</table>
       </div>`;
