@@ -1357,6 +1357,7 @@ export function updateGantt() {
     const anchorGapDays   = countBusinessDays(thisAnchor, anchorDate);
     const rightOffsetPct  = ((daysAfter(i) + anchorGapDays) / scaleDays) * 100;
     const leftPct         = Math.max(0, 100 - widthPct - rightOffsetPct);
+    if (parIdx === null) console.log(`  [bar ${i}] ${block.dataset.product} | blockDays: ${blockDays[i]} | daysAfter: ${daysAfter(i)} | anchorGapDays: ${anchorGapDays} | chainDays: ${chainDays(i)} | blockDays+daysAfter: ${blockDays[i]+daysAfter(i)} | leftPct: ${leftPct.toFixed(1)}%`);
 
     const isChild  = parIdx !== null;
     const rowClass = isChild ? 'gantt-nested-row' : 'gantt-row';
