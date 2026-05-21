@@ -24,10 +24,11 @@ function readPhasesFromDOM() {
     [...block.querySelectorAll('.phase-table tbody tr')].map(tr => {
       const endDateStr = tr.querySelector('.phase-end-date')?.dataset.endDate || '';
       return {
-        name:    tr.querySelector('.pt-name')?.value.trim() || '',
-        dur:     Math.max(1, parseInt(tr.querySelector('.pt-dur')?.value || 1) || 1),
-        owner:   tr.querySelector('.owner-badge')?.textContent.trim() || 'Flimp',
-        endDate: endDateStr ? new Date(endDateStr + 'T00:00:00') : null
+        name:         tr.querySelector('.pt-name')?.value.trim() || '',
+        dur:          Math.max(1, parseInt(tr.querySelector('.pt-dur')?.value || 1) || 1),
+        owner:        tr.querySelector('.owner-badge')?.textContent.trim() || 'Flimp',
+        endDate:      endDateStr ? new Date(endDateStr + 'T00:00:00') : null,
+        is_milestone: tr.dataset.isMilestone === 'true'
       };
     }).filter(p => p.name)
   );

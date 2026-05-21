@@ -504,6 +504,7 @@ export function rebuildPhaseTable(block, skipPhases) {
   expanded.forEach(phase => {
     const tr = document.createElement('tr');
     const ownerClass = phase.owner === 'Client' ? 'owner-client' : 'owner-flimp';
+    tr.dataset.isMilestone = phase.is_milestone ? 'true' : 'false';
     tr.innerHTML = `
       <td class="phase-drag-handle" title="Drag to reorder">⠿</td>
       <td><input class="pt-name" type="text" value="${esc(phase.name)}"></td>
@@ -747,6 +748,7 @@ export function previewPhases() {
 
     expanded.forEach(phase => {
       const tr = document.createElement('tr');
+      tr.dataset.isMilestone = phase.is_milestone ? 'true' : 'false';
       const ownerClass = phase.owner === 'Client' ? 'owner-client' : 'owner-flimp';
       tr.innerHTML = `
         <td class="phase-drag-handle" title="Drag to reorder">⠿</td>
