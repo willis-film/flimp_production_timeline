@@ -420,16 +420,19 @@ function pdfMilestoneTable(milestoneGroups, dueDate, client) {
 
   if (!milestones.length) return '';
 
+  const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const rows = milestones.map(group => {
     const tasks = [...new Set(group.items.filter(m => m.isMilestone).map(m => m.task))].join(', ');
     const dels  = [...new Set(group.items.filter(m => m.isMilestone).map(m => fmtDeliverable(m)))].join(', ');
     const isPastDue = group.isPastDue;
+    const dayName = DAYS[group.date.getDay()];
+    const dateLabel = dayName + ' ' + fmtDateShort(group.date);
     return `
       <tr>
-        <td style="padding:7px 10px 7px 0;border-bottom:1px solid ${PDF.border};font-size:10px;color:${isPastDue ? PDF.red : PDF.textLight};font-family:${PDF.font};white-space:nowrap;width:70px">${fmtDateShort(group.date)}</td>
+        <td style="padding:7px 10px 7px 0;border-bottom:1px solid ${PDF.border};font-size:10px;color:${isPastDue ? PDF.red : PDF.textLight};font-family:${PDF.font};white-space:nowrap;width:80px">${dateLabel}</td>
         <td style="padding:7px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${PDF.textMuted};font-family:${PDF.font};width:60px">${esc(groupParty(group, client))}</td>
-        <td style="padding:7px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;font-weight:600;color:${isPastDue ? PDF.red : PDF.text};font-family:${PDF.font}">${esc(tasks)}</td>
-        <td style="padding:7px 0 7px 10px;border-bottom:1px solid ${PDF.border};font-size:9px;color:${PDF.textMuted};font-family:${PDF.font}">${esc(dels)}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid ${PDF.border};font-size:9px;color:${PDF.textMuted};font-family:${PDF.font}">${esc(dels)}</td>
+        <td style="padding:7px 0 7px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;font-weight:600;color:${isPastDue ? PDF.red : PDF.text};font-family:${PDF.font}">${esc(tasks)}</td>
       </tr>`;
   }).join('');
 
@@ -439,8 +442,8 @@ function pdfMilestoneTable(milestoneGroups, dueDate, client) {
         <tr>
           <th style="text-align:left;padding:0 10px 6px 0;font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};border-bottom:1px solid ${PDF.border};font-family:${PDF.font}">Date</th>
           <th style="text-align:left;padding:0 10px 6px;font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};border-bottom:1px solid ${PDF.border};font-family:${PDF.font}">Party</th>
-          <th style="text-align:left;padding:0 10px 6px;font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};border-bottom:1px solid ${PDF.border};font-family:${PDF.font}">Milestone</th>
-          <th style="text-align:left;padding:0 0 6px 10px;font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};border-bottom:1px solid ${PDF.border};font-family:${PDF.font}">Deliverable</th>
+          <th style="text-align:left;padding:0 10px 6px;font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};border-bottom:1px solid ${PDF.border};font-family:${PDF.font}">Deliverable</th>
+          <th style="text-align:left;padding:0 0 6px 10px;font-size:8px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};border-bottom:1px solid ${PDF.border};font-family:${PDF.font}">Milestone</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -469,7 +472,7 @@ function pdfPhasesByProduct(deliverables, phasesPerDeliverable, milestoneGroups,
       return `
         <tr>
           <td style="padding:5px 10px 5px 0;border-bottom:1px solid ${PDF.border};font-size:9px;color:${PDF.textMuted};font-family:${PDF.font};width:55px">${esc(partyName(phase.owner, client))}</td>
-          <td style="padding:5px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${phase.is_milestone ? PDF.text : PDF.textLight};font-weight:${phase.is_milestone ? '600' : '400'};font-family:${PDF.font}">${esc(phase.name)}${phase.is_milestone ? ' ●' : ''}</td>
+          <td style="padding:5px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${PDF.textLight};font-weight:400;font-family:${PDF.font}">${esc(phase.name)}</td>
           <td style="padding:5px 0 5px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${isPastDue ? PDF.red : PDF.textLight};font-family:${PDF.font};white-space:nowrap;text-align:right">${esc(dateStr)}</td>
         </tr>`;
     }).join('');
@@ -479,7 +482,7 @@ function pdfPhasesByProduct(deliverables, phasesPerDeliverable, milestoneGroups,
         <div style="font-size:10px;font-weight:700;color:${PDF.text};padding:7px 0;border-bottom:1.5px solid ${PDF.dark};margin-bottom:0;font-family:${PDF.font}">${esc(label)}</div>
         <table style="width:100%;border-collapse:collapse">${rows}</table>
       </div>`;
-  }).join('');
+  }).join('') + `<div style="margin-top:20px;padding:10px 12px;border-left:3px solid ${PDF.dark};font-size:8.5px;color:${PDF.textMuted};font-family:${PDF.font};line-height:1.5"><strong style="color:${PDF.text}">Important Note</strong>—This timeline applies only if the client-assigned project management team reverts comments back to the Flimp project management team in a timely manner. Otherwise, the timeline may be pushed to complete each project element.</div>`;
 }
 
 // ── PDF preview — renders scaled paper view inline in the tab ─────────────
