@@ -1136,6 +1136,7 @@ export function updateFeasibility() {
   // Mirrors updateGantt logic so Days Needed = total project length, not longest single chain
   let earliestRootStart = null;
   let latestRootAnchor  = null;
+  let latestChainEnd    = null;
   blocks.forEach((block, i) => {
     if (feasParentMap[i] !== null) return; // not a root
     const chain = feasChainDays(i);
@@ -1158,11 +1159,12 @@ export function updateFeasibility() {
       anchor = dueDate ? (chainEnd > dueDate ? chainEnd : dueDate) : chainEnd;
     }
     const rootStart = subtractBusinessDays(anchor, chain);
+    const chainEnd  = addBusinessDays(rootStart, chain);
     if (!earliestRootStart || rootStart < earliestRootStart) earliestRootStart = rootStart;
-    if (!latestRootAnchor  || anchor > latestRootAnchor)    latestRootAnchor  = anchor;
+    if (!latestChainEnd    || chainEnd > latestChainEnd)     latestChainEnd    = chainEnd;
   });
-  const needed = (earliestRootStart && latestRootAnchor)
-    ? countBusinessDays(earliestRootStart, latestRootAnchor)
+  const needed = (earliestRootStart && latestChainEnd)
+    ? countBusinessDays(earliestRootStart, latestChainEnd)
     : 0;
   document.getElementById('feasNeeded').textContent = needed;
 
@@ -1322,7 +1324,13 @@ export function updateGantt() {
   const earliestStart = rootIdxs.reduce((e, i) => blockStart[i] < e ? blockStart[i] : e, blockStart[rootIdxs[0]]);
   const totalSpanCheck = countBusinessDays(earliestStart, anchorDate);
   console.log('[Gantt] earliestStart:', earliestStart?.toDateString(), '| anchorDate:', anchorDate?.toDateString(), '| scaleDays:', scaleDays, '| totalSpanCheck:', totalSpanCheck);
-  const totalSpanDays = countBusinessDays(earliestStart, anchorDate);
+  // Use addBusinessDays(blockStart, chainDays) as right edge — avoids the off-by-one
+  // from countBusinessDays crossing the previousWorkDay boundary between parent/child blocks
+  const latestChainEnd = rootIdxs.reduce((latest, i) => {
+    const end = addBusinessDays(blockStart[i], chainDays(i));
+    return end > latest ? end : latest;
+  }, addBusinessDays(blockStart[rootIdxs[0]], chainDays(rootIdxs[0])));
+  const totalSpanDays = countBusinessDays(earliestStart, latestChainEnd);
   const totalStartOffsetDays = countBusinessDays(startDate, earliestStart);
   const totalWidthPct = Math.min(100, (totalSpanDays / scaleDays) * 100);
   const totalLeftPct  = Math.max(0, (totalStartOffsetDays / scaleDays) * 100);
