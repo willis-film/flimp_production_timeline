@@ -62,6 +62,7 @@ function generateTimeline() {
 
   const deliverables         = readDeliverablesFromDOM();
   const phasesPerDeliverable = readPhasesFromDOM();
+  console.log('[Milestone] phasesPerDeliverable sample:', phasesPerDeliverable.map(phases => phases.map(p => ({ name: p.name, is_milestone: p.is_milestone }))));
 
   if (!deliverables.length) { alert('Please select at least one product.'); return; }
 
