@@ -548,11 +548,19 @@ export function downloadPdf(type, data) {
   canvas.innerHTML = html;
   canvas.style.display = 'block';
 
+  // Set document title to drive the default PDF filename in the print dialog
+  const { client, project } = data;
+  const clientSlug  = (client  || 'Client').replace(/[^a-zA-Z0-9]/g, '_');
+  const projectSlug = (project || 'Project').replace(/[^a-zA-Z0-9]/g, '_');
+  const originalTitle = document.title;
+  document.title = `${clientSlug}_${projectSlug}_Timeline`;
+
   // Small delay lets the browser render before print dialog opens
   setTimeout(() => {
     window.print();
     setTimeout(() => {
       canvas.style.display = 'none';
+      document.title = originalTitle;
     }, 500);
   }, 150);
 }
