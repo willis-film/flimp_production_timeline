@@ -212,7 +212,7 @@ function buildByProductTable({ phasesPerDeliverable, deliverables, milestoneGrou
       const dateSty = entry?.isPastDue ? `${E.tdDate}color:#c00;` : E.tdDate;
       const rowBg   = entry?.isPastDue ? 'background:#fff0f0;' : '';
       const isLast  = phaseIdx === phases.length - 1;
-      const padExtra = isLast ? 'padding-bottom:14px;' : '';
+      const padExtra = isLast ? 'padding-bottom:32px;' : '';
       rows += `
         <tr style="${rowBg}">
           <td contenteditable="true" style="${E.tdFirst}${padExtra}">${esc(partyName(phase.owner, client))}</td>
