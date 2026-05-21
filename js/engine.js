@@ -222,12 +222,17 @@ export function scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdx
 
   console.log('[Milestone] allMilestones before dedup:', allMilestones.filter(m => m.isMilestone).map(m => ({ task: m.task, del: m.deliverable, date: m.date?.toDateString() })));
   // For phases marked is_milestone that repeat per deliverable (e.g. round reviews),
-  // only the last occurrence per deliverable should be a milestone
-  const milestonePhaseNames = new Set(
-    allMilestones.filter(m => m.isMilestone).map(m => m.task.trim().toLowerCase())
+  // only the last occurrence per deliverable should be a milestone.
+  // Strip " Rd N" suffix before grouping so "Client Review Rd 1" and "Client Review Rd 2"
+  // are treated as the same phase family.
+  function baseTaskName(task) {
+    return task.trim().toLowerCase().replace(/\s+rd\s+\d+$/i, '');
+  }
+  const milestoneBaseNames = new Set(
+    allMilestones.filter(m => m.isMilestone).map(m => baseTaskName(m.task))
   );
-  milestonePhaseNames.forEach(phaseName => {
-    const matches = allMilestones.filter(m => m.task.trim().toLowerCase() === phaseName);
+  milestoneBaseNames.forEach(baseName => {
+    const matches = allMilestones.filter(m => m.isMilestone && baseTaskName(m.task) === baseName);
     // Group by deliverable
     const byDel = {};
     matches.forEach(m => {
