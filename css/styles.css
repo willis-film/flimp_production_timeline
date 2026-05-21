@@ -126,7 +126,10 @@ body{font-family:Verdana,sans-serif;background:#F2F8F0;color:var(--text);min-hei
 .confirm-wrap{display:flex;align-items:center;gap:6px;margin-left:12px;flex-shrink:0}
 .pb-rounds-wrap{display:flex;align-items:center;gap:7px;margin-left:auto;flex-shrink:0}
 .pb-rounds-label{font-size:11px;color:var(--text-tertiary);font-family:Verdana,sans-serif}
-.pb-rounds-stepper .rounds-val{min-width:18px;text-align:center;font-size:12px}
+.pb-rounds-stepper{display:flex;align-items:center;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;height:28px;background:#fff}
+.pb-rounds-stepper .rounds-btn{width:24px;height:100%;border:none;background:transparent;color:var(--text-secondary);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;flex-shrink:0;font-family:Verdana,sans-serif}
+.pb-rounds-stepper .rounds-btn:hover{background:var(--blue-bg);color:var(--blue)}
+.pb-rounds-stepper .rounds-val{display:flex;min-width:18px;text-align:center;font-size:12px;font-weight:600;color:var(--text);font-family:Verdana,sans-serif;border-left:1px solid var(--border);border-right:1px solid var(--border);height:100%;align-items:center;justify-content:center;padding:0 4px}
 .confirm-label{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-tertiary)}
 
 /* ── Phase preconditions checklist ── */
