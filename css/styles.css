@@ -176,7 +176,7 @@ tr.dragging{opacity:.4}
 .feasibility-header{background:var(--dark);padding:.65rem 1.25rem;display:flex;align-items:center;justify-content:space-between}
 .feasibility-title{font-size:11px;font-weight:700;color:#fff;letter-spacing:.06em;text-transform:uppercase}
 .feasibility-dates{font-size:11px;color:#ffffff60}
-.feasibility-grid{display:grid;grid-template-columns:1fr 1fr 1fr}
+.feasibility-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr}
 .feasibility-cell{padding:.9rem 1.25rem}
 .feasibility-cell:not(:last-child){border-right:1px solid var(--border)}
 .feasibility-cell-label{font-size:11px;font-weight:600;color:var(--text-tertiary);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px}

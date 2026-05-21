@@ -1320,6 +1320,8 @@ export function updateGantt() {
   console.log('[Gantt] earliestStart:', earliestStart?.toDateString(), '| anchorDate:', anchorDate?.toDateString(), '| scaleDays:', scaleDays, '| totalSpanCheck:', totalSpanCheck);
   // Total span: earliest blockStart → anchorDate, same convention as scaleDays
   const totalSpanDays = countBusinessDays(earliestStart, anchorDate);
+  const latestStartEl = document.getElementById('feasLatestStart');
+  if (latestStartEl) latestStartEl.textContent = earliestStart ? fmtDateShort(earliestStart) : '—';
   const totalWidthPct = Math.min(100, (totalSpanDays / scaleDays) * 100);
   const totalLeftPct  = Math.max(0, (countBusinessDays(startDate, earliestStart) / scaleDays) * 100);
   html += `<div class="gantt-row">
