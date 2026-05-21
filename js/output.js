@@ -204,17 +204,20 @@ function buildByProductTable({ phasesPerDeliverable, deliverables, milestoneGrou
     rows += sectionHdr(label);
     rows += thRow;
 
-    phases.forEach(phase => {
+    phases.forEach((phase, phaseIdx) => {
       const key    = `${del.product}||${phase.name}`;
-      const entry  = dateByKey.get(key);
+      const singletonKey = `__singleton__||${phase.name.trim().toLowerCase()}`;
+      const entry  = dateByKey.get(key) || dateByKey.get(singletonKey);
       const dateStr = entry ? fmtDateShort(entry.date) : '—';
       const dateSty = entry?.isPastDue ? `${E.tdDate}color:#c00;` : E.tdDate;
       const rowBg   = entry?.isPastDue ? 'background:#fff0f0;' : '';
+      const isLast  = phaseIdx === phases.length - 1;
+      const padExtra = isLast ? 'padding-bottom:14px;' : '';
       rows += `
         <tr style="${rowBg}">
-          <td contenteditable="true" style="${E.tdFirst}">${esc(partyName(phase.owner, client))}</td>
-          <td contenteditable="true" style="${E.tdTask}">${esc(phase.name)}</td>
-          <td contenteditable="true" style="${dateSty}">${esc(dateStr)}</td>
+          <td contenteditable="true" style="${E.tdFirst}${padExtra}">${esc(partyName(phase.owner, client))}</td>
+          <td contenteditable="true" style="${E.tdTask}${padExtra}">${esc(phase.name)}</td>
+          <td contenteditable="true" style="${dateSty}${padExtra}">${esc(dateStr)}</td>
         </tr>`;
     });
   });
