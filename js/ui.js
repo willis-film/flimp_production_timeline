@@ -1180,7 +1180,7 @@ export function updateFeasibility() {
   if (diff >= 6)      { diffEl.style.color = '#2e8b4a'; msgEl.style.color = '#2e8b4a'; msgEl.textContent = 'Timeline fits with buffer';                               fillEl.style.cssText = `width:${pct}%;background:#44A55D`; }
   else if (diff >= 1) { diffEl.style.color = '#b5920a'; msgEl.style.color = '#b5920a'; msgEl.textContent = `Tight — only ${diff} day${diff===1?'':'s'} buffer`;        fillEl.style.cssText = `width:${pct}%;background:var(--amber)`; }
   else if (diff === 0){ diffEl.style.color = '#b5920a'; msgEl.style.color = '#b5920a'; msgEl.textContent = 'Exactly on time — no buffer';                             fillEl.style.cssText = 'width:100%;background:var(--amber)'; }
-  else               { diffEl.style.color = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.textContent = `${Math.abs(diff)} days over — consider compressing`; fillEl.style.cssText = 'width:100%;background:var(--red)'; }
+  else               { diffEl.style.color = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.textContent = `${Math.abs(diff)} days over — compress`; fillEl.style.cssText = 'width:100%;background:var(--red)'; }
 
   updateGantt();
 }
