@@ -429,6 +429,68 @@ function buildBasicPdf(data) {
 
   return pdfPage(pageContent, 1, 1);
 }
+// ── Build Expanded PDF HTML ──────────────────────────────────────────────
+async function buildExpandedPdf(data) {
+  const { milestoneGroups, projectEndDate, projectSpanDays, deliverables,
+          phasesPerDeliverable, startDate, dueDate, project, client } = data;
+
+  const hasMilestones = milestoneGroups.some(g => g.items.some(m => m.isMilestone));
+
+  // Capture Gantt as image
+  let ganttHtml = '';
+  const ganttWrap = document.getElementById('ganttWrap');
+  if (ganttWrap && typeof html2canvas !== 'undefined') {
+    try {
+      // Temporarily show if hidden so html2canvas can render it
+      const wasHidden = ganttWrap.style.display === 'none';
+      if (wasHidden) ganttWrap.style.display = 'block';
+      const canvas = await html2canvas(ganttWrap, {
+        scale: 2,
+        backgroundColor: '#08212D',
+        logging: false,
+        useCORS: true
+      });
+      if (wasHidden) ganttWrap.style.display = 'none';
+      const imgUrl = canvas.toDataURL('image/png');
+      ganttHtml = `
+        <div style="margin-bottom:28px">
+          ${pdfSection('Project Timeline')}
+          <div style="padding-top:8px">
+            <img src="${imgUrl}" style="width:100%;border-radius:6px" />
+          </div>
+        </div>`;
+    } catch(e) {
+      console.warn('Gantt capture failed:', e);
+    }
+  }
+
+  const pageContent = `
+    ${pdfHero(client, project, startDate, dueDate, projectSpanDays, projectEndDate, deliverables, data.earliestStart)}
+
+    <div style="padding:0 ${PDF.margin} 80px">
+
+      ${ganttHtml}
+
+      ${hasMilestones ? `
+        <div style="margin-bottom:28px">
+          ${pdfSection('Key Milestones')}
+          <div style="padding-top:8px">
+            ${pdfMilestoneTable(milestoneGroups, dueDate, client)}
+          </div>
+        </div>` : ''}
+
+      <div>
+        ${pdfSection('Phases by Deliverable')}
+        <div style="padding-top:12px">
+          ${pdfPhasesByProduct(deliverables, phasesPerDeliverable, milestoneGroups, client)}
+        </div>
+      </div>
+
+    </div>`;
+
+  return pdfPage(pageContent, 1, 1);
+}
+
 function pdfMilestoneTable(milestoneGroups, dueDate, client) {
   const milestones = milestoneGroups.filter(g => g.items.some(m => m.isMilestone));
 
@@ -507,7 +569,7 @@ function pdfPhasesByProduct(deliverables, phasesPerDeliverable, milestoneGroups,
 }
 
 // ── PDF preview — renders scaled paper view inline in the tab ─────────────
-export function previewPdf(type, data) {
+export async function previewPdf(type, data) {
   const previewIds = {
     basic:    'basicPdfPreview',
     expanded: 'expandedPdfPreview',
@@ -520,8 +582,12 @@ export function previewPdf(type, data) {
   if (type === 'basic') {
     html = buildBasicPdf(data);
   } else {
-    container.innerHTML = '<div class="pdf-coming-soon">This PDF format is coming soon.</div>';
-    return;
+    if (type === 'expanded') {
+      html = await buildExpandedPdf(data);
+    } else {
+      container.innerHTML = '<div class="pdf-coming-soon">This PDF format is coming soon.</div>';
+      return;
+    }
   }
 
   // Scale the 816px page to fit the container width with some padding
@@ -540,7 +606,7 @@ export function previewPdf(type, data) {
 }
 
 // ── PDF download entry point ──────────────────────────────────────────────
-export function downloadPdf(type, data) {
+export async function downloadPdf(type, data) {
   const canvas = document.getElementById('pdfCanvas');
   if (!canvas || !data) return;
 
@@ -548,9 +614,12 @@ export function downloadPdf(type, data) {
   if (type === 'basic') {
     html = buildBasicPdf(data);
   } else {
-    // expanded and netNew to be built
-    alert(`${type === 'expanded' ? 'Expanded' : 'Net New Expanded'} PDF coming soon.`);
-    return;
+    if (type === 'expanded') {
+      html = await buildExpandedPdf(data);
+    } else {
+      alert('Net New Expanded PDF coming soon.');
+      return;
+    }
   }
 
   canvas.innerHTML = html;
