@@ -82,6 +82,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const dr = document.getElementById('delRows');
   for (let i = 0; i < 3; i++) dr.appendChild(buildDelRow());
   updateRemove();
+  refreshPMSelectors(); // Set initial disabled state on PM checkbox
 
   // Default start date to today
   document.getElementById('startDate').value = toISO(new Date());
