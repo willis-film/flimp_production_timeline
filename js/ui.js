@@ -122,18 +122,11 @@ export function buildDelRow() {
   tog.appendChild(btnN); tog.appendChild(btnR);
   row.appendChild(tog);
 
-  const stepper  = document.createElement('div');
-  stepper.className = 'rounds-stepper';
-  const rdMinus  = document.createElement('button');
-  rdMinus.className = 'rounds-btn'; rdMinus.textContent = '−'; rdMinus.title = 'Decrease rounds';
-  const rdVal    = document.createElement('div');
-  rdVal.className = 'rounds-val'; rdVal.textContent = '2';
-  const rdPlus   = document.createElement('button');
-  rdPlus.className = 'rounds-btn'; rdPlus.textContent = '+'; rdPlus.title = 'Increase rounds';
-  rdMinus.onclick = () => { const v = parseInt(rdVal.textContent); if (v > 1) rdVal.textContent = v - 1; };
-  rdPlus.onclick  = () => { const v = parseInt(rdVal.textContent); if (v < 20) rdVal.textContent = v + 1; };
-  stepper.appendChild(rdMinus); stepper.appendChild(rdVal); stepper.appendChild(rdPlus);
-  row.appendChild(stepper);
+  // Rounds stepper removed — rounds adjusted in phase review instead
+  // Hidden rounds-val preserved so downstream reads don't break
+  const rdVal = document.createElement('div');
+  rdVal.className = 'rounds-val'; rdVal.style.display = 'none'; rdVal.textContent = '2';
+  row.appendChild(rdVal);
 
   const rm = document.createElement('button');
   rm.className = 'rm-btn'; rm.innerHTML = '&times;'; rm.title = 'Remove deliverable';

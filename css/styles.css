@@ -72,10 +72,7 @@ body{font-family:Verdana,sans-serif;background:#F2F8F0;color:var(--text);min-hei
 .nr-toggle.disabled .nr-btn{background:#f5f5f5;color:#aaa}
 .nr-btn.n-active{background:var(--dark);color:var(--lime)}
 .nr-btn.r-active{background:var(--green);color:#fff}
-.rounds-stepper{display:flex;align-items:center;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;height:36px;background:#fff}
-.rounds-btn{width:28px;height:100%;border:none;background:transparent;color:var(--text-secondary);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;flex-shrink:0;font-family:Verdana,sans-serif}
-.rounds-btn:hover{background:var(--blue-bg);color:var(--blue)}
-.rounds-val{flex:1;text-align:center;font-size:14px;font-weight:600;color:var(--text);font-family:Verdana,sans-serif;border-left:1px solid var(--border);border-right:1px solid var(--border);height:100%;display:flex;align-items:center;justify-content:center;min-width:28px}
+.rounds-val{display:none}
 .parent-sel-wrap{display:none;margin-top:4px;padding-left:20px;grid-column:1/-1}
 .ps-inner{display:flex;align-items:center;gap:8px}
 .ps-label{font-size:11px;font-weight:600;color:var(--text-tertiary);white-space:nowrap;min-width:70px}
