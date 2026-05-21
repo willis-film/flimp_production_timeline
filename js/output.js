@@ -21,7 +21,7 @@ const E = {
   tdTask:  'padding:0.3rem 0.75rem;border-bottom:1px solid #ccc;font-size:0.72rem;font-family:Verdana,sans-serif;max-width:180px;',
   tdDate:  'padding:0.3rem 0 0.3rem 0.5rem;border-bottom:1px solid #ccc;font-size:0.72rem;font-family:Verdana,sans-serif;white-space:nowrap;',
   footer:  'padding:0.6rem 0.75rem 0.4rem 0;border-top:2px solid #000;font-size:0.68rem;letter-spacing:0.04em;font-family:Verdana,sans-serif;font-weight:bold;',
-  weekHdr: 'padding:0.45rem 0.75rem 0.45rem 0;font-size:0.65rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;border-bottom:1px solid #ccc;border-top:2px solid #000;font-family:Verdana,sans-serif;color:#333;background:#f5f5f5;',
+  weekHdr: 'padding:0.45rem 0.75rem 0.45rem 0;font-size:0.65rem;letter-spacing:0.04em;border-bottom:1px solid #ccc;border-top:2px solid #000;font-family:Verdana,sans-serif;color:#333;background:#f5f5f5;',
 };
 
 // ── Shared header rows ────────────────────────────────────────────────────
@@ -123,12 +123,18 @@ function buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, st
   });
 
   let rows = buildTableHeader(project);
+  let weekNum = 0;
 
   weekMap.forEach(({ weekDate, groups }) => {
-    // Week header spanning all columns
+    weekNum++;
+    // Thin spacer row before all but the first week header
+    if (weekNum > 1) {
+      rows += `<tr><td colspan="4" style="padding:4px 0;border:none"></td></tr>`;
+    }
+    // Week header: "Week 1  Jun 22 - Jun 26"
     const weekEnd = new Date(weekDate);
     weekEnd.setDate(weekEnd.getDate() + 4); // Friday
-    const weekLabel = `Week of ${fmtDateShort(weekDate)} – ${fmtDateShort(weekEnd)}`;
+    const weekLabel = `<strong>Week ${weekNum}</strong>&nbsp;&nbsp;<em>${fmtDateShort(weekDate)} – ${fmtDateShort(weekEnd)}</em>`;
     rows += `<tr><td colspan="4" style="${E.weekHdr}">${weekLabel}</td></tr>`;
 
     // Within the week, group tasks by deliverable + owner so related items batch together
