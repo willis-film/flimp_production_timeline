@@ -25,11 +25,9 @@ const E = {
 };
 
 // ── Shared header rows ────────────────────────────────────────────────────
-function buildTableHeader(project) {
+function buildTableHeader(project, skipTitle = false) {
   return `
-    <tr>
-      <td colspan="4" contenteditable="true" style="${E.title}">${esc(project)}</td>
-    </tr>
+    ${skipTitle ? '' : `<tr><td colspan="4" contenteditable="true" style="${E.title}">${esc(project)}</td></tr>`}
     <tr>
       <th style="${E.thFirst}">Party</th>
       <th style="${E.thDel}">Deliverable</th>
@@ -104,7 +102,7 @@ function buildChronTable({ milestoneGroups, projectEndDate, projectSpanDays, sta
 }
 
 // ── Build weekly table HTML ───────────────────────────────────────────────
-function buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, startDate, dueDate, project, client }) {
+function buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, startDate, dueDate, project, client }, skipTitle = false) {
   // Get Monday of the week containing a date
   function weekStart(date) {
     const d   = new Date(date);
@@ -123,7 +121,7 @@ function buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, st
     weekMap.get(key).groups.push(group);
   });
 
-  let rows = buildTableHeader(project);
+  let rows = buildTableHeader(project, skipTitle);
   let weekNum = 0;
 
   weekMap.forEach(({ weekDate, groups }) => {
@@ -482,7 +480,7 @@ async function buildExpandedPdf(data) {
       <div style="margin-bottom:28px">
         ${pdfSection('Timeline by Week')}
         <div style="padding-top:8px">
-          ${buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, startDate, dueDate, project, client })}
+          ${buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, startDate, dueDate, project, client }, true).replace('max-width:550px', 'max-width:100%')}
         </div>
       </div>
 
