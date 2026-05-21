@@ -1376,6 +1376,20 @@ export function updateGantt() {
         <div style="left:${leftPct}%;width:${widthPct}%;background:${color};position:absolute;top:0;bottom:0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:${isChild?'9':'10'}px;font-weight:700;color:rgba(255,255,255,.9)" title="${esc(product)}: ${totalDays}d">
           ${widthPct > 8 ? totalDays + 'd' : ''}
         </div>
+        ${(() => {
+          if (!isChild) return '';
+          // P&M child: parent del-row has a pmDelivery date
+          const parentBlock = blocks[parIdx];
+          const parentProduct = parentBlock?.dataset.product || '';
+          const parentRenewal = parentBlock?.dataset.isrenewal === 'true';
+          const isPMChild = !!delRows.find(r => {
+            const s = r.querySelector('select');
+            const renewal = r.querySelector('.nr-btn.r-active') !== null;
+            return s && s.value === parentProduct && renewal === parentRenewal && r.dataset.pmDelivery;
+          });
+          if (!isPMChild) return '';
+          return `<div style="position:absolute;left:${leftPct}%;top:-2px;bottom:-2px;width:2px;background:rgba(255,255,255,.35);z-index:5;transform:translateX(-1px)"></div>`;
+        })()}
       </div>
       <div class="gantt-enddate" style="font-size:${isChild?'9':'10'}px;color:rgba(255,255,255,${isChild?'.4':'.55'});line-height:1.3">${(() => {
         if (parIdx !== null) return fmtDateShort(blockEnd[i]);
