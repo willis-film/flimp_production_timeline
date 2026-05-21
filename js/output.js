@@ -177,9 +177,15 @@ function buildByProductTable({ phasesPerDeliverable, deliverables, milestoneGrou
   // Build a lookup: deliverable name + task name → date
   // (milestoneGroups items carry both)
   const dateByKey = new Map();
+  const SINGLETON_TASKS = new Set(['kickoff', 'distribution']);
   milestoneGroups.forEach(group => {
     group.items.forEach(item => {
       dateByKey.set(`${item.deliverable}||${item.task}`, { date: group.date, isPastDue: group.isPastDue });
+      // Kickoff and Distribution are merged into one entry with a joined deliverable string —
+      // index by task name alone so any deliverable can look them up
+      if (SINGLETON_TASKS.has(item.task.trim().toLowerCase())) {
+        dateByKey.set(`__singleton__||${item.task.trim().toLowerCase()}`, { date: group.date, isPastDue: group.isPastDue });
+      }
     });
   });
 
@@ -264,7 +270,7 @@ const PDF = {
   font:       'Verdana, Geneva, sans-serif',
   pageW:      '816px',   // letter at 96dpi
   pageH:      '1056px',
-  margin:     '48px',
+  margin:     '56px',
 };
 
 // ── PDF page wrapper ──────────────────────────────────────────────────────
@@ -453,9 +459,15 @@ function pdfMilestoneTable(milestoneGroups, dueDate, client) {
 // ── PDF phases-by-deliverable section ────────────────────────────────────
 function pdfPhasesByProduct(deliverables, phasesPerDeliverable, milestoneGroups, client) {
   const dateByKey = new Map();
+  const SINGLETON_TASKS = new Set(['kickoff', 'distribution']);
   milestoneGroups.forEach(group => {
     group.items.forEach(item => {
       dateByKey.set(`${item.deliverable}||${item.task}`, { date: group.date, isPastDue: group.isPastDue });
+      // Kickoff and Distribution are merged into one entry with a joined deliverable string —
+      // index by task name alone so any deliverable can look them up
+      if (SINGLETON_TASKS.has(item.task.trim().toLowerCase())) {
+        dateByKey.set(`__singleton__||${item.task.trim().toLowerCase()}`, { date: group.date, isPastDue: group.isPastDue });
+      }
     });
   });
 
@@ -466,7 +478,8 @@ function pdfPhasesByProduct(deliverables, phasesPerDeliverable, milestoneGroups,
     const label = `${del.product} — ${del.isRenewal ? 'Renewal' : 'New'}`;
     const rows = phases.map(phase => {
       const key   = `${del.product}||${phase.name}`;
-      const entry = dateByKey.get(key);
+      const singletonKey = `__singleton__||${phase.name.trim().toLowerCase()}`;
+      const entry = dateByKey.get(key) || dateByKey.get(singletonKey);
       const dateStr = entry ? fmtDateShort(entry.date) : '—';
       const isPastDue = entry?.isPastDue || false;
       return `
