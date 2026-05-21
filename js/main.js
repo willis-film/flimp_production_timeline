@@ -4,7 +4,7 @@
 // This is the only file referenced in index.html's <script> tag.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { loadReferenceData } from './database.js';
+import { loadReferenceData, PM_NAMES } from './database.js';
 import { setDays, toISO, nextWorkDay, scheduleTimeline, buildParentIdxMap } from './engine.js';
 import {
   buildDelRow, buildSelect, addRow, updateRemove,
@@ -97,12 +97,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  // PM localStorage
-  const savedPm = localStorage.getItem('flimp_pm');
-  if (savedPm) {
-    const s = document.getElementById('pmName');
-    if ([...s.options].find(o => o.value === savedPm)) s.value = savedPm;
-  }
+  // PM localStorage restore handled after Supabase populates the dropdown
   document.getElementById('pmName').addEventListener('change', function () {
     if (this.value) localStorage.setItem('flimp_pm', this.value);
   });
@@ -153,6 +148,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('loadingError').style.display = 'flex';
     return;
   }
+
+  // Populate PM name dropdown from Supabase
+  const pmSel = document.getElementById('pmName');
+  const savedPmVal = localStorage.getItem('flimp_pm') || pmSel.value;
+  pmSel.innerHTML = '<option value="">Select PM…</option>';
+  PM_NAMES.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    pmSel.appendChild(opt);
+  });
+  if (savedPmVal) pmSel.value = savedPmVal;
 
   // Rebuild product selects now that PRODUCTS is populated
   document.querySelectorAll('#delRows .del-row').forEach(r => {

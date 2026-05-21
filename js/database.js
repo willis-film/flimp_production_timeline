@@ -22,6 +22,7 @@ export let ALL_PHASES     = {};   // {product_name: [{name,dur,owner,applies_to,
 export let ROUND_GROUPS   = {};   // {product_name: [{group_name,default_rounds,...}]}
 export let PRECONDITIONS  = {};   // {product_name: [{checklist_label,phase_name,applies_to}]}
 export let VALID_PARENTS  = {};   // {child_product: Set([valid_parent_product,...])}
+export let PM_NAMES       = [];   // ['Name', ...]
 
 // ── Load all reference data from Supabase ─────────────────────────────────
 export async function loadReferenceData() {
@@ -31,16 +32,18 @@ export async function loadReferenceData() {
       { data: phases,        error: e2 },
       { data: roundGroups,   error: e3 },
       { data: preconditions, error: e4 },
-      { data: relationships, error: e5 }
+      { data: relationships, error: e5 },
+      { data: pmNames,       error: e6 }
     ] = await Promise.all([
       db.from('products').select('*').eq('active', true).order('sort_order'),
       db.from('product_phases').select('*').order('phase_order'),
       db.from('round_groups').select('*').order('group_order'),
       db.from('phase_preconditions').select('*'),
-      db.from('product_relationships').select('*')
+      db.from('product_relationships').select('*'),
+      db.from('project_managers').select('PM_name').order('PM_name')
     ]);
 
-    if (e1 || e2 || e3 || e4 || e5) throw new Error((e1||e2||e3||e4||e5).message);
+    if (e1 || e2 || e3 || e4 || e5 || e6) throw new Error((e1||e2||e3||e4||e5||e6).message);
 
     // ── PRODUCTS grouped structure ──
     const groupMap = {};
@@ -62,6 +65,9 @@ export async function loadReferenceData() {
 
     // ── PM_ELIGIBLE ──
     PM_ELIGIBLE = new Set(products.filter(p => p.eligible_PM).map(p => p.name));
+
+    // ── PM_NAMES ──
+    PM_NAMES = (pmNames || []).map(r => r.PM_name).filter(Boolean);
 
     // ── ROUNDS_DEFAULTS ──
     ROUNDS_DEFAULTS = {};
