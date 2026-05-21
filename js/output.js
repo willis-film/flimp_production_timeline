@@ -479,6 +479,13 @@ async function buildExpandedPdf(data) {
           </div>
         </div>` : ''}
 
+      <div style="margin-bottom:28px">
+        ${pdfSection('Timeline by Week')}
+        <div style="padding-top:8px">
+          ${buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, startDate, dueDate, project, client })}
+        </div>
+      </div>
+
       <div>
         ${pdfSection('Phases by Deliverable')}
         <div style="padding-top:12px">
