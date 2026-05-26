@@ -1625,18 +1625,10 @@ export function updateGantt() {
         })()
       : 0;
 
-    // Use countBusinessDays from blockStart→blockEnd for width so it's
-    // pixel-perfect consistent with leftPct and pmLeftPct calculations.
-    const productionSpanDays = countBusinessDays(blockStart[i], blockEnd[i]);
-    const widthPct = Math.max(1, (productionSpanDays / scaleDays) * 100);
-
-    // Position production bar directly from blockStart — the forward/backward
-    // model above already computed the correct start date for every block type.
-    // Never derive leftPct from rightOffsetPct for PM-chain blocks; the P&M
-    // segment is positioned independently from pmDelivery below.
     const leftPct  = Math.max(0, (countBusinessDays(startDate, blockStart[i]) / scaleDays) * 100);
     const rightPct = Math.max(0, (countBusinessDays(startDate, blockEnd[i])   / scaleDays) * 100);
     const widthPct = Math.max(0.5, rightPct - leftPct);
+    const productionSpanDays = countBusinessDays(blockStart[i], blockEnd[i]);
 
     function daysAfter(idx) {
       const ch = sortedIdxs.filter(j => parentIdxMap[j] === idx);
