@@ -1383,8 +1383,6 @@ export function updateGantt() {
       })
       .map(tr => Math.max(1, parseInt(tr.querySelector('.pt-dur')?.value) || 1));
     blockDays[i] = Math.max(1, durs.reduce((a, b) => a + b, 0));
-    const allPhaseNames = [...block.querySelectorAll('tbody tr')].map(tr => tr.querySelector('.pt-name')?.value + ':' + tr.querySelector('.pt-dur')?.value);
-    console.log(`[blockDays] ${block.dataset.product} | phases: ${allPhaseNames.join(', ')} | blockDays: ${blockDays[i]}`);
   });
 
   function chainDays(idx) {
@@ -1627,9 +1625,10 @@ export function updateGantt() {
         })()
       : 0;
 
-    // Production days only (excludes P&M row — blockDays already excludes P&M)
-    const productionDays = blockDays[i];
-    const widthPct = Math.max(1, (productionDays / scaleDays) * 100);
+    // Use countBusinessDays from blockStart→blockEnd for width so it's
+    // pixel-perfect consistent with leftPct and pmLeftPct calculations.
+    const productionSpanDays = countBusinessDays(blockStart[i], blockEnd[i]);
+    const widthPct = Math.max(1, (productionSpanDays / scaleDays) * 100);
 
     // Position production bar directly from blockStart — the forward/backward
     // model above already computed the correct start date for every block type.
@@ -1696,8 +1695,8 @@ export function updateGantt() {
     html += `<div class="${rowClass}">
       <div style="width:150px;flex-shrink:0;font-size:${isChild?'10':'11'}px;color:rgba(255,255,255,${isChild?'.6':'.75'});font-family:Verdana,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;" title="${esc(product)}">${connectorHtml}<span style="overflow:hidden;text-overflow:ellipsis">${esc(product)}</span></div>
       <div class="${isChild?'gantt-nested-track':'gantt-track'}" style="position:relative">
-        <div style="left:${leftPct.toFixed(2)}%;width:${widthPct.toFixed(2)}%;background:${color};position:absolute;top:0;bottom:0;border-radius:${isPMChain && pmDelivery ? '4px 0 0 4px' : '4px'};display:flex;align-items:center;justify-content:center;font-size:${isChild?'9':'10'}px;font-weight:700;color:rgba(255,255,255,.9)" title="${esc(product)}: ${productionDays}d">
-          ${widthPct > 8 ? productionDays + 'd' : ''}
+        <div style="left:${leftPct.toFixed(2)}%;width:${widthPct.toFixed(2)}%;background:${color};position:absolute;top:0;bottom:0;border-radius:${isPMChain && pmDelivery ? '4px 0 0 4px' : '4px'};display:flex;align-items:center;justify-content:center;font-size:${isChild?'9':'10'}px;font-weight:700;color:rgba(255,255,255,.9)" title="${esc(product)}: ${productionSpanDays}d">
+          ${widthPct > 8 ? productionSpanDays + 'd' : ''}
         </div>
         ${pmSegmentHtml}
         ${(() => {
