@@ -148,14 +148,6 @@ export async function loadReferenceData() {
         dependsOn:    p.depends_on_product     || null,
       };
     });
-    console.log('[DB] PRODUCT_META sample:', 
-      ['Premium Guide','Alternate Guide','Guide Translation','BG Chatbot']
-        .map(n => `${n}: ${PRODUCT_META[n]?.scheduleType ?? '(missing)'}`)
-        .join(' | ')
-    );
-    console.log('[DB] Raw product_schedule_type values:', 
-      products.slice(0,8).map(p => `${p.name}=${p.project_schedule_type}`)
-    );
 
     return true;
   } catch (err) {

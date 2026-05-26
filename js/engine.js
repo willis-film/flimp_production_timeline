@@ -123,23 +123,19 @@ export function buildParentIdxMap(delRows) {
   delRows.forEach((row, i) => {
     const childSel = row.querySelector('select');
     if (!childSel || !childSel.value || !VALID_PARENTS[childSel.value]) {
-      console.log(`[parentIdxMap] row ${i} (${childSel?.value}) → null: no VALID_PARENTS entry. VALID_PARENTS keys:`, Object.keys(VALID_PARENTS));
-      map[i] = null; return;
+        map[i] = null; return;
     }
     const parentSel = row.querySelector('.parent-sel');
     if (!parentSel || parentSel.value === '') {
-      console.log(`[parentIdxMap] row ${i} (${childSel.value}) → null: no parent-sel or empty value. parentSel:`, parentSel, 'value:', parentSel?.value);
-      map[i] = null; return;
+        map[i] = null; return;
     }
     const parentOpt = parentSel.options[parentSel.selectedIndex];
     if (!parentOpt || !parentOpt.dataset.product) {
-      console.log(`[parentIdxMap] row ${i} (${childSel.value}) → null: parentOpt missing or no dataset.product. parentOpt:`, parentOpt);
-      map[i] = null; return;
+        map[i] = null; return;
     }
 
     const targetPosition = parseInt(parentSel.value, 10);
     const validParentSet = VALID_PARENTS[childSel.value];
-    console.log(`[parentIdxMap] row ${i} (${childSel.value}) → looking for position ${targetPosition} in validParentSet:`, [...validParentSet]);
 
     let position = 0, matchedRowIdx = null;
     for (let j = 0; j < delRows.length; j++) {
@@ -150,7 +146,6 @@ export function buildParentIdxMap(delRows) {
       if (position === targetPosition) { matchedRowIdx = j; break; }
       position++;
     }
-    console.log(`[parentIdxMap] row ${i} (${childSel.value}) → matchedRowIdx: ${matchedRowIdx}`);
     map[i] = matchedRowIdx;
   });
   return map;
@@ -360,7 +355,6 @@ export function scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdx
     }
   });
 
-  console.log('[Milestone] allMilestones before dedup:', allMilestones.filter(m => m.isMilestone).map(m => ({ task: m.task, del: m.deliverable, date: m.date?.toDateString() })));
   // For phases marked is_milestone that repeat per deliverable (e.g. round reviews),
   // only the last occurrence per deliverable should be a milestone.
   // Strip " Rd N" suffix before grouping so "Client Review Rd 1" and "Client Review Rd 2"

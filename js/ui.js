@@ -1351,11 +1351,8 @@ export function updateGantt() {
   if (!startVal || !blocks.length) { wrap.style.display = 'none'; return; }
   document.getElementById('feasibilityPanel').style.display = 'block';
 
-  console.log('[Gantt] PRODUCT_META keys:', Object.keys(PRODUCT_META));
-  console.log('[Gantt] Sample block products:', blocks.map(b => b.dataset.product));
   blocks.forEach((b, i) => {
     const meta = PRODUCT_META[b.dataset.product];
-    console.log(`[Gantt] block[${i}] "${b.dataset.product}" → scheduleType: ${meta?.scheduleType ?? '(no meta)'}`);
   });
 
   const startDate = nextWorkDay(new Date(startVal + 'T00:00:00'));
@@ -1560,7 +1557,6 @@ export function updateGantt() {
 
   // Total bar: span from earliest root blockStart to anchorDate (handles PM parents pushing left)
   const rootIdxs = sortedIdxs.filter(i => parentIdxMap[i] === null);
-  console.log('[Gantt] Root block diagnostics:');
   rootIdxs.forEach(i => {
     const block = blocks[i];
     const product = block.dataset.product || `block[${i}]`;
@@ -1570,16 +1566,10 @@ export function updateGantt() {
     const anchor = rootAnchor[i];
     const spanFromStart = bs ? countBusinessDays(bs, anchor) : null;
     const rehydrated = bs ? addBusinessDays(bs, cd) : null;
-    console.log(
-      `  [${i}] ${product}\n` +
-      `    chainDays: ${cd} | blockStart: ${bs?.toDateString()} | blockEnd: ${be?.toDateString()} | rootAnchor: ${anchor?.toDateString()}\n` +
-      `    countBusinessDays(blockStart→anchor): ${spanFromStart} | addBusinessDays(blockStart, chainDays): ${rehydrated?.toDateString()} | anchorMatch: ${rehydrated?.toDateString() === anchor?.toDateString()}`
-    );
   });
   const earliestStart = rootIdxs.reduce((e, i) => blockStart[i] < e ? blockStart[i] : e, blockStart[rootIdxs[0]]);
   lastEarliestStart = earliestStart;
   const totalSpanCheck = countBusinessDays(earliestStart, anchorDate);
-  console.log('[Gantt] earliestStart:', earliestStart?.toDateString(), '| anchorDate:', anchorDate?.toDateString(), '| scaleDays:', scaleDays, '| totalSpanCheck:', totalSpanCheck);
   // Total span: earliest blockStart → anchorDate, same convention as scaleDays
   const totalSpanDays = countBusinessDays(earliestStart, anchorDate);
   const latestStartEl = document.getElementById('feasLatestStart');
@@ -1634,8 +1624,7 @@ export function updateGantt() {
     const thisAnchor     = getAnchor(i);
     const anchorGapDays  = countBusinessDays(thisAnchor, anchorDate);
 
-    if (parIdx === null) console.log(`  [bar ${i}] ${block.dataset.product} | blockDays: ${blockDays[i]} | blockStart: ${blockStart[i]?.toDateString()} | blockEnd: ${blockEnd[i]?.toDateString()} | leftPct: ${leftPct.toFixed(1)}%`);
-    else console.log(`  [child bar ${i}] ${block.dataset.product} | type: ${scheduleTypeOf(i)} | fwdStart: ${fwdStart[i]?.toDateString()} | blockStart: ${blockStart[i]?.toDateString()} | blockEnd: ${blockEnd[i]?.toDateString()} | leftPct: ${leftPct.toFixed(1)}%`);
+
 
     const isChild  = parIdx !== null;
     const rowClass = isChild ? 'gantt-nested-row' : 'gantt-row';
