@@ -910,9 +910,6 @@ export function applyPMPostPass() {
     }
   });
 
-  console.log('[PM post-pass] pmDeliveryByRoot:', JSON.stringify(pmDeliveryByRoot));
-  console.log('[PM post-pass] blocks delIdx/product:', blocks.map(b => `${b.dataset.delIdx}:${b.dataset.product}`));
-  console.log('[PM post-pass] allDelRows pmDelivery:', allDelRows.map((r,i) => `${i}:${r.querySelector('select')?.value}→pmDelivery:${r.dataset.pmDelivery??'—'}`));
 
   allDelRows.forEach((row, i) => {
     const rootIdx    = getChainRootIdx(i);
@@ -925,7 +922,6 @@ export function applyPMPostPass() {
     if (product === 'Print & Mail') return;
 
     const block = blocks.find(b => parseInt(b.dataset.delIdx) === i);
-    console.log(`[PM post-pass] row ${i} (${product}) → rootIdx:${rootIdx} pmDelivery:${pmDelivery} | block found:${!!block} (block.delIdx=${block?.dataset.delIdx})`);
     if (!block) return;
 
     block.dataset.pmChain    = 'true';
@@ -1359,13 +1355,11 @@ export function updateGantt() {
 
   blocks.forEach((b, i) => {
     const meta = PRODUCT_META[b.dataset.product];
-    console.log(`[Gantt] PRODUCT_META[${b.dataset.product}]:`, meta);
   });
 
   const startDate = nextWorkDay(new Date(startVal + 'T00:00:00'));
   const delRows   = [...document.querySelectorAll('#delRows .del-row')];
   const parentIdxMap = buildParentIdxMap(delRows);
-  console.log('[Gantt] parentIdxMap:', JSON.stringify(parentIdxMap), '| products:', delRows.map(r => r.querySelector('select')?.value));
 
   const sortedIdxs = [];
   function dfsVisit(idx) {
@@ -1557,11 +1551,6 @@ export function updateGantt() {
       const inp = [...b.querySelectorAll('.pt-name')].find(x => x.value.startsWith('Print & Mail'));
       return inp ? (parseInt(inp.closest('tr')?.querySelector('.pt-dur')?.value) || 10) : 10;
     })();
-    console.log(
-      `[Gantt] ${b.dataset.product} | type:${scheduleTypeOf(i) ?? 'root'} | pmChain:${b.dataset.pmChain ?? 'n'} | pmDur:${pmDurLog}`,
-      `| prodStart:${blockStart[i]?.toDateString()} → prodEnd:${blockEnd[i]?.toDateString()}`,
-      `| pmDelivery:${b.dataset.pmDelivery ?? '—'} | blockDays:${blockDays[i]}`
-    );
   });
 
   // Axis ticks
@@ -1674,7 +1663,7 @@ export function updateGantt() {
       const pmStartDate = subtractBusinessDays(pmDate, pmDur);
       const pmLeftPct   = Math.max(0, (countBusinessDays(startDate, pmStartDate) / scaleDays) * 100);
       const pmWidthPct  = Math.max(1, (pmDur / scaleDays) * 100);
-      return `<div style="left:${pmLeftPct.toFixed(2)}%;width:${pmWidthPct.toFixed(2)}%;background:#534AB7;position:absolute;top:0;bottom:0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:${isChild?'9':'10'}px;font-weight:700;color:rgba(255,255,255,.9);opacity:.9" title="P&amp;M: ${pmDur}d, ships ${fmtDateShort(pmDate)}">
+      return `<div style="left:${pmLeftPct.toFixed(2)}%;width:${pmWidthPct.toFixed(2)}%;background:#534AB7;position:absolute;top:0;bottom:0;border-radius:0 4px 4px 0;display:flex;align-items:center;justify-content:center;font-size:${isChild?'9':'10'}px;font-weight:700;color:rgba(255,255,255,.9);opacity:.9" title="P&amp;M: ${pmDur}d, ships ${fmtDateShort(pmDate)}">
         ${pmWidthPct > 5 ? 'P&amp;M' : ''}
       </div>`;
     })();
@@ -1705,7 +1694,7 @@ export function updateGantt() {
     html += `<div class="${rowClass}">
       <div style="width:150px;flex-shrink:0;font-size:${isChild?'10':'11'}px;color:rgba(255,255,255,${isChild?'.6':'.75'});font-family:Verdana,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;" title="${esc(product)}">${connectorHtml}<span style="overflow:hidden;text-overflow:ellipsis">${esc(product)}</span></div>
       <div class="${isChild?'gantt-nested-track':'gantt-track'}" style="position:relative">
-        <div style="left:${leftPct.toFixed(2)}%;width:${widthPct.toFixed(2)}%;background:${color};position:absolute;top:0;bottom:0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:${isChild?'9':'10'}px;font-weight:700;color:rgba(255,255,255,.9)" title="${esc(product)}: ${productionDays}d">
+        <div style="left:${leftPct.toFixed(2)}%;width:${widthPct.toFixed(2)}%;background:${color};position:absolute;top:0;bottom:0;border-radius:${isPMChain && pmDelivery ? '4px 0 0 4px' : '4px'};display:flex;align-items:center;justify-content:center;font-size:${isChild?'9':'10'}px;font-weight:700;color:rgba(255,255,255,.9)" title="${esc(product)}: ${productionDays}d">
           ${widthPct > 8 ? productionDays + 'd' : ''}
         </div>
         ${pmSegmentHtml}
