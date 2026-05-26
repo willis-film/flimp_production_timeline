@@ -79,6 +79,7 @@ export function buildSelect() {
     if (parentWrap) parentWrap.style.display = VALID_PARENTS[this.value] ? 'block' : 'none';
     refreshParentSelectors();
     refreshPMSelectors();
+    if (document.getElementById('pmCheckbox')?.checked) rebuildPMChecklist();
     const rdVal = row.querySelector('.rounds-val');
     if (rdVal) {
       const curIsRenewal = row.querySelector('.nr-btn.r-active') !== null;
@@ -133,7 +134,13 @@ export function buildDelRow() {
 
   const rm = document.createElement('button');
   rm.className = 'rm-btn'; rm.innerHTML = '&times;'; rm.title = 'Remove deliverable';
-  rm.onclick = () => { row.remove(); updateRemove(); refreshParentSelectors(); refreshPMSelectors(); };
+  rm.onclick = () => {
+    row.remove();
+    updateRemove();
+    refreshParentSelectors();
+    refreshPMSelectors();
+    if (document.getElementById('pmCheckbox')?.checked) rebuildPMChecklist();
+  };
   row.appendChild(rm);
 
   const parentWrap = document.createElement('div');
@@ -155,6 +162,7 @@ export function updateRemove() {
 export function addRow() {
   document.getElementById('delRows').appendChild(buildDelRow());
   updateRemove();
+  if (document.getElementById('pmCheckbox')?.checked) rebuildPMChecklist();
 }
 
 // ── Print & Mail section ──────────────────────────────────────────────────
@@ -162,126 +170,125 @@ export function togglePMSection() {
   const cb  = document.getElementById('pmCheckbox');
   const sec = document.getElementById('pmSection');
   sec.style.display = cb.checked ? 'block' : 'none';
-  if (cb.checked && document.getElementById('pmRows').children.length === 0) {
-    addPMRow();
-  }
-  refreshPMSelectors();
+  if (cb.checked) rebuildPMChecklist();
 }
 
-export function buildPMRow() {
-  const row = document.createElement('div');
-  row.className = 'pm-row';
-  row.style.cssText = 'display:grid;grid-template-columns:1fr 160px 28px;gap:.5rem;align-items:center;padding:.4rem .75rem;border-bottom:1px solid var(--border-light)';
+// ── Rebuild the P&M checklist ─────────────────────────────────────────────
+// Replaces the old add-row model. Shows one row per eligible deliverable
+// currently in section 2. Each row has a checkbox + label + greyed date input.
+// The date input only activates when the checkbox is checked.
+export function rebuildPMChecklist() {
+  const container = document.getElementById('pmRows');
+  if (!container) return;
 
-  // Parent selector
-  const sel = document.createElement('select');
-  sel.className = 'pm-parent-sel';
-  sel.style.cssText = 'font-family:Verdana,sans-serif;font-size:13px;height:34px;padding:0 8px;border:1px solid var(--border);border-radius:var(--radius);background:#fff;color:var(--text);width:100%';
-  sel.innerHTML = '<option value="">Select deliverable…</option>';
-  sel.onchange = () => refreshPMSelectors();
-  row.appendChild(sel);
-
-  // Delivery date input
-  const dateInp = document.createElement('input');
-  dateInp.type = 'date';
-  dateInp.className = 'pm-delivery-date';
-  dateInp.style.cssText = 'font-family:Verdana,sans-serif;font-size:13px;height:34px;padding:0 8px;border:1px solid var(--border);border-radius:var(--radius);background:#fff;color:var(--text);width:100%';
-  // Default to project due date if set
-  const projectDue = document.getElementById('dueDate')?.value;
-  if (projectDue) dateInp.value = projectDue;
-  dateInp.onchange = () => {
-    refreshPMSelectors();
-    // Re-run feasibility on the matched parent block
-    const selVal = sel.value;
-    if (!selVal) return;
-    const [product, isRenewalStr] = selVal.split('||');
-    const block = [...document.querySelectorAll('#pbBlocks .pb-block')].find(b =>
-      b.dataset.product === product && (b.dataset.isrenewal === 'true') === (isRenewalStr === 'true')
-    );
-    if (block) recalcBlockFeasibility(block);
-  };
-  row.appendChild(dateInp);
-
-  // Remove button
-  const rm = document.createElement('button');
-  rm.className = 'rm-btn'; rm.innerHTML = '&times;'; rm.title = 'Remove';
-  rm.onclick = () => {
-    row.remove();
-    refreshPMSelectors();
-    updateGenerateBtn();
-  };
-  row.appendChild(rm);
-
-  return row;
-}
-
-export function addPMRow() {
-  document.getElementById('pmRows').appendChild(buildPMRow());
-  refreshPMSelectors();
-}
-
-// Rebuild all PM parent selectors — shows only PM_ELIGIBLE products currently
-// in section 2, greys out products already selected in another PM row.
-export function refreshPMSelectors() {
-  const pmRows   = [...document.querySelectorAll('#pmRows .pm-row')];
-  const delRows  = [...document.querySelectorAll('#delRows .del-row')];
-
-  // Collect eligible products currently in section 2
-  const eligibleInSection = [];
+  const delRows      = [...document.querySelectorAll('#delRows .del-row')];
   const parentIdxMap = buildParentIdxMap(delRows);
+
+  // Collect eligible items currently in section 2
+  const eligibleItems = [];
   delRows.forEach((row, idx) => {
     const sel = row.querySelector('select');
     if (!sel || !sel.value) return;
     if (!PM_ELIGIBLE.has(sel.value)) return;
-    const isRenewal = row.querySelector('.nr-btn.r-active') !== null;
-
-    // Build a display label that includes parent product name when present,
-    // so "Guide Translation (New)" becomes "Premium Guide — Guide Translation (New)"
-    const parIdx = parentIdxMap[idx];
+    const isRenewal    = row.querySelector('.nr-btn.r-active') !== null;
+    const parIdx       = parentIdxMap[idx];
     const parentProduct = parIdx !== null ? delRows[parIdx]?.querySelector('select')?.value : null;
     const label = parentProduct
       ? `${parentProduct} — ${sel.value}${isRenewal ? ' (Renewal)' : ' (New)'}`
       : `${sel.value}${isRenewal ? ' (Renewal)' : ' (New)'}`;
-
-    // Use delIdx in value to uniquely identify each row even if product+isRenewal is duplicate
-    eligibleInSection.push({ product: sel.value, isRenewal, delIdx: idx, label, value: `${sel.value}||${isRenewal}||${idx}` });
+    const value = `${sel.value}||${isRenewal}||${idx}`;
+    eligibleItems.push({ label, value, delIdx: idx });
   });
 
-  pmRows.forEach(row => {
-    const sel      = row.querySelector('.pm-parent-sel');
-    const curVal   = sel.value;
-    sel.innerHTML  = '<option value="">Select deliverable…</option>';
-
-    // Build selected set excluding this row so its own current value
-    // doesn't count against the available options for other rows,
-    // and a new empty row can still see all unselected options.
-    const otherSelected = new Set(
-      pmRows
-        .filter(r => r !== row)
-        .map(r => r.querySelector('.pm-parent-sel')?.value)
-        .filter(Boolean)
-    );
-
-    eligibleInSection.forEach(({ label, value }) => {
-      const opt    = document.createElement('option');
-      opt.value    = value;
-      opt.textContent = label;
-      // Grey out only if selected in a *different* row
-      if (otherSelected.has(value)) {
-        opt.disabled = true;
-        opt.style.color = '#aaa';
-      }
-      sel.appendChild(opt);
-    });
-
-    // Restore previously selected value if still available
-    if (curVal) sel.value = curVal;
+  // Preserve currently checked values and dates before rebuilding
+  const prevState = {};
+  [...container.querySelectorAll('.pm-check-row')].forEach(row => {
+    const cb  = row.querySelector('input[type=checkbox]');
+    const dt  = row.querySelector('.pm-delivery-date');
+    if (cb?.value) prevState[cb.value] = { checked: cb.checked, date: dt?.value || '' };
   });
 
-  // Enable/disable PM checkbox based on whether any eligible products are selected
+  container.innerHTML = '';
+
+  if (!eligibleItems.length) {
+    container.innerHTML = '<div style="padding:.5rem .75rem;font-size:12px;color:var(--text-tertiary)">No P&M-eligible deliverables in section 2.</div>';
+    refreshPMSelectors();
+    return;
+  }
+
+  const projectDue = document.getElementById('dueDate')?.value || '';
+
+  eligibleItems.forEach(({ label, value, delIdx }) => {
+    const prev    = prevState[value] || {};
+    const checked = prev.checked || false;
+    const date    = prev.date || projectDue;
+
+    const row = document.createElement('div');
+    row.className = 'pm-check-row';
+    row.style.cssText = 'display:grid;grid-template-columns:20px 1fr 160px;gap:.5rem;align-items:center;padding:.35rem .75rem;border-bottom:1px solid var(--border-light)';
+
+    const cb = document.createElement('input');
+    cb.type    = 'checkbox';
+    cb.value   = value;
+    cb.checked = checked;
+    cb.style.cursor = 'pointer';
+
+    const lbl = document.createElement('span');
+    lbl.textContent = label;
+    lbl.style.cssText = 'font-size:13px;color:var(--text);font-family:Calibri,sans-serif';
+
+    const dateInp = document.createElement('input');
+    dateInp.type       = 'date';
+    dateInp.className  = 'pm-delivery-date';
+    dateInp.value      = date;
+    dateInp.style.cssText = `font-family:Verdana,sans-serif;font-size:13px;height:34px;padding:0 8px;border:1px solid var(--border);border-radius:var(--radius);background:#fff;color:var(--text);width:100%;opacity:${checked ? '1' : '0.35'};pointer-events:${checked ? 'auto' : 'none'}`;
+
+    cb.onchange = () => {
+      dateInp.style.opacity       = cb.checked ? '1' : '0.35';
+      dateInp.style.pointerEvents = cb.checked ? 'auto' : 'none';
+      refreshPMSelectors();
+      updateGantt();
+    };
+
+    dateInp.onchange = () => {
+      refreshPMSelectors();
+      // Re-run feasibility on the matched block
+      const parts   = value.split('||');
+      const dIdx    = parseInt(parts[2], 10);
+      const dRow    = delRows[dIdx];
+      const product = dRow?.querySelector('select')?.value;
+      const isRen   = dRow?.querySelector('.nr-btn.r-active') !== null;
+      const block   = [...document.querySelectorAll('#pbBlocks .pb-block')].find(b =>
+        b.dataset.product === product && (b.dataset.isrenewal === 'true') === isRen
+      );
+      if (block) recalcBlockFeasibility(block);
+    };
+
+    row.appendChild(cb);
+    row.appendChild(lbl);
+    row.appendChild(dateInp);
+    container.appendChild(row);
+  });
+
+  refreshPMSelectors();
+}
+
+// ── Stub kept for backwards compat — replaced by rebuildPMChecklist ───────
+export function buildPMRow() { return document.createElement('div'); }
+export function addPMRow()    { rebuildPMChecklist(); }
+
+// ── Refresh PM state — stamps data-pm-delivery on del-rows ────────────────
+// Called after checklist changes and after section 2 changes.
+export function refreshPMSelectors() {
+  const delRows = [...document.querySelectorAll('#delRows .del-row')];
+
+  // Enable/disable PM checkbox based on whether any eligible products exist
   const pmCb    = document.getElementById('pmCheckbox');
   const pmLabel = pmCb?.nextElementSibling;
-  const hasEligible = eligibleInSection.length > 0;
+  const hasEligible = delRows.some(r => {
+    const sel = r.querySelector('select');
+    return sel?.value && PM_ELIGIBLE.has(sel.value);
+  });
   if (pmCb) {
     pmCb.disabled = !hasEligible;
     pmCb.style.opacity = hasEligible ? '1' : '0.35';
@@ -292,44 +299,41 @@ export function refreshPMSelectors() {
     pmLabel.style.cursor  = hasEligible ? 'pointer' : 'not-allowed';
   }
 
-  // Stamp data-pm-delivery on del-rows so recalcBlockFeasibility can use it
-  // First clear all
+  // Stamp data-pm-delivery on del-rows from checked checklist items
   delRows.forEach(r => delete r.dataset.pmDelivery);
-  pmRows.forEach(row => {
-    const selVal  = row.querySelector('.pm-parent-sel')?.value;
-    const dateVal = row.querySelector('.pm-delivery-date')?.value;
-    if (!selVal || !dateVal) return;
-    const parts      = selVal.split('||');
-    const delIdx     = parts[2] !== undefined ? parseInt(parts[2], 10) : null;
-    const matchRow   = delIdx !== null ? delRows[delIdx] : null;
-    if (matchRow) {
-      let deliveryDate = new Date(dateVal + 'T00:00:00');
-      while (!isWorkDay(deliveryDate)) {
-        deliveryDate.setDate(deliveryDate.getDate() - 1);
-      }
-      matchRow.dataset.pmDelivery = toISO(deliveryDate);
+  [...document.querySelectorAll('#pmRows .pm-check-row')].forEach(row => {
+    const cb      = row.querySelector('input[type=checkbox]');
+    const dateInp = row.querySelector('.pm-delivery-date');
+    if (!cb?.checked || !dateInp?.value) return;
+    const parts  = cb.value.split('||');
+    const delIdx = parts[2] !== undefined ? parseInt(parts[2], 10) : null;
+    const delRow = delIdx !== null ? delRows[delIdx] : null;
+    if (delRow) {
+      let deliveryDate = new Date(dateInp.value + 'T00:00:00');
+      while (!isWorkDay(deliveryDate)) deliveryDate.setDate(deliveryDate.getDate() - 1);
+      delRow.dataset.pmDelivery = toISO(deliveryDate);
     }
   });
 }
 
-// Returns array of {product, isRenewal, deliveryDate} for all configured PM rows
+// Returns array of {product, isRenewal, deliveryDate} for all checked PM items
 export function readPMConfig() {
   const cb = document.getElementById('pmCheckbox');
   if (!cb || !cb.checked) return [];
   const delRows = [...document.querySelectorAll('#delRows .del-row')];
-  return [...document.querySelectorAll('#pmRows .pm-row')]
+  return [...document.querySelectorAll('#pmRows .pm-check-row')]
     .map(row => {
-      const selVal  = row.querySelector('.pm-parent-sel')?.value;
-      const dateVal = row.querySelector('.pm-delivery-date')?.value;
-      if (!selVal || !dateVal) return null;
-      const parts    = selVal.split('||');
+      const checkEl  = row.querySelector('input[type=checkbox]');
+      const dateInp  = row.querySelector('.pm-delivery-date');
+      if (!checkEl?.checked || !dateInp?.value) return null;
+      const parts    = checkEl.value.split('||');
       const delIdx   = parts[2] !== undefined ? parseInt(parts[2], 10) : null;
       const delRow   = delIdx !== null ? delRows[delIdx] : null;
       const product  = delRow?.querySelector('select')?.value || parts[0];
       const isRenewal = delRow
         ? delRow.querySelector('.nr-btn.r-active') !== null
         : parts[1] === 'true';
-      return { product, isRenewal, deliveryDate: dateVal };
+      return { product, isRenewal, deliveryDate: dateInp.value };
     })
     .filter(Boolean);
 }

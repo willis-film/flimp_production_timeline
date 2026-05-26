@@ -10,7 +10,7 @@ import {
   buildDelRow, buildSelect, addRow, updateRemove,
   previewPhases, updateFeasibility, recalcPhaseDates,
   recalcBlockFeasibility, togglePMSection, addPMRow,
-  refreshPMSelectors, readPMConfig, lastEarliestStart
+  refreshPMSelectors, rebuildPMChecklist, readPMConfig, lastEarliestStart
 } from './ui.js';
 import {
   renderTimelineTable, copyEmailTable, switchTab,
@@ -115,6 +115,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.addRow           = addRow;
   window.togglePMSection  = togglePMSection;
   window.addPMRow         = addPMRow;
+  window.rebuildPMChecklist = rebuildPMChecklist;
   window.setDays          = setDays;
   window.generateTimeline = generateTimeline;
   window.copyEmailTable   = copyEmailTable;
