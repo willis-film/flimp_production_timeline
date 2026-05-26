@@ -959,6 +959,7 @@ export function applyPMPostPass() {
 
   updateFeasibility();
   updateGantt();
+}
 
 // ── Per-block feasibility ─────────────────────────────────────────────────
 // ── Get the pb-block that is the parent of a given block (or null) ────────
