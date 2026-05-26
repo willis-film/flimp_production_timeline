@@ -1657,13 +1657,12 @@ export function updateGantt() {
       connectorHtml = `${pipes}<span style="color:rgba(255,255,255,.3)">└─</span> `;
     }
 
-    // P&M segment: positioned at pmDelivery - pmDur, width = pmDur
+    // P&M segment: starts exactly where production bar ends
     const pmSegmentHtml = (() => {
       if (!isPMChain || !pmDelivery || pmDur <= 0) return '';
-      const pmDate      = new Date(pmDelivery + 'T00:00:00');
-      const pmStartDate = subtractBusinessDays(pmDate, pmDur);
-      const pmLeftPct   = Math.max(0, (countBusinessDays(startDate, pmStartDate) / scaleDays) * 100);
-      const pmWidthPct  = Math.max(1, (pmDur / scaleDays) * 100);
+      const pmDate     = new Date(pmDelivery + 'T00:00:00');
+      const pmLeftPct  = leftPct + widthPct;  // flush against production bar right edge
+      const pmWidthPct = Math.max(1, (pmDur / scaleDays) * 100);
       return `<div style="left:${pmLeftPct.toFixed(2)}%;width:${pmWidthPct.toFixed(2)}%;background:#534AB7;position:absolute;top:0;bottom:0;border-radius:0 4px 4px 0;display:flex;align-items:center;justify-content:center;font-size:${isChild?'9':'10'}px;font-weight:700;color:rgba(255,255,255,.9);opacity:.9" title="P&amp;M: ${pmDur}d, ships ${fmtDateShort(pmDate)}">
         ${pmWidthPct > 5 ? 'P&amp;M' : ''}
       </div>`;
