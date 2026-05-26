@@ -1383,6 +1383,8 @@ export function updateGantt() {
       })
       .map(tr => Math.max(1, parseInt(tr.querySelector('.pt-dur')?.value) || 1));
     blockDays[i] = Math.max(1, durs.reduce((a, b) => a + b, 0));
+    const allPhaseNames = [...block.querySelectorAll('tbody tr')].map(tr => tr.querySelector('.pt-name')?.value + ':' + tr.querySelector('.pt-dur')?.value);
+    console.log(`[blockDays] ${block.dataset.product} | phases: ${allPhaseNames.join(', ')} | blockDays: ${blockDays[i]}`);
   });
 
   function chainDays(idx) {
