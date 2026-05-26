@@ -143,7 +143,7 @@ export async function loadReferenceData() {
     PRODUCT_META = {};
     products.forEach(p => {
       PRODUCT_META[p.name] = {
-        scheduleType: p.project_schedule_type || null,
+        scheduleType: p.product_schedule_type || null,
         eligiblePM:   p.eligible_PM           || false,
         dependsOn:    p.depends_on_product     || null,
       };
