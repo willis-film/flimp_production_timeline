@@ -1262,8 +1262,12 @@ export function updateFeasibility() {
   const feasDelRows    = [...document.querySelectorAll('#delRows .del-row')];
   const blockDaysByIdx = {};
   blocks.forEach((block, i) => {
-    blockDaysByIdx[i] = [...block.querySelectorAll('.pt-dur')]
-      .reduce((sum, inp) => sum + (Math.max(1, parseInt(inp.value) || 1)), 0);
+    blockDaysByIdx[i] = [...block.querySelectorAll('tbody tr')]
+      .filter(tr => {
+        const name = tr.querySelector('.pt-name')?.value || '';
+        return !name.startsWith('Print & Mail');
+      })
+      .reduce((sum, tr) => sum + (Math.max(1, parseInt(tr.querySelector('.pt-dur')?.value) || 1)), 0);
   });
 
   const feasParentMap = buildParentIdxMap(feasDelRows);
@@ -1362,7 +1366,16 @@ export function updateGantt() {
 
   const blockDays = {};
   blocks.forEach((block, i) => {
-    const durs = [...block.querySelectorAll('.pt-dur')].map(inp => Math.max(1, parseInt(inp.value) || 1));
+    // Exclude P&M phase rows from production day count —
+    // P&M segments are positioned independently using pmDelivery,
+    // so including them in blockDays inflates chainDays/daysAfter
+    // and breaks the backward-anchor gate logic.
+    const durs = [...block.querySelectorAll('tbody tr')]
+      .filter(tr => {
+        const name = tr.querySelector('.pt-name')?.value || '';
+        return !name.startsWith('Print & Mail');
+      })
+      .map(tr => Math.max(1, parseInt(tr.querySelector('.pt-dur')?.value) || 1));
     blockDays[i] = durs.reduce((a, b) => a + b, 0);
   });
 
