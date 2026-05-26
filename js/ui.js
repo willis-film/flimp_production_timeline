@@ -217,6 +217,16 @@ export function rebuildPMChecklist() {
   }
 
   const projectDue = document.getElementById('dueDate')?.value || '';
+  const colStyle   = 'display:grid;grid-template-columns:1fr 80px 160px;gap:.5rem;align-items:center;';
+
+  // Header row
+  const header = document.createElement('div');
+  header.style.cssText = colStyle + 'padding:.3rem .75rem;border-bottom:2px solid var(--border);';
+  header.innerHTML = `
+    <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-secondary);font-family:Calibri,sans-serif">Deliverable</span>
+    <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-secondary);font-family:Calibri,sans-serif;text-align:center">Include P&amp;M</span>
+    <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-secondary);font-family:Calibri,sans-serif;text-align:center">Delivery Date</span>`;
+  container.appendChild(header);
 
   eligibleItems.forEach(({ label, value, delIdx }) => {
     const prev    = prevState[value] || {};
@@ -225,17 +235,20 @@ export function rebuildPMChecklist() {
 
     const row = document.createElement('div');
     row.className = 'pm-check-row';
-    row.style.cssText = 'display:grid;grid-template-columns:20px 1fr 160px;gap:.5rem;align-items:center;padding:.35rem .75rem;border-bottom:1px solid var(--border-light)';
+    row.style.cssText = colStyle + 'padding:.35rem .75rem;border-bottom:1px solid var(--border-light)';
 
+    const lbl = document.createElement('span');
+    lbl.textContent = label;
+    lbl.style.cssText = 'font-size:13px;color:var(--text);font-family:Calibri,sans-serif';
+
+    const cbWrap = document.createElement('div');
+    cbWrap.style.cssText = 'display:flex;justify-content:center;align-items:center';
     const cb = document.createElement('input');
     cb.type    = 'checkbox';
     cb.value   = value;
     cb.checked = checked;
     cb.style.cursor = 'pointer';
-
-    const lbl = document.createElement('span');
-    lbl.textContent = label;
-    lbl.style.cssText = 'font-size:13px;color:var(--text);font-family:Calibri,sans-serif';
+    cbWrap.appendChild(cb);
 
     const dateInp = document.createElement('input');
     dateInp.type       = 'date';
@@ -252,7 +265,6 @@ export function rebuildPMChecklist() {
 
     dateInp.onchange = () => {
       refreshPMSelectors();
-      // Re-run feasibility on the matched block
       const parts   = value.split('||');
       const dIdx    = parseInt(parts[2], 10);
       const dRow    = delRows[dIdx];
@@ -264,8 +276,8 @@ export function rebuildPMChecklist() {
       if (block) recalcBlockFeasibility(block);
     };
 
-    row.appendChild(cb);
     row.appendChild(lbl);
+    row.appendChild(cbWrap);
     row.appendChild(dateInp);
     container.appendChild(row);
   });
