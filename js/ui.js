@@ -584,11 +584,12 @@ export function rebuildPhaseTable(block, skipPhases) {
 export function previewPhases() {
   const sdVal = document.getElementById('startDate').value;
   const rows  = [...document.querySelectorAll('#delRows .del-row')];
-  const deliverables = rows.map(r => ({
+  const deliverables = rows.map((r, rowIdx) => ({
     product:   r.querySelector('select').value,
     count:     parseInt(r.querySelector('input[type=number]').value) || 1,
     isRenewal: r.querySelector('.nr-btn.r-active') !== null,
-    rounds:    parseInt(r.querySelector('.rounds-val').textContent) || 2
+    rounds:    parseInt(r.querySelector('.rounds-val').textContent) || 2,
+    delIdx:    rowIdx
   })).filter(d => d.product);
 
   if (!deliverables.length) { alert('Please select at least one product.'); return; }
@@ -648,6 +649,7 @@ export function previewPhases() {
     block.dataset.product   = del.product;
     block.dataset.isrenewal = del.isRenewal;
     block.dataset.rounds    = del.rounds;
+    block.dataset.delIdx    = del.delIdx;
     block.dataset.confirmed = 'false';
 
     // Header
@@ -879,10 +881,7 @@ export function applyPMPostPass() {
     const parentProduct   = parentRow.querySelector('select')?.value;
     const parentIsRenewal = parentRow.querySelector('.nr-btn.r-active') !== null;
     if (!parentProduct) return;
-    const block = blocks.find(b =>
-      b.dataset.product === parentProduct &&
-      (b.dataset.isrenewal === 'true') === parentIsRenewal
-    );
+    const block = blocks.find(b => parseInt(b.dataset.delIdx) === parentIdx);
     if (block) stripDistribution(block);
   });
 
@@ -905,6 +904,10 @@ export function applyPMPostPass() {
     }
   });
 
+  console.log('[PM post-pass] pmDeliveryByRoot:', JSON.stringify(pmDeliveryByRoot));
+  console.log('[PM post-pass] blocks delIdx/product:', blocks.map(b => `${b.dataset.delIdx}:${b.dataset.product}`));
+  console.log('[PM post-pass] allDelRows pmDelivery:', allDelRows.map((r,i) => `${i}:${r.querySelector('select')?.value}→pmDelivery:${r.dataset.pmDelivery??'—'}`));
+
   allDelRows.forEach((row, i) => {
     const rootIdx    = getChainRootIdx(i);
     const pmDelivery = pmDeliveryByRoot[rootIdx];
@@ -915,10 +918,8 @@ export function applyPMPostPass() {
     if (!product) return;
     if (product === 'Print & Mail') return;
 
-    const block = blocks.find(b =>
-      b.dataset.product === product &&
-      (b.dataset.isrenewal === 'true') === isRenewal
-    );
+    const block = blocks.find(b => parseInt(b.dataset.delIdx) === i);
+    console.log(`[PM post-pass] row ${i} (${product}) → rootIdx:${rootIdx} pmDelivery:${pmDelivery} | block found:${!!block} (block.delIdx=${block?.dataset.delIdx})`);
     if (!block) return;
 
     block.dataset.pmChain    = 'true';
@@ -1410,13 +1411,8 @@ export function updateGantt() {
     // Read pmDelivery from block.dataset (stamped in post-pass) first,
     // then fall back to del-row for legacy compatibility
     const pmDeliveryStr = block.dataset.pmDelivery || (() => {
-      const r = delRows.find(r => {
-        const s = r.querySelector('select');
-        const renewal = r.querySelector('.nr-btn.r-active') !== null;
-        return s && s.value === block.dataset.product &&
-               renewal === (block.dataset.isrenewal === 'true') &&
-               r.dataset.pmDelivery;
-      });
+      const dIdx = parseInt(block.dataset.delIdx);
+      const r = !isNaN(dIdx) ? delRows[dIdx] : null;
       return r?.dataset.pmDelivery;
     })();
     if (pmDeliveryStr) {
