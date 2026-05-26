@@ -1523,14 +1523,41 @@ export function updateGantt() {
 
     if (!anchoringChildren.length) {
       const anchor  = getAnchor(i);
-      blockEnd[i]   = new Date(anchor);
-      blockStart[i] = subtractBusinessDays(anchor, blockDays[i]);
+      // For PM chain blocks, production ends pmDur days before the P&M delivery date.
+      // The P&M segment is rendered separately — don't let it compress the production bar.
+      const pmDurForBlock = (() => {
+        const b = blocks[i];
+        if (b?.dataset.pmChain !== 'true' || !b?.dataset.pmDelivery) return 0;
+        const pmInp = [...b.querySelectorAll('.pt-name')]
+          .find(inp => inp.value.startsWith('Print & Mail'));
+        return pmInp ? (Math.max(1, parseInt(pmInp.closest('tr')?.querySelector('.pt-dur')?.value) || 10)) : 10;
+      })();
+      const productionAnchor = pmDurForBlock > 0
+        ? subtractBusinessDays(anchor, pmDurForBlock)
+        : anchor;
+      blockEnd[i]   = new Date(productionAnchor);
+      blockStart[i] = subtractBusinessDays(productionAnchor, blockDays[i]);
     } else {
       const earliest = anchoringChildren.reduce((e, j) =>
         blockStart[j] < e ? blockStart[j] : e, blockStart[anchoringChildren[0]]);
       blockEnd[i]    = new Date(earliest);
       blockStart[i]  = subtractBusinessDays(blockEnd[i], blockDays[i]);
     }
+  });
+
+  // ── Diagnostic: log computed bar dates for each block ──────────────────
+  sortedIdxs.forEach(i => {
+    const b = blocks[i];
+    const pmDurLog = (() => {
+      if (b?.dataset.pmChain !== 'true') return 0;
+      const inp = [...b.querySelectorAll('.pt-name')].find(x => x.value.startsWith('Print & Mail'));
+      return inp ? (parseInt(inp.closest('tr')?.querySelector('.pt-dur')?.value) || 10) : 10;
+    })();
+    console.log(
+      `[Gantt] ${b.dataset.product} | type:${scheduleTypeOf(i) ?? 'root'} | pmChain:${b.dataset.pmChain ?? 'n'} | pmDur:${pmDurLog}`,
+      `| prodStart:${blockStart[i]?.toDateString()} → prodEnd:${blockEnd[i]?.toDateString()}`,
+      `| pmDelivery:${b.dataset.pmDelivery ?? '—'} | blockDays:${blockDays[i]}`
+    );
   });
 
   // Axis ticks
