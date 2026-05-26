@@ -228,32 +228,46 @@ export function refreshPMSelectors() {
 
   // Collect eligible products currently in section 2
   const eligibleInSection = [];
+  const parentIdxMap = buildParentIdxMap(delRows);
   delRows.forEach((row, idx) => {
     const sel = row.querySelector('select');
     if (!sel || !sel.value) return;
     if (!PM_ELIGIBLE.has(sel.value)) return;
     const isRenewal = row.querySelector('.nr-btn.r-active') !== null;
-    eligibleInSection.push({ product: sel.value, isRenewal, delIdx: idx });
-  });
 
-  // Collect currently selected values across all PM rows
-  const selectedValues = new Set(
-    pmRows.map(r => r.querySelector('.pm-parent-sel')?.value).filter(Boolean)
-  );
+    // Build a display label that includes parent product name when present,
+    // so "Guide Translation (New)" becomes "Premium Guide — Guide Translation (New)"
+    const parIdx = parentIdxMap[idx];
+    const parentProduct = parIdx !== null ? delRows[parIdx]?.querySelector('select')?.value : null;
+    const label = parentProduct
+      ? `${parentProduct} — ${sel.value}${isRenewal ? ' (Renewal)' : ' (New)'}`
+      : `${sel.value}${isRenewal ? ' (Renewal)' : ' (New)'}`;
+
+    // Use delIdx in value to uniquely identify each row even if product+isRenewal is duplicate
+    eligibleInSection.push({ product: sel.value, isRenewal, delIdx: idx, label, value: `${sel.value}||${isRenewal}||${idx}` });
+  });
 
   pmRows.forEach(row => {
     const sel      = row.querySelector('.pm-parent-sel');
     const curVal   = sel.value;
     sel.innerHTML  = '<option value="">Select deliverable…</option>';
 
-    eligibleInSection.forEach(({ product, isRenewal }) => {
-      const label  = `${product}${isRenewal ? ' (Renewal)' : ' (New)'}`;
-      const value  = `${product}||${isRenewal}`;
+    // Build selected set excluding this row so its own current value
+    // doesn't count against the available options for other rows,
+    // and a new empty row can still see all unselected options.
+    const otherSelected = new Set(
+      pmRows
+        .filter(r => r !== row)
+        .map(r => r.querySelector('.pm-parent-sel')?.value)
+        .filter(Boolean)
+    );
+
+    eligibleInSection.forEach(({ label, value }) => {
       const opt    = document.createElement('option');
       opt.value    = value;
       opt.textContent = label;
-      // Grey out if selected in another row
-      if (value !== curVal && selectedValues.has(value)) {
+      // Grey out only if selected in a *different* row
+      if (otherSelected.has(value)) {
         opt.disabled = true;
         opt.style.color = '#aaa';
       }
@@ -285,14 +299,10 @@ export function refreshPMSelectors() {
     const selVal  = row.querySelector('.pm-parent-sel')?.value;
     const dateVal = row.querySelector('.pm-delivery-date')?.value;
     if (!selVal || !dateVal) return;
-    const [product, isRenewalStr] = selVal.split('||');
-    const matchRow = delRows.find(r => {
-      const s = r.querySelector('select');
-      const renewal = r.querySelector('.nr-btn.r-active') !== null;
-      return s && s.value === product && String(renewal) === isRenewalStr;
-    });
+    const parts      = selVal.split('||');
+    const delIdx     = parts[2] !== undefined ? parseInt(parts[2], 10) : null;
+    const matchRow   = delIdx !== null ? delRows[delIdx] : null;
     if (matchRow) {
-      // Normalize to prior business day if date falls on weekend/holiday
       let deliveryDate = new Date(dateVal + 'T00:00:00');
       while (!isWorkDay(deliveryDate)) {
         deliveryDate.setDate(deliveryDate.getDate() - 1);
@@ -306,13 +316,20 @@ export function refreshPMSelectors() {
 export function readPMConfig() {
   const cb = document.getElementById('pmCheckbox');
   if (!cb || !cb.checked) return [];
+  const delRows = [...document.querySelectorAll('#delRows .del-row')];
   return [...document.querySelectorAll('#pmRows .pm-row')]
     .map(row => {
       const selVal  = row.querySelector('.pm-parent-sel')?.value;
       const dateVal = row.querySelector('.pm-delivery-date')?.value;
       if (!selVal || !dateVal) return null;
-      const [product, isRenewalStr] = selVal.split('||');
-      return { product, isRenewal: isRenewalStr === 'true', deliveryDate: dateVal };
+      const parts    = selVal.split('||');
+      const delIdx   = parts[2] !== undefined ? parseInt(parts[2], 10) : null;
+      const delRow   = delIdx !== null ? delRows[delIdx] : null;
+      const product  = delRow?.querySelector('select')?.value || parts[0];
+      const isRenewal = delRow
+        ? delRow.querySelector('.nr-btn.r-active') !== null
+        : parts[1] === 'true';
+      return { product, isRenewal, deliveryDate: dateVal };
     })
     .filter(Boolean);
 }
