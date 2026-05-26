@@ -831,9 +831,9 @@ export function previewPhases() {
   refreshParentSelectors();
   refreshPMSelectors(); // stamp data-pm-delivery on del-rows before the timeout reads them
   setTimeout(() => {
-    const allDelRows = [...document.querySelectorAll('#delRows .del-row')];
+    const allDelRows   = [...document.querySelectorAll('#delRows .del-row')];
     const parentIdxMap = buildParentIdxMap(allDelRows);
-    const blocks = [...document.querySelectorAll('#pbBlocks .pb-block')];
+    const blocks       = [...document.querySelectorAll('#pbBlocks .pb-block')];
 
     // Helper: strip Distribution from a pb-block
     function stripDistribution(block) {
@@ -866,27 +866,69 @@ export function previewPhases() {
       if (block) stripDistribution(block);
     });
 
-    // PM parents — strip Distribution, append Print & Mail phase row
-    allDelRows.forEach(row => {
+    // ── PM chain post-pass ────────────────────────────────────────────────
+    // Find the shared pmDelivery date for each chain root.
+    // A chain root is a del-row with parentIdxMap[i] === null.
+    // If any row in the chain has pmDelivery set, that date applies to
+    // every eligible block in the chain.
+
+    // Build chainRoot map: delIdx → rootIdx
+    function getChainRootIdx(idx) {
+      let cur = idx, safety = 0;
+      while (parentIdxMap[cur] !== null && parentIdxMap[cur] !== undefined && safety++ < 20) {
+        cur = parentIdxMap[cur];
+      }
+      return cur;
+    }
+
+    // Collect pmDelivery per chain root (use the explicit pmDelivery if set,
+    // otherwise fall back to project due date)
+    const dueVal = document.getElementById('dueDate').value;
+    const pmDeliveryByRoot = {};
+    allDelRows.forEach((row, i) => {
       if (!row.dataset.pmDelivery) return;
+      const rootIdx = getChainRootIdx(i);
+      // Use the earliest explicit pmDelivery across the chain
+      // (in practice there should only be one per chain)
+      const existing = pmDeliveryByRoot[rootIdx];
+      if (!existing || row.dataset.pmDelivery < existing) {
+        pmDeliveryByRoot[rootIdx] = row.dataset.pmDelivery;
+      }
+    });
+
+    // For each del-row in a chain that has a pmDelivery, mark every
+    // eligible block in that chain with data-pm-delivery so recalcPhaseDates
+    // can pin the P&M phase to the right date.
+    allDelRows.forEach((row, i) => {
+      const rootIdx    = getChainRootIdx(i);
+      const pmDelivery = pmDeliveryByRoot[rootIdx];
+      if (!pmDelivery) return;
+
       const product   = row.querySelector('select')?.value;
       const isRenewal = row.querySelector('.nr-btn.r-active') !== null;
       if (!product) return;
+      if (!PRODUCT_META[product]?.eligiblePM) return;
+
       const block = blocks.find(b =>
         b.dataset.product === product &&
         (b.dataset.isrenewal === 'true') === isRenewal
       );
       if (!block) return;
 
+      // Mark block as part of a PM chain and stamp the shared delivery date
+      block.dataset.pmChain    = 'true';
+      block.dataset.pmDelivery = pmDelivery;
+
       stripDistribution(block);
 
-      // Only append P&M row if not already present
+      // Append P&M phase row if not already present
       const existingPM = [...block.querySelectorAll('.pt-name')]
         .find(inp => inp.value.startsWith('Print & Mail'));
       if (!existingPM) {
         const tbody = block.querySelector('.phase-table tbody');
         if (tbody) {
           const tr = document.createElement('tr');
+          tr.dataset.isPmPhase = 'true';
           tr.innerHTML = `
             <td class="phase-drag-handle" title="Drag to reorder">⠿</td>
             <td><input class="pt-name" type="text" value="Print &amp; Mail"></td>
@@ -898,7 +940,10 @@ export function previewPhases() {
             updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block);
           });
           tr.querySelector('.phase-rm-btn').onclick = () => {
-            tr.remove(); updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block);
+            tr.remove();
+            delete block.dataset.pmChain;
+            delete block.dataset.pmDelivery;
+            updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block);
           };
           tbody.appendChild(tr);
         }
@@ -949,7 +994,7 @@ function getParentBlock(block) {
 }
 
 // ── Shared helper: get effective due date for a block ────────────────────
-// For PM parents: delivery date - 10 biz days
+// For PM chain blocks: pmDelivery is the hard ceiling (stamped on block in post-pass)
 // For regular parents/standalones: project due date - appended child days
 // Returns a Date or null.
 function getEffectiveDue(block) {
@@ -957,6 +1002,13 @@ function getEffectiveDue(block) {
   const bir = block.dataset.isrenewal === 'true';
   const dueVal = document.getElementById('dueDate').value;
 
+  // PM chain blocks have pmDelivery stamped directly on block.dataset by post-pass
+  const blockPmDelivery = block.dataset.pmDelivery;
+  if (blockPmDelivery) {
+    return new Date(blockPmDelivery + 'T00:00:00');
+  }
+
+  // Fall back to del-row pmDelivery for backwards compat
   const allDelRows = [...document.querySelectorAll('#delRows .del-row')];
   const matchedRow = allDelRows.find(r => {
     const s = r.querySelector('select');
@@ -964,10 +1016,7 @@ function getEffectiveDue(block) {
     return s && s.value === bp && renewal === bir;
   });
   const pmDelivery = matchedRow?.dataset.pmDelivery;
-
   if (pmDelivery) {
-    // PM parent — delivery date is the hard ceiling; the P&M phase (10 days)
-    // is now a real row in the block so the full chain counts back from here.
     return new Date(pmDelivery + 'T00:00:00');
   }
 
@@ -1071,47 +1120,115 @@ export function recalcPhaseDates(block, blockEndDate) {
 
   const durInputs = [...block.querySelectorAll('.pt-dur')];
   const dateCells = [...block.querySelectorAll('.phase-end-date')];
+  const nameInputs = [...block.querySelectorAll('.pt-name')];
   const parseDur  = inp => Math.max(0, parseInt(inp.value) || 0);
-  const total     = durInputs.reduce((s, inp) => s + parseDur(inp), 0);
-  if (total === 0) return;
 
-  const durs  = durInputs.map(parseDur);
-  let remaining = total;
-  durs.forEach((dur, i) => {
-    remaining -= dur;
-    const phaseEnd = remaining === 0 ? new Date(due) : subtractBusinessDays(due, remaining);
-    if (dateCells[i]) {
-      dateCells[i].textContent = dur > 0 ? fmtDateShort(phaseEnd) : '—';
-      dateCells[i].dataset.endDate = dur > 0 ? toISO(phaseEnd) : '';
-    }
-  });
+  // Detect if this block has a P&M phase and is part of a PM chain
+  const pmChain    = block.dataset.pmChain === 'true';
+  const pmDelivery = block.dataset.pmDelivery;
+  const pmRowIdx   = pmChain
+    ? nameInputs.findIndex(inp => inp.value.startsWith('Print & Mail'))
+    : -1;
+  const hasPMRow   = pmRowIdx !== -1;
 
-  const startsEl = block.querySelector('.pb-date-starts');
-  const endsEl   = block.querySelector('.pb-date-ends');
-  const sepEl    = block.querySelector('.pb-date-sep');
-  const totalEl  = block.querySelector('.pb-total-days');
-  if (totalEl) totalEl.textContent = total > 0 ? `${total}d` : '';
-  if (startsEl && endsEl) {
-    const starts = subtractBusinessDays(due, total);
-    startsEl.innerHTML = `<span class="pb-date-label">Starts</span> ${fmtDateShort(starts)}`;
+  if (hasPMRow && pmDelivery) {
+    // ── PM-chain block: two independent date segments ──────────────────
+    // Segment 1: production phases (all rows except the P&M row)
+    //   — count backward from pmDelivery - pmDur (the production deadline)
+    // Segment 2: P&M phase
+    //   — pins to pmDelivery regardless of production phase timing
+    //   — this creates a visible gap in the date column between production end
+    //     and P&M start when the gate pushes P&M later than production
 
-    // For PM parents, show both the parent completion date and the delivery date
-    const bp  = block.dataset.product;
-    const bir = block.dataset.isrenewal === 'true';
-    const allDelRows = [...document.querySelectorAll('#delRows .del-row')];
-    const matchedRow = allDelRows.find(r => {
-      const s = r.querySelector('select');
-      const renewal = r.querySelector('.nr-btn.r-active') !== null;
-      return s && s.value === bp && renewal === bir;
+    const pmDate    = new Date(pmDelivery + 'T00:00:00');
+    const pmDur     = parseDur(durInputs[pmRowIdx]);
+    // Production phases anchor to pmDelivery — they back-schedule from there
+    // so the last production phase ends exactly pmDur days before P&M ships.
+    // The "gap" is implicit: the last production phase ends before pmGate,
+    // and P&M starts at pmGate regardless.
+    const productionDue = subtractBusinessDays(pmDate, pmDur);
+
+    // Production phases: all rows except pmRowIdx
+    const prodDurs = durInputs
+      .map((inp, i) => i === pmRowIdx ? 0 : parseDur(inp));
+    const prodTotal = prodDurs.reduce((s, d) => s + d, 0);
+
+    let remaining = prodTotal;
+    durInputs.forEach((inp, i) => {
+      if (i === pmRowIdx) return; // handled separately below
+      const dur = parseDur(inp);
+      remaining -= dur;
+      const phaseEnd = remaining === 0
+        ? new Date(productionDue)
+        : subtractBusinessDays(productionDue, remaining);
+      if (dateCells[i]) {
+        dateCells[i].textContent     = dur > 0 ? fmtDateShort(phaseEnd) : '—';
+        dateCells[i].dataset.endDate = dur > 0 ? toISO(phaseEnd) : '';
+      }
     });
-    const pmDelivery = matchedRow?.dataset.pmDelivery;
-    if (pmDelivery) {
-      const deliveryDate = new Date(pmDelivery + 'T00:00:00');
-      endsEl.innerHTML = `<span class="pb-date-label">P&amp;M Delivery</span> ${fmtDateShort(deliveryDate)}`;
-    } else {
-      endsEl.innerHTML = `<span class="pb-date-label">Completes</span> ${fmtDateShort(due)}`;
+
+    // P&M phase: always pins to pmDelivery
+    if (dateCells[pmRowIdx]) {
+      dateCells[pmRowIdx].textContent     = fmtDateShort(pmDate);
+      dateCells[pmRowIdx].dataset.endDate = toISO(pmDate);
+      dateCells[pmRowIdx].style.color     = 'var(--color-text-warning, #854F0B)';
     }
-    if (sepEl) sepEl.style.display = '';
+
+    // Update block header dates
+    const startsEl = block.querySelector('.pb-date-starts');
+    const endsEl   = block.querySelector('.pb-date-ends');
+    const sepEl    = block.querySelector('.pb-date-sep');
+    const totalEl  = block.querySelector('.pb-total-days');
+    if (totalEl) totalEl.textContent = prodTotal > 0 ? `${prodTotal}d + ${pmDur}d P&M` : '';
+    if (startsEl && endsEl) {
+      const starts = prodTotal > 0 ? subtractBusinessDays(productionDue, prodTotal) : productionDue;
+      startsEl.innerHTML = `<span class="pb-date-label">Starts</span> ${fmtDateShort(starts)}`;
+      endsEl.innerHTML   = `<span class="pb-date-label">P&amp;M ships</span> ${fmtDateShort(pmDate)}`;
+      if (sepEl) sepEl.style.display = '';
+    }
+
+  } else {
+    // ── Standard block: all phases chain sequentially end-to-end ──────
+    const total = durInputs.reduce((s, inp) => s + parseDur(inp), 0);
+    if (total === 0) return;
+
+    const durs  = durInputs.map(parseDur);
+    let remaining = total;
+    durs.forEach((dur, i) => {
+      remaining -= dur;
+      const phaseEnd = remaining === 0 ? new Date(due) : subtractBusinessDays(due, remaining);
+      if (dateCells[i]) {
+        dateCells[i].textContent     = dur > 0 ? fmtDateShort(phaseEnd) : '—';
+        dateCells[i].dataset.endDate = dur > 0 ? toISO(phaseEnd) : '';
+      }
+    });
+
+    const startsEl = block.querySelector('.pb-date-starts');
+    const endsEl   = block.querySelector('.pb-date-ends');
+    const sepEl    = block.querySelector('.pb-date-sep');
+    const totalEl  = block.querySelector('.pb-total-days');
+    if (totalEl) totalEl.textContent = total > 0 ? `${total}d` : '';
+    if (startsEl && endsEl) {
+      const starts = subtractBusinessDays(due, total);
+      startsEl.innerHTML = `<span class="pb-date-label">Starts</span> ${fmtDateShort(starts)}`;
+
+      const bp  = block.dataset.product;
+      const bir = block.dataset.isrenewal === 'true';
+      const allDelRows  = [...document.querySelectorAll('#delRows .del-row')];
+      const matchedRow  = allDelRows.find(r => {
+        const s = r.querySelector('select');
+        const renewal = r.querySelector('.nr-btn.r-active') !== null;
+        return s && s.value === bp && renewal === bir;
+      });
+      const rowPmDelivery = matchedRow?.dataset.pmDelivery;
+      if (rowPmDelivery) {
+        const deliveryDate = new Date(rowPmDelivery + 'T00:00:00');
+        endsEl.innerHTML = `<span class="pb-date-label">P&amp;M Delivery</span> ${fmtDateShort(deliveryDate)}`;
+      } else {
+        endsEl.innerHTML = `<span class="pb-date-label">Completes</span> ${fmtDateShort(due)}`;
+      }
+      if (sepEl) sepEl.style.display = '';
+    }
   }
 }
 
@@ -1463,19 +1580,37 @@ export function updateGantt() {
     const parIdx   = parentIdxMap[i];
     const depth    = getDepth(i, parentIdxMap);
 
-    const totalDays = blockDays[i];
-    const widthPct  = Math.max(1, (totalDays / scaleDays) * 100);
+    // PM chain: separate production days from P&M days for bar rendering
+    const isPMChain   = block.dataset.pmChain === 'true';
+    const pmDelivery  = block.dataset.pmDelivery;
+    const pmDur       = isPMChain
+      ? (() => {
+          const pmInp = [...block.querySelectorAll('.pt-name')]
+            .find(inp => inp.value.startsWith('Print & Mail'));
+          return pmInp ? (Math.max(1, parseInt(pmInp.closest('tr')?.querySelector('.pt-dur')?.value) || 10)) : 10;
+        })()
+      : 0;
+
+    // Production days only (excludes P&M row)
+    const productionDays = isPMChain ? Math.max(0, blockDays[i] - pmDur) : blockDays[i];
+    const totalDays      = blockDays[i];
+
+    const widthPct = Math.max(1, (productionDays / scaleDays) * 100);
 
     function daysAfter(idx) {
       const ch = sortedIdxs.filter(j => parentIdxMap[j] === idx);
       if (!ch.length) return 0;
       return Math.max(...ch.map(j => blockDays[j] + daysAfter(j)));
     }
-    const thisAnchor      = getAnchor(i);
-    const anchorGapDays   = countBusinessDays(thisAnchor, anchorDate);
-    const rightOffsetPct  = ((daysAfter(i) + anchorGapDays) / scaleDays) * 100;
-    const leftPct         = Math.max(0, 100 - widthPct - rightOffsetPct);
-    if (parIdx === null) console.log(`  [bar ${i}] ${block.dataset.product} | blockDays: ${blockDays[i]} | daysAfter: ${daysAfter(i)} | anchorGapDays: ${anchorGapDays} | chainDays: ${chainDays(i)} | blockDays+daysAfter: ${blockDays[i]+daysAfter(i)} | leftPct: ${leftPct.toFixed(1)}%`);
+    const thisAnchor     = getAnchor(i);
+    const anchorGapDays  = countBusinessDays(thisAnchor, anchorDate);
+    // For PM chains, the anchor gap accounts for the P&M segment sitting at the gate
+    const rightOffsetPct = isPMChain
+      ? (anchorGapDays / scaleDays) * 100
+      : ((daysAfter(i) + anchorGapDays) / scaleDays) * 100;
+    const leftPct = Math.max(0, 100 - widthPct - rightOffsetPct - (isPMChain ? (pmDur / scaleDays) * 100 : 0));
+
+    if (parIdx === null) console.log(`  [bar ${i}] ${block.dataset.product} | blockDays: ${blockDays[i]} | daysAfter: ${daysAfter(i)} | anchorGapDays: ${anchorGapDays} | chainDays: ${chainDays(i)} | leftPct: ${leftPct.toFixed(1)}%`);
 
     const isChild  = parIdx !== null;
     const rowClass = isChild ? 'gantt-nested-row' : 'gantt-row';
@@ -1488,14 +1623,50 @@ export function updateGantt() {
       connectorHtml = `${pipes}<span style="color:rgba(255,255,255,.3)">└─</span> `;
     }
 
+    // P&M segment: positioned at pmDelivery - pmDur, width = pmDur
+    const pmSegmentHtml = (() => {
+      if (!isPMChain || !pmDelivery || pmDur <= 0) return '';
+      const pmDate      = new Date(pmDelivery + 'T00:00:00');
+      const pmStartDate = subtractBusinessDays(pmDate, pmDur);
+      const pmLeftPct   = Math.max(0, (countBusinessDays(startDate, pmStartDate) / scaleDays) * 100);
+      const pmWidthPct  = Math.max(1, (pmDur / scaleDays) * 100);
+      return `<div style="left:${pmLeftPct.toFixed(2)}%;width:${pmWidthPct.toFixed(2)}%;background:#534AB7;position:absolute;top:0;bottom:0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:${isChild?'9':'10'}px;font-weight:700;color:rgba(255,255,255,.9);opacity:.9" title="P&amp;M: ${pmDur}d, ships ${fmtDateShort(pmDate)}">
+        ${pmWidthPct > 5 ? 'P&amp;M' : ''}
+      </div>`;
+    })();
+
+    // End date display
+    const endDateHtml = (() => {
+      if (isPMChain && pmDelivery) {
+        const pmDate  = new Date(pmDelivery + 'T00:00:00');
+        const pmFmt   = pmDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const prodEnd = subtractBusinessDays(pmDate, pmDur);
+        return fmtDateShort(prodEnd) + `<br><span style="color:rgba(180,140,255,.85);font-size:8px">P&amp;M: ${pmFmt}</span>`;
+      }
+      if (parIdx !== null) return fmtDateShort(blockEnd[i]);
+      const pmR = delRows.find(r => {
+        const s = r.querySelector('select');
+        const renewal = r.querySelector('.nr-btn.r-active') !== null;
+        return s && s.value === product &&
+               renewal === (block.dataset.isrenewal === 'true') &&
+               r.dataset.pmDelivery;
+      });
+      if (!pmR) return fmtDateShort(blockEnd[i]);
+      const pmD    = new Date(pmR.dataset.pmDelivery + 'T00:00:00');
+      const pmFmt  = pmD.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const prodDue = subtractBusinessDays(pmD, 10);
+      return fmtDateShort(prodDue) + `<br><span style="color:rgba(255,160,80,.85);font-size:8px">Del: ${pmFmt}</span>`;
+    })();
+
     html += `<div class="${rowClass}">
       <div style="width:150px;flex-shrink:0;font-size:${isChild?'10':'11'}px;color:rgba(255,255,255,${isChild?'.6':'.75'});font-family:Verdana,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;" title="${esc(product)}">${connectorHtml}<span style="overflow:hidden;text-overflow:ellipsis">${esc(product)}</span></div>
       <div class="${isChild?'gantt-nested-track':'gantt-track'}" style="position:relative">
-        <div style="left:${leftPct}%;width:${widthPct}%;background:${color};position:absolute;top:0;bottom:0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:${isChild?'9':'10'}px;font-weight:700;color:rgba(255,255,255,.9)" title="${esc(product)}: ${totalDays}d">
-          ${widthPct > 8 ? totalDays + 'd' : ''}
+        <div style="left:${leftPct.toFixed(2)}%;width:${widthPct.toFixed(2)}%;background:${color};position:absolute;top:0;bottom:0;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:${isChild?'9':'10'}px;font-weight:700;color:rgba(255,255,255,.9)" title="${esc(product)}: ${productionDays}d">
+          ${widthPct > 8 ? productionDays + 'd' : ''}
         </div>
+        ${pmSegmentHtml}
         ${(() => {
-          if (parIdx !== null) return '';
+          if (parIdx !== null || isPMChain) return '';
           const pmR = delRows.find(r => {
             const s = r.querySelector('select');
             const renewal = r.querySelector('.nr-btn.r-active') !== null;
@@ -1510,21 +1681,7 @@ export function updateGantt() {
           return `<div style="position:absolute;left:${dividerPct}%;top:-2px;bottom:-2px;width:2px;background:rgba(255,255,255,.4);z-index:5;transform:translateX(-1px);pointer-events:none"></div>`;
         })()}
       </div>
-      <div class="gantt-enddate" style="font-size:${isChild?'9':'10'}px;color:rgba(255,255,255,${isChild?'.4':'.55'});line-height:1.3">${(() => {
-        if (parIdx !== null) return fmtDateShort(blockEnd[i]);
-        const pmR = delRows.find(r => {
-          const s = r.querySelector('select');
-          const renewal = r.querySelector('.nr-btn.r-active') !== null;
-          return s && s.value === product &&
-                 renewal === (block.dataset.isrenewal === 'true') &&
-                 r.dataset.pmDelivery;
-        });
-        if (!pmR) return fmtDateShort(blockEnd[i]);
-        const pmD = new Date(pmR.dataset.pmDelivery + 'T00:00:00');
-        const pmFmt = pmD.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        const prodDue = subtractBusinessDays(pmD, 10);
-        return fmtDateShort(prodDue) + '<br><span style="color:rgba(255,160,80,.85);font-size:8px">Del: ' + pmFmt + '</span>';
-      })()}</div>
+      <div class="gantt-enddate" style="font-size:${isChild?'9':'10'}px;color:rgba(255,255,255,${isChild?'.4':'.55'});line-height:1.3">${endDateHtml}</div>
     </div>`;
   });
 
