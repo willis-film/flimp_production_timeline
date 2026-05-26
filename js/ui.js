@@ -1353,11 +1353,13 @@ export function updateGantt() {
 
   blocks.forEach((b, i) => {
     const meta = PRODUCT_META[b.dataset.product];
+    console.log(`[Gantt] PRODUCT_META[${b.dataset.product}]:`, meta);
   });
 
   const startDate = nextWorkDay(new Date(startVal + 'T00:00:00'));
   const delRows   = [...document.querySelectorAll('#delRows .del-row')];
   const parentIdxMap = buildParentIdxMap(delRows);
+  console.log('[Gantt] parentIdxMap:', JSON.stringify(parentIdxMap), '| products:', delRows.map(r => r.querySelector('select')?.value));
 
   const sortedIdxs = [];
   function dfsVisit(idx) {
