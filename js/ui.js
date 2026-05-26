@@ -1351,6 +1351,13 @@ export function updateGantt() {
   if (!startVal || !blocks.length) { wrap.style.display = 'none'; return; }
   document.getElementById('feasibilityPanel').style.display = 'block';
 
+  console.log('[Gantt] PRODUCT_META keys:', Object.keys(PRODUCT_META));
+  console.log('[Gantt] Sample block products:', blocks.map(b => b.dataset.product));
+  blocks.forEach((b, i) => {
+    const meta = PRODUCT_META[b.dataset.product];
+    console.log(`[Gantt] block[${i}] "${b.dataset.product}" → scheduleType: ${meta?.scheduleType ?? '(no meta)'}`);
+  });
+
   const startDate = nextWorkDay(new Date(startVal + 'T00:00:00'));
   const delRows   = [...document.querySelectorAll('#delRows .del-row')];
   const parentIdxMap = buildParentIdxMap(delRows);
