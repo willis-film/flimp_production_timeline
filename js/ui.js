@@ -907,7 +907,12 @@ export function previewPhases() {
       const product   = row.querySelector('select')?.value;
       const isRenewal = row.querySelector('.nr-btn.r-active') !== null;
       if (!product) return;
-      if (!PRODUCT_META[product]?.eligiblePM) return;
+
+      // All products in a PM-configured chain get a P&M phase appended,
+      // not just eligible_PM products. eligible_PM only gates section 2.1
+      // configuration — every item in the chain ships together.
+      // Exclude P&M itself (Print & Mail) from getting its own P&M row.
+      if (product === 'Print & Mail') return;
 
       const block = blocks.find(b =>
         b.dataset.product === product &&
@@ -1380,7 +1385,7 @@ export function updateGantt() {
         return !name.startsWith('Print & Mail');
       })
       .map(tr => Math.max(1, parseInt(tr.querySelector('.pt-dur')?.value) || 1));
-    blockDays[i] = durs.reduce((a, b) => a + b, 0);
+    blockDays[i] = Math.max(1, durs.reduce((a, b) => a + b, 0));
   });
 
   function chainDays(idx) {
