@@ -1387,10 +1387,11 @@ export function updateGantt() {
   const longestChainDays = Math.max(...blocks.map((_, i) => parentIdxMap[i] !== null ? 0 : chainDays(i)));
 
   const chainEndDate = addBusinessDays(startDate, longestChainDays);
-  // Also consider PM delivery dates when computing the overall scale anchor
-  const allPMDates = delRows
-    .filter(r => r.dataset.pmDelivery)
-    .map(r => new Date(r.dataset.pmDelivery + 'T00:00:00'));
+  // Consider PM delivery dates from both del-rows and stamped block datasets
+  const allPMDates = [
+    ...delRows.filter(r => r.dataset.pmDelivery).map(r => new Date(r.dataset.pmDelivery + 'T00:00:00')),
+    ...blocks.filter(b => b.dataset.pmDelivery).map(b => new Date(b.dataset.pmDelivery + 'T00:00:00'))
+  ];
   const maxPMDate = allPMDates.length ? allPMDates.reduce((m, d) => d > m ? d : m) : null;
   const anchorDate   = [dueDate, chainEndDate, maxPMDate]
     .filter(Boolean)
@@ -1403,16 +1404,20 @@ export function updateGantt() {
   blocks.forEach((block, i) => {
     if (parentIdxMap[i] !== null) return;
     const thisChainEnd = addBusinessDays(startDate, chainDays(i));
-    const matchedDelRow = delRows.find(r => {
-      const s = r.querySelector('select');
-      const renewal = r.querySelector('.nr-btn.r-active') !== null;
-      return s && s.value === block.dataset.product &&
-             renewal === (block.dataset.isrenewal === 'true') &&
-             r.dataset.pmDelivery;
-    });
-    const pmDelivery = matchedDelRow?.dataset.pmDelivery;
-    if (pmDelivery) {
-      const pmDate = new Date(pmDelivery + 'T00:00:00');
+    // Read pmDelivery from block.dataset (stamped in post-pass) first,
+    // then fall back to del-row for legacy compatibility
+    const pmDeliveryStr = block.dataset.pmDelivery || (() => {
+      const r = delRows.find(r => {
+        const s = r.querySelector('select');
+        const renewal = r.querySelector('.nr-btn.r-active') !== null;
+        return s && s.value === block.dataset.product &&
+               renewal === (block.dataset.isrenewal === 'true') &&
+               r.dataset.pmDelivery;
+      });
+      return r?.dataset.pmDelivery;
+    })();
+    if (pmDeliveryStr) {
+      const pmDate = new Date(pmDeliveryStr + 'T00:00:00');
       rootAnchor[i] = thisChainEnd > pmDate ? thisChainEnd : pmDate;
     } else {
       rootAnchor[i] = dueDate ? (thisChainEnd > dueDate ? thisChainEnd : dueDate) : thisChainEnd;
@@ -1604,11 +1609,15 @@ export function updateGantt() {
         })()
       : 0;
 
-    // Production days only (excludes P&M row)
-    const productionDays = isPMChain ? Math.max(0, blockDays[i] - pmDur) : blockDays[i];
-    const totalDays      = blockDays[i];
-
+    // Production days only (excludes P&M row — blockDays already excludes P&M)
+    const productionDays = blockDays[i];
     const widthPct = Math.max(1, (productionDays / scaleDays) * 100);
+
+    // Position production bar directly from blockStart — the forward/backward
+    // model above already computed the correct start date for every block type.
+    // Never derive leftPct from rightOffsetPct for PM-chain blocks; the P&M
+    // segment is positioned independently from pmDelivery below.
+    const leftPct = Math.max(0, (countBusinessDays(startDate, blockStart[i]) / scaleDays) * 100);
 
     function daysAfter(idx) {
       const ch = sortedIdxs.filter(j => parentIdxMap[j] === idx);
@@ -1617,13 +1626,9 @@ export function updateGantt() {
     }
     const thisAnchor     = getAnchor(i);
     const anchorGapDays  = countBusinessDays(thisAnchor, anchorDate);
-    // For PM chains, the anchor gap accounts for the P&M segment sitting at the gate
-    const rightOffsetPct = isPMChain
-      ? (anchorGapDays / scaleDays) * 100
-      : ((daysAfter(i) + anchorGapDays) / scaleDays) * 100;
-    const leftPct = Math.max(0, 100 - widthPct - rightOffsetPct - (isPMChain ? (pmDur / scaleDays) * 100 : 0));
 
-    if (parIdx === null) console.log(`  [bar ${i}] ${block.dataset.product} | blockDays: ${blockDays[i]} | daysAfter: ${daysAfter(i)} | anchorGapDays: ${anchorGapDays} | chainDays: ${chainDays(i)} | leftPct: ${leftPct.toFixed(1)}%`);
+    if (parIdx === null) console.log(`  [bar ${i}] ${block.dataset.product} | blockDays: ${blockDays[i]} | blockStart: ${blockStart[i]?.toDateString()} | blockEnd: ${blockEnd[i]?.toDateString()} | leftPct: ${leftPct.toFixed(1)}%`);
+    else console.log(`  [child bar ${i}] ${block.dataset.product} | type: ${scheduleTypeOf(i)} | fwdStart: ${fwdStart[i]?.toDateString()} | blockStart: ${blockStart[i]?.toDateString()} | blockEnd: ${blockEnd[i]?.toDateString()} | leftPct: ${leftPct.toFixed(1)}%`);
 
     const isChild  = parIdx !== null;
     const rowClass = isChild ? 'gantt-nested-row' : 'gantt-row';
