@@ -23,6 +23,8 @@ export let ROUND_GROUPS   = {};   // {product_name: [{group_name,default_rounds,
 export let PRECONDITIONS  = {};   // {product_name: [{checklist_label,phase_name,applies_to}]}
 export let VALID_PARENTS  = {};   // {child_product: Set([valid_parent_product,...])}
 export let PM_NAMES       = [];   // ['Name', ...]
+export let PRODUCT_META   = {};   // {product_name: {scheduleType, eligiblePM, dependsOn}}
+                                  // scheduleType: null='root' | 'alternate' | 'translation' | 'chatbot'
 
 // ── Load all reference data from Supabase ─────────────────────────────────
 export async function loadReferenceData() {
@@ -33,17 +35,19 @@ export async function loadReferenceData() {
       { data: roundGroups,   error: e3 },
       { data: preconditions, error: e4 },
       { data: relationships, error: e5 },
-      { data: pmNames,       error: e6 }
     ] = await Promise.all([
       db.from('products').select('*').eq('active', true).order('sort_order'),
       db.from('product_phases').select('*').order('phase_order'),
       db.from('round_groups').select('*').order('group_order'),
       db.from('phase_preconditions').select('*'),
-      db.from('product_relationships').select('*'),
-      db.from('project_managers').select('PM_name').order('PM_name')
+      db.from('product_relationships').select('*')
     ]);
 
-    if (e1 || e2 || e3 || e4 || e5 || e6) throw new Error((e1||e2||e3||e4||e5||e6).message);
+    if (e1 || e2 || e3 || e4 || e5) throw new Error((e1||e2||e3||e4||e5).message);
+
+    // PM names fetched separately so a failure doesn't block the rest of the app
+    const { data: pmNames, error: e6 } = await db.from('project_managers').select('PM_name').order('PM_name');
+    if (e6) console.warn('[DB] project_managers fetch failed:', e6.message);
 
     // ── PRODUCTS grouped structure ──
     const groupMap = {};
@@ -126,6 +130,23 @@ export async function loadReferenceData() {
     relationships.forEach(r => {
       if (!VALID_PARENTS[r.child_product]) VALID_PARENTS[r.child_product] = new Set();
       VALID_PARENTS[r.child_product].add(r.valid_parent_product);
+    });
+
+    // ── PRODUCT_META ──
+    // scheduleType drives gate logic in engine.js:
+    //   null        → root: anchors to due date, no parent dependency
+    //   'alternate' → starts after parent completes, parallel with other non-translation siblings
+    //                 its end date is the translation gate for the chain
+    //   'translation'→ starts after latest alternate end in its chain (or parent end if no alternates)
+    //                  its end date contributes to the P&M gate
+    //   'chatbot'   → starts after parent completes, parallel with everything, invisible to all gates
+    PRODUCT_META = {};
+    products.forEach(p => {
+      PRODUCT_META[p.name] = {
+        scheduleType: p.project_schedule_type || null,
+        eligiblePM:   p.eligible_PM           || false,
+        dependsOn:    p.depends_on_product     || null,
+      };
     });
 
     return true;

@@ -4,7 +4,7 @@
 // ui.js and output.js import from here.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { VALID_PARENTS } from './database.js';
+import { VALID_PARENTS, PRODUCT_META } from './database.js';
 
 // ── US Federal Holidays ───────────────────────────────────────────────────
 export const HOLIDAYS = new Set([
@@ -161,8 +161,6 @@ export function buildParentIdxMap(delRows) {
 export function scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdxMap, startDate, dueDate, pmConfig = [] }) {
 
   // ── P&M delivery dates — for export phase name labelling ────────────────
-  // P&M phases are already in phasesPerDeliverable (read from DOM preview).
-  // We just build a map of deliverableIdx → deliveryDate for phase naming.
   const pmDeliveryDates = {};
   pmConfig.forEach(({ product, isRenewal, deliveryDate }) => {
     const delIdx = deliverables.findIndex(d => d.product === product && d.isRenewal === isRenewal);
@@ -170,11 +168,22 @@ export function scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdx
     pmDeliveryDates[delIdx] = new Date(deliveryDate + 'T00:00:00');
   });
 
-  const allMilestones = [];
-  let projectEndDate  = new Date(startDate);
-  const endDates      = {};
+  // ── Resolve scheduleType for each deliverable index ──────────────────────
+  // Falls back to null (root) if PRODUCT_META isn't populated yet.
+  function scheduleTypeOf(idx) {
+    return PRODUCT_META[deliverables[idx]?.product]?.scheduleType || null;
+  }
 
-  // Kahn's topo sort — roots first, children after their parent resolves
+  // ── Walk up parentIdxMap to find the chain root index ───────────────────
+  function chainRootOf(idx) {
+    let cur = idx, safety = 0;
+    while (parentIdxMap[cur] !== null && parentIdxMap[cur] !== undefined && safety++ < 20) {
+      cur = parentIdxMap[cur];
+    }
+    return cur;
+  }
+
+  // ── Kahn's topo sort — roots first, children after parent resolves ───────
   const resolved   = new Set();
   const sortedIdxs = [];
   let safety = 0;
@@ -186,21 +195,114 @@ export function scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdx
     ready.forEach(i => { sortedIdxs.push(i); resolved.add(i); });
   }
 
+  // ── Forward-schedule each deliverable to get its start date ─────────────
+  // This pass computes startDates[] and endDates[] using type-aware gate logic.
+  // phasesPerDeliverable end dates (backward-scheduled from due date) are
+  // applied in the milestone-building pass below.
+  const endDates   = {};  // idx → Date (end of last phase)
+  const startDates = {};  // idx → Date (start of first phase)
+
+  // Resolve the P&M anchor date for a given delivery anchor (ISO string or null).
+  // All chains sharing the same resolved anchor share one P&M gate.
+  // anchorKey: toISO(pmDelivery) if set, else toISO(dueDate) if set, else 'none'.
+  function anchorKeyOf(idx) {
+    const root = chainRootOf(idx);
+    const pmD  = pmDeliveryDates[root];
+    if (pmD) return toISO(pmD);
+    if (dueDate) return toISO(dueDate);
+    return 'none';
+  }
+
+  sortedIdxs.forEach(idx => {
+    const parIdx = parentIdxMap[idx];
+    const type   = scheduleTypeOf(idx);
+
+    let startFrom;
+
+    if (type === null) {
+      // Root — always starts from project start date
+      startFrom = new Date(startDate);
+
+    } else if (type === 'alternate' || type === 'chatbot') {
+      // Starts immediately after direct parent completes
+      startFrom = parIdx !== null && endDates[parIdx]
+        ? nextWorkDay(new Date(endDates[parIdx]))
+        : new Date(startDate);
+
+    } else if (type === 'translation') {
+      // Waits for the latest ALTERNATE end in the same chain.
+      // If no alternates exist in the chain, falls back to direct parent end.
+      const root = chainRootOf(idx);
+      let gate = parIdx !== null && endDates[parIdx]
+        ? new Date(endDates[parIdx])
+        : new Date(startDate);
+
+      sortedIdxs.forEach(j => {
+        if (scheduleTypeOf(j) === 'alternate' && chainRootOf(j) === root) {
+          if (endDates[j] && endDates[j] > gate) gate = new Date(endDates[j]);
+        }
+      });
+      startFrom = nextWorkDay(gate);
+
+    } else {
+      // Unknown type — fall back to parent end or project start
+      startFrom = parIdx !== null && endDates[parIdx]
+        ? nextWorkDay(new Date(endDates[parIdx]))
+        : new Date(startDate);
+    }
+
+    // Store start; end will be updated phase-by-phase in the milestone pass
+    startDates[idx] = new Date(startFrom);
+    // Seed endDates so children can reference it; overwritten below
+    endDates[idx]   = new Date(startFrom);
+  });
+
+  // ── Compute per-anchor P&M gate dates ────────────────────────────────────
+  // For each anchor group, pmGateDate = max end date of all translations in that group.
+  // If no translations, falls back to max end of all alternates.
+  // If no alternates either, falls back to max end of all roots.
+  const pmGateByAnchor = {};
+
+  function updatePmGate(anchorKey, candidate) {
+    if (!pmGateByAnchor[anchorKey] || candidate > pmGateByAnchor[anchorKey]) {
+      pmGateByAnchor[anchorKey] = new Date(candidate);
+    }
+  }
+
+  // First pass: collect translation ends per anchor
+  const translationEndsByAnchor = {};
+  sortedIdxs.forEach(idx => {
+    if (scheduleTypeOf(idx) !== 'translation') return;
+    const key = anchorKeyOf(idx);
+    if (!translationEndsByAnchor[key]) translationEndsByAnchor[key] = [];
+    // endDates[idx] at this point is just startDates — we'll refine after phase pass
+    // Store idx for later resolution
+    translationEndsByAnchor[key] = translationEndsByAnchor[key] || [];
+    translationEndsByAnchor[key].push(idx);
+  });
+
+  // ── Milestone building pass ──────────────────────────────────────────────
+  const allMilestones = [];
+  let projectEndDate  = new Date(startDate);
+
   sortedIdxs.forEach(idx => {
     const del    = deliverables[idx];
     const parIdx = parentIdxMap[idx];
+    const type   = scheduleTypeOf(idx);
 
-    const startFrom = parIdx !== null && endDates[parIdx]
-      ? nextWorkDay(new Date(endDates[parIdx]))
-      : new Date(startDate);
+    // P&M items (eligible_PM deliverables with a pmDelivery date set) use
+    // the pmGate start — computed after all phases are known. They are handled
+    // in a second pass below; skip them here.
+    // P&M in this context means the del-row has a pmDelivery date attached
+    // (dataset.pmDelivery), not that the product itself is a P&M product.
+    // The scheduleType handles all product-level gate logic above.
 
+    const startFrom = startDates[idx] || new Date(startDate);
     let vDate    = new Date(startFrom);
     let trackEnd = new Date(startFrom);
     const phases = phasesPerDeliverable[idx] || [];
 
     phases.forEach(phase => {
-      // Use the exact date computed in the phase preview (backward from due date)
-      // if available. Fall back to forward scheduling from startDate if not set.
       const endDate = phase.endDate instanceof Date && !isNaN(phase.endDate)
         ? phase.endDate
         : addBusinessDays(vDate, phase.dur);
@@ -218,6 +320,35 @@ export function scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdx
     });
 
     endDates[idx] = new Date(trackEnd);
+  });
+
+  // ── Recompute P&M gate now that endDates are final ───────────────────────
+  // Group by anchor key. Gate = max translation end in group,
+  // falling back to max alternate end, then max root end.
+  const anchorKeys = [...new Set(sortedIdxs.map(i => anchorKeyOf(i)))];
+
+  anchorKeys.forEach(key => {
+    const inGroup = sortedIdxs.filter(i => anchorKeyOf(i) === key);
+
+    const translationEnds = inGroup
+      .filter(i => scheduleTypeOf(i) === 'translation')
+      .map(i => endDates[i]).filter(Boolean);
+
+    const alternateEnds = inGroup
+      .filter(i => scheduleTypeOf(i) === 'alternate')
+      .map(i => endDates[i]).filter(Boolean);
+
+    const rootEnds = inGroup
+      .filter(i => scheduleTypeOf(i) === null)
+      .map(i => endDates[i]).filter(Boolean);
+
+    const candidates = translationEnds.length ? translationEnds
+      : alternateEnds.length ? alternateEnds
+      : rootEnds;
+
+    if (candidates.length) {
+      pmGateByAnchor[key] = candidates.reduce((m, d) => d > m ? d : m);
+    }
   });
 
   console.log('[Milestone] allMilestones before dedup:', allMilestones.filter(m => m.isMilestone).map(m => ({ task: m.task, del: m.deliverable, date: m.date?.toDateString() })));
@@ -300,5 +431,5 @@ export function scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdx
 
   const projectSpanDays = countBusinessDays(startDate, projectEndDate);
 
-  return { milestoneGroups: groups, projectEndDate, projectSpanDays, deliverables, phasesPerDeliverable };
+  return { milestoneGroups: groups, projectEndDate, projectSpanDays, deliverables, phasesPerDeliverable, pmGateByAnchor };
 }

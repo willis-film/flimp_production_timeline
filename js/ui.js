@@ -6,7 +6,7 @@
 
 import {
   PRODUCTS, NA_PRODUCTS, PM_ELIGIBLE, ROUNDS_DEFAULTS, ALL_PHASES,
-  ROUND_GROUPS, PRECONDITIONS, VALID_PARENTS
+  ROUND_GROUPS, PRECONDITIONS, VALID_PARENTS, PRODUCT_META
 } from './database.js';
 
 import {
@@ -1256,7 +1256,6 @@ export function updateGantt() {
   blocks.forEach((block, i) => {
     if (parentIdxMap[i] !== null) return;
     const thisChainEnd = addBusinessDays(startDate, chainDays(i));
-    // For PM parent blocks, anchor to PM delivery date instead of project due date
     const matchedDelRow = delRows.find(r => {
       const s = r.querySelector('select');
       const renewal = r.querySelector('.nr-btn.r-active') !== null;
@@ -1272,22 +1271,108 @@ export function updateGantt() {
       rootAnchor[i] = dueDate ? (thisChainEnd > dueDate ? thisChainEnd : dueDate) : thisChainEnd;
     }
   });
+
   function getAnchor(idx) {
     let cur = idx;
     while (parentIdxMap[cur] !== null) cur = parentIdxMap[cur];
     return rootAnchor[cur];
   }
 
+  function chainRootOf(idx) {
+    let cur = idx, safety = 0;
+    while (parentIdxMap[cur] !== null && parentIdxMap[cur] !== undefined && safety++ < 20) cur = parentIdxMap[cur];
+    return cur;
+  }
+
+  function scheduleTypeOf(idx) {
+    return PRODUCT_META[blocks[idx]?.dataset.product]?.scheduleType || null;
+  }
+
+  // ── Forward-schedule blockStart using type-aware gate logic ──────────────
+  // We compute forward starts first, then reconcile with the backward anchor
+  // model for bar positioning on the Gantt.
+  const fwdStart = {}, fwdEnd = {};
+
+  // Compute latest alternate end in a chain (for translation gate)
+  function latestAlternateEndInChain(rootIdx) {
+    let latest = startDate;
+    sortedIdxs.forEach(j => {
+      if (chainRootOf(j) === rootIdx && scheduleTypeOf(j) === 'alternate') {
+        if (fwdEnd[j] && fwdEnd[j] > latest) latest = fwdEnd[j];
+      }
+    });
+    return latest;
+  }
+
+  // Compute P&M gate for a chain: max translation end, fallback to alternate, fallback to root
+  function pmGateForChain(rootIdx) {
+    const inChain = sortedIdxs.filter(j => chainRootOf(j) === rootIdx);
+    const transEnds = inChain.filter(j => scheduleTypeOf(j) === 'translation').map(j => fwdEnd[j]).filter(Boolean);
+    if (transEnds.length) return transEnds.reduce((m, d) => d > m ? d : m);
+    const altEnds = inChain.filter(j => scheduleTypeOf(j) === 'alternate').map(j => fwdEnd[j]).filter(Boolean);
+    if (altEnds.length) return altEnds.reduce((m, d) => d > m ? d : m);
+    return fwdEnd[rootIdx] || startDate;
+  }
+
+  sortedIdxs.forEach(idx => {
+    const type   = scheduleTypeOf(idx);
+    const parIdx = parentIdxMap[idx];
+    let s;
+
+    if (type === null) {
+      s = new Date(startDate);
+    } else if (type === 'alternate' || type === 'chatbot') {
+      s = parIdx !== null && fwdEnd[parIdx]
+        ? nextWorkDay(new Date(fwdEnd[parIdx]))
+        : new Date(startDate);
+    } else if (type === 'translation') {
+      const root    = chainRootOf(idx);
+      const altGate = latestAlternateEndInChain(root);
+      const parEnd  = parIdx !== null && fwdEnd[parIdx] ? fwdEnd[parIdx] : startDate;
+      const gate    = altGate > parEnd ? altGate : parEnd;
+      s = nextWorkDay(new Date(gate));
+    } else {
+      s = parIdx !== null && fwdEnd[parIdx]
+        ? nextWorkDay(new Date(fwdEnd[parIdx]))
+        : new Date(startDate);
+    }
+
+    fwdStart[idx] = s;
+    fwdEnd[idx]   = addBusinessDays(s, blockDays[idx]);
+  });
+
+  // ── Backward blockStart/blockEnd for Gantt bar positioning ───────────────
+  // Translations and chatbots use their forward start directly (they don't
+  // anchor backward from the due date — their position is gate-driven).
+  // Roots and alternates continue to use the existing backward anchor model.
   const blockStart = {}, blockEnd = {};
   const reverseSorted = [...sortedIdxs].reverse();
   reverseSorted.forEach(i => {
+    const type = scheduleTypeOf(i);
+
+    if (type === 'translation' || type === 'chatbot') {
+      blockStart[i] = new Date(fwdStart[i]);
+      blockEnd[i]   = new Date(fwdEnd[i]);
+      return;
+    }
+
+    // root and alternate: existing backward anchor model
     const children = sortedIdxs.filter(j => parentIdxMap[j] === i);
-    if (!children.length) {
+
+    // Exclude translation and chatbot children from backward anchor calc —
+    // they don't constrain the parent's backward position
+    const anchoringChildren = children.filter(j => {
+      const ct = scheduleTypeOf(j);
+      return ct !== 'translation' && ct !== 'chatbot';
+    });
+
+    if (!anchoringChildren.length) {
       const anchor  = getAnchor(i);
       blockEnd[i]   = new Date(anchor);
       blockStart[i] = subtractBusinessDays(anchor, blockDays[i]);
     } else {
-      const earliest = children.reduce((e, j) => blockStart[j] < e ? blockStart[j] : e, blockStart[children[0]]);
+      const earliest = anchoringChildren.reduce((e, j) =>
+        blockStart[j] < e ? blockStart[j] : e, blockStart[anchoringChildren[0]]);
       blockEnd[i]    = new Date(earliest);
       blockStart[i]  = subtractBusinessDays(blockEnd[i], blockDays[i]);
     }
