@@ -260,12 +260,18 @@ export function rebuildPMChecklist() {
       dateInp.style.opacity       = cb.checked ? '1' : '0.35';
       dateInp.style.pointerEvents = cb.checked ? 'auto' : 'none';
       refreshPMSelectors();
-      applyPMPostPass();
+      // If phase blocks already exist, re-run the post-pass to add/remove P&M rows.
+      // If blocks don't exist yet, the user hasn't clicked Preview — do nothing.
+      if (document.querySelectorAll('#pbBlocks .pb-block').length) {
+        applyPMPostPass();
+      }
     };
 
     dateInp.onchange = () => {
       refreshPMSelectors();
-      applyPMPostPass();
+      if (document.querySelectorAll('#pbBlocks .pb-block').length) {
+        applyPMPostPass();
+      }
     };
 
     row.appendChild(lbl);
