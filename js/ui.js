@@ -260,20 +260,12 @@ export function rebuildPMChecklist() {
       dateInp.style.opacity       = cb.checked ? '1' : '0.35';
       dateInp.style.pointerEvents = cb.checked ? 'auto' : 'none';
       refreshPMSelectors();
-      updateGantt();
+      applyPMPostPass();
     };
 
     dateInp.onchange = () => {
       refreshPMSelectors();
-      const parts   = value.split('||');
-      const dIdx    = parseInt(parts[2], 10);
-      const dRow    = delRows[dIdx];
-      const product = dRow?.querySelector('select')?.value;
-      const isRen   = dRow?.querySelector('.nr-btn.r-active') !== null;
-      const block   = [...document.querySelectorAll('#pbBlocks .pb-block')].find(b =>
-        b.dataset.product === product && (b.dataset.isrenewal === 'true') === isRen
-      );
-      if (block) recalcBlockFeasibility(block);
+      applyPMPostPass();
     };
 
     row.appendChild(lbl);
@@ -846,142 +838,127 @@ export function previewPhases() {
   // Post-pass: remove Distribution from parents that have appended items
   refreshParentSelectors();
   refreshPMSelectors(); // stamp data-pm-delivery on del-rows before the timeout reads them
-  setTimeout(() => {
-    const allDelRows   = [...document.querySelectorAll('#delRows .del-row')];
-    const parentIdxMap = buildParentIdxMap(allDelRows);
-    const blocks       = [...document.querySelectorAll('#pbBlocks .pb-block')];
-
-    // Helper: strip Distribution from a pb-block
-    function stripDistribution(block) {
-      const rows2 = [...block.querySelectorAll('tbody tr')];
-      for (let i = rows2.length - 1; i >= 0; i--) {
-        const nameInput = rows2[i].querySelector('.pt-name');
-        if (nameInput && nameInput.value.toLowerCase().includes('distribution')) {
-          rows2[i].remove(); recalcPhaseDates(block); recalcBlockFeasibility(block); break;
-        }
-      }
-    }
-
-    // Regular append parents (via parentIdxMap)
-    const parentIndicesWithAppended = new Set();
-    allDelRows.forEach((row, i) => {
-      if (parentIdxMap[i] !== null && parentIdxMap[i] !== undefined) {
-        parentIndicesWithAppended.add(parentIdxMap[i]);
-      }
-    });
-    parentIndicesWithAppended.forEach(parentIdx => {
-      const parentRow = allDelRows[parentIdx];
-      if (!parentRow) return;
-      const parentProduct   = parentRow.querySelector('select')?.value;
-      const parentIsRenewal = parentRow.querySelector('.nr-btn.r-active') !== null;
-      if (!parentProduct) return;
-      const block = blocks.find(b =>
-        b.dataset.product === parentProduct &&
-        (b.dataset.isrenewal === 'true') === parentIsRenewal
-      );
-      if (block) stripDistribution(block);
-    });
-
-    // ── PM chain post-pass ────────────────────────────────────────────────
-    // Find the shared pmDelivery date for each chain root.
-    // A chain root is a del-row with parentIdxMap[i] === null.
-    // If any row in the chain has pmDelivery set, that date applies to
-    // every eligible block in the chain.
-
-    // Build chainRoot map: delIdx → rootIdx
-    function getChainRootIdx(idx) {
-      let cur = idx, safety = 0;
-      while (parentIdxMap[cur] !== null && parentIdxMap[cur] !== undefined && safety++ < 20) {
-        cur = parentIdxMap[cur];
-      }
-      return cur;
-    }
-
-    // Collect pmDelivery per chain root (use the explicit pmDelivery if set,
-    // otherwise fall back to project due date)
-    const dueVal = document.getElementById('dueDate').value;
-    const pmDeliveryByRoot = {};
-    allDelRows.forEach((row, i) => {
-      if (!row.dataset.pmDelivery) return;
-      const rootIdx = getChainRootIdx(i);
-      // Use the earliest explicit pmDelivery across the chain
-      // (in practice there should only be one per chain)
-      const existing = pmDeliveryByRoot[rootIdx];
-      if (!existing || row.dataset.pmDelivery < existing) {
-        pmDeliveryByRoot[rootIdx] = row.dataset.pmDelivery;
-      }
-    });
-
-    // For each del-row in a chain that has a pmDelivery, mark every
-    // eligible block in that chain with data-pm-delivery so recalcPhaseDates
-    // can pin the P&M phase to the right date.
-    allDelRows.forEach((row, i) => {
-      const rootIdx    = getChainRootIdx(i);
-      const pmDelivery = pmDeliveryByRoot[rootIdx];
-      if (!pmDelivery) return;
-
-      const product   = row.querySelector('select')?.value;
-      const isRenewal = row.querySelector('.nr-btn.r-active') !== null;
-      if (!product) return;
-
-      // All products in a PM-configured chain get a P&M phase appended,
-      // not just eligible_PM products. eligible_PM only gates section 2.1
-      // configuration — every item in the chain ships together.
-      // Exclude P&M itself (Print & Mail) from getting its own P&M row.
-      if (product === 'Print & Mail') return;
-
-      const block = blocks.find(b =>
-        b.dataset.product === product &&
-        (b.dataset.isrenewal === 'true') === isRenewal
-      );
-      if (!block) return;
-
-      // Mark block as part of a PM chain and stamp the shared delivery date
-      block.dataset.pmChain    = 'true';
-      block.dataset.pmDelivery = pmDelivery;
-
-      stripDistribution(block);
-
-      // Append P&M phase row if not already present
-      const existingPM = [...block.querySelectorAll('.pt-name')]
-        .find(inp => inp.value.startsWith('Print & Mail'));
-      if (!existingPM) {
-        const tbody = block.querySelector('.phase-table tbody');
-        if (tbody) {
-          const tr = document.createElement('tr');
-          tr.dataset.isPmPhase = 'true';
-          tr.innerHTML = `
-            <td class="phase-drag-handle" title="Drag to reorder">⠿</td>
-            <td><input class="pt-name" type="text" value="Print &amp; Mail"></td>
-            <td style="text-align:center"><span class="owner-badge owner-flimp">Flimp</span></td>
-            <td style="text-align:center"><input class="pt-dur" type="number" min="1" max="120" value="10"></td>
-            <td class="phase-end-date" style="text-align:center;font-size:11px;color:var(--text-secondary);white-space:nowrap">—</td>
-            <td style="text-align:center"><button class="phase-rm-btn" title="Remove phase">&times;</button></td>`;
-          tr.querySelector('.pt-dur').addEventListener('change', () => {
-            updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block);
-          });
-          tr.querySelector('.phase-rm-btn').onclick = () => {
-            tr.remove();
-            delete block.dataset.pmChain;
-            delete block.dataset.pmDelivery;
-            updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block);
-          };
-          tbody.appendChild(tr);
-        }
-      }
-
-      recalcPhaseDates(block);
-      recalcBlockFeasibility(block);
-    });
-
-    updateFeasibility(); // recalc global panel now that P&M rows are in DOM
-  }, 50);
+  setTimeout(() => applyPMPostPass(), 50);
 
   document.getElementById('phasePreviewSection').style.display = 'block';
   updateGenerateBtn();
   updateGantt();
   document.getElementById('phasePreviewSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+
+// ── PM post-pass — callable independently of previewPhases ───────────────
+// Appends P&M phase rows to all blocks in a PM-configured chain and stamps
+// block.dataset.pmDelivery. Safe to call multiple times (idempotent via
+// existingPM check). Called by previewPhases (via setTimeout) and by the
+// checklist checkbox onchange.
+export function applyPMPostPass() {
+  const allDelRows   = [...document.querySelectorAll('#delRows .del-row')];
+  const parentIdxMap = buildParentIdxMap(allDelRows);
+  const blocks       = [...document.querySelectorAll('#pbBlocks .pb-block')];
+
+  function stripDistribution(block) {
+    const rows2 = [...block.querySelectorAll('tbody tr')];
+    for (let i = rows2.length - 1; i >= 0; i--) {
+      const nameInput = rows2[i].querySelector('.pt-name');
+      if (nameInput && nameInput.value.toLowerCase().includes('distribution')) {
+        rows2[i].remove(); recalcPhaseDates(block); recalcBlockFeasibility(block); break;
+      }
+    }
+  }
+
+  // Strip Distribution from parent blocks
+  const parentIndicesWithAppended = new Set();
+  allDelRows.forEach((row, i) => {
+    if (parentIdxMap[i] !== null && parentIdxMap[i] !== undefined) {
+      parentIndicesWithAppended.add(parentIdxMap[i]);
+    }
+  });
+  parentIndicesWithAppended.forEach(parentIdx => {
+    const parentRow = allDelRows[parentIdx];
+    if (!parentRow) return;
+    const parentProduct   = parentRow.querySelector('select')?.value;
+    const parentIsRenewal = parentRow.querySelector('.nr-btn.r-active') !== null;
+    if (!parentProduct) return;
+    const block = blocks.find(b =>
+      b.dataset.product === parentProduct &&
+      (b.dataset.isrenewal === 'true') === parentIsRenewal
+    );
+    if (block) stripDistribution(block);
+  });
+
+  // ── PM chain post-pass ──────────────────────────────────────────────────
+  function getChainRootIdx(idx) {
+    let cur = idx, safety = 0;
+    while (parentIdxMap[cur] !== null && parentIdxMap[cur] !== undefined && safety++ < 20) {
+      cur = parentIdxMap[cur];
+    }
+    return cur;
+  }
+
+  const pmDeliveryByRoot = {};
+  allDelRows.forEach((row, i) => {
+    if (!row.dataset.pmDelivery) return;
+    const rootIdx  = getChainRootIdx(i);
+    const existing = pmDeliveryByRoot[rootIdx];
+    if (!existing || row.dataset.pmDelivery < existing) {
+      pmDeliveryByRoot[rootIdx] = row.dataset.pmDelivery;
+    }
+  });
+
+  allDelRows.forEach((row, i) => {
+    const rootIdx    = getChainRootIdx(i);
+    const pmDelivery = pmDeliveryByRoot[rootIdx];
+    if (!pmDelivery) return;
+
+    const product   = row.querySelector('select')?.value;
+    const isRenewal = row.querySelector('.nr-btn.r-active') !== null;
+    if (!product) return;
+    if (product === 'Print & Mail') return;
+
+    const block = blocks.find(b =>
+      b.dataset.product === product &&
+      (b.dataset.isrenewal === 'true') === isRenewal
+    );
+    if (!block) return;
+
+    block.dataset.pmChain    = 'true';
+    block.dataset.pmDelivery = pmDelivery;
+
+    stripDistribution(block);
+
+    const existingPM = [...block.querySelectorAll('.pt-name')]
+      .find(inp => inp.value.startsWith('Print & Mail'));
+    if (!existingPM) {
+      const tbody = block.querySelector('.phase-table tbody');
+      if (tbody) {
+        const tr = document.createElement('tr');
+        tr.dataset.isPmPhase = 'true';
+        tr.innerHTML = `
+          <td class="phase-drag-handle" title="Drag to reorder">⠿</td>
+          <td><input class="pt-name" type="text" value="Print &amp; Mail"></td>
+          <td style="text-align:center"><span class="owner-badge owner-flimp">Flimp</span></td>
+          <td style="text-align:center"><input class="pt-dur" type="number" min="1" max="120" value="10"></td>
+          <td class="phase-end-date" style="text-align:center;font-size:11px;color:var(--text-secondary);white-space:nowrap">—</td>
+          <td style="text-align:center"><button class="phase-rm-btn" title="Remove phase">&times;</button></td>`;
+        tr.querySelector('.pt-dur').addEventListener('change', () => {
+          updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block);
+        });
+        tr.querySelector('.phase-rm-btn').onclick = () => {
+          tr.remove();
+          delete block.dataset.pmChain;
+          delete block.dataset.pmDelivery;
+          updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block);
+        };
+        tbody.appendChild(tr);
+      }
+    }
+
+    recalcPhaseDates(block);
+    recalcBlockFeasibility(block);
+  });
+
+  updateFeasibility();
+  updateGantt();
 
 // ── Per-block feasibility ─────────────────────────────────────────────────
 // ── Get the pb-block that is the parent of a given block (or null) ────────

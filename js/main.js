@@ -10,7 +10,7 @@ import {
   buildDelRow, buildSelect, addRow, updateRemove,
   previewPhases, updateFeasibility, recalcPhaseDates,
   recalcBlockFeasibility, togglePMSection, addPMRow,
-  refreshPMSelectors, rebuildPMChecklist, readPMConfig, lastEarliestStart
+  refreshPMSelectors, rebuildPMChecklist, applyPMPostPass, readPMConfig, lastEarliestStart
 } from './ui.js';
 import {
   renderTimelineTable, copyEmailTable, switchTab,
@@ -113,9 +113,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Wire global onclick handlers used by inline HTML attributes
   window.previewPhases    = previewPhases;
   window.addRow           = addRow;
-  window.togglePMSection  = togglePMSection;
-  window.addPMRow         = addPMRow;
+  window.togglePMSection    = togglePMSection;
+  window.addPMRow           = addPMRow;
   window.rebuildPMChecklist = rebuildPMChecklist;
+  window.applyPMPostPass    = applyPMPostPass;
   window.setDays          = setDays;
   window.generateTimeline = generateTimeline;
   window.copyEmailTable   = copyEmailTable;
