@@ -971,28 +971,14 @@ function getParentBlock(block) {
   const allBlocks  = [...document.querySelectorAll('#pbBlocks .pb-block')];
   const parentIdxMap = buildParentIdxMap(allDelRows);
 
-  // Find the del-row index that corresponds to this block
-  const blockProduct   = block.dataset.product;
-  const blockIsRenewal = block.dataset.isrenewal === 'true';
-  const blockDelIdx    = allDelRows.findIndex(row => {
-    const sel = row.querySelector('select');
-    const renewal = row.querySelector('.nr-btn.r-active') !== null;
-    return sel && sel.value === blockProduct && renewal === blockIsRenewal;
-  });
-  if (blockDelIdx === -1) return null;
+  // Use the stamped delIdx — unambiguous even when duplicate products exist
+  const blockDelIdx = parseInt(block.dataset.delIdx);
+  if (isNaN(blockDelIdx)) return null;
 
   const parentDelIdx = parentIdxMap[blockDelIdx];
   if (parentDelIdx === null || parentDelIdx === undefined) return null;
 
-  const parentRow       = allDelRows[parentDelIdx];
-  const parentProduct   = parentRow?.querySelector('select')?.value;
-  const parentIsRenewal = parentRow?.querySelector('.nr-btn.r-active') !== null;
-  if (!parentProduct) return null;
-
-  return allBlocks.find(b =>
-    b.dataset.product === parentProduct &&
-    (b.dataset.isrenewal === 'true') === parentIsRenewal
-  ) || null;
+  return allBlocks.find(b => parseInt(b.dataset.delIdx) === parentDelIdx) || null;
 }
 
 // ── Shared helper: get effective due date for a block ────────────────────
