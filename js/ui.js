@@ -1199,7 +1199,7 @@ export function recalcPhaseDates(block, blockEndDate) {
     if (startsEl && endsEl) {
       const starts = prodTotal > 0 ? subtractBusinessDays(productionDue, prodTotal) : productionDue;
       startsEl.innerHTML = `<span class="pb-date-label">Starts</span> ${fmtDateShort(starts)}`;
-      endsEl.innerHTML   = `<span class="pb-date-label">P&amp;M ships</span> ${fmtDateShort(pmDate)}`;
+      endsEl.innerHTML   = `<span class="pb-date-label">End</span> ${fmtDateShort(productionDue)}. <span class="pb-date-label">P&amp;M Delivers</span> ${fmtDateShort(pmDate)}`;
       if (sepEl) sepEl.style.display = '';
     }
 
