@@ -408,30 +408,28 @@ export function refreshParentSelectors() {
 }
 
 // ── Appended days helper ──────────────────────────────────────────────────
-function getAppendedDays(parentProduct, parentIsRenewal) {
-  const allRows = [...document.querySelectorAll('#delRows .del-row')];
-  let total = 0;
-  allRows.forEach(row => {
-    const sel = row.querySelector('select');
-    if (!sel || !sel.value || !VALID_PARENTS[sel.value]) return;
-    const parentSel = row.querySelector('.parent-sel');
-    if (!parentSel || parentSel.value === '') return;
-    const opt = parentSel.options[parentSel.selectedIndex];
-    if (!opt) return;
-    const expectedLabel = parentProduct + (parentIsRenewal ? ' (Renewal)' : ' (New)');
-    if (opt.textContent.replace(/ \d+$/, '') === expectedLabel) {
-      const blocks = [...document.querySelectorAll('#pbBlocks .pb-block')];
-      const matchBlock = blocks.find(b => {
-        const rowIsRenewal = row.querySelector('.nr-btn.r-active') !== null;
-        return b.dataset.product === sel.value && (b.dataset.isrenewal === 'true') === rowIsRenewal;
-      });
-      if (matchBlock) {
-        const durs = [...matchBlock.querySelectorAll('.pt-dur')].map(i => parseInt(i.value) || 1);
-        total += durs.reduce((a, b) => a + b, 0);
-      }
-    }
-  });
-  return total;
+// Returns the longest child chain (in business days) hanging off parentDelIdx.
+// Children run in parallel after the parent ends, so the offset is the MAX
+// child chain length, not the sum. Recurses into grandchildren.
+function getAppendedDays(parentDelIdx) {
+  const allDelRows   = [...document.querySelectorAll('#delRows .del-row')];
+  const allBlocks    = [...document.querySelectorAll('#pbBlocks .pb-block')];
+  const parentIdxMap = buildParentIdxMap(allDelRows);
+
+  // Longest sequential chain starting from block at idx (its days + its longest child chain)
+  function longestChainFrom(idx) {
+    const block = allBlocks.find(b => parseInt(b.dataset.delIdx) === idx);
+    if (!block) return 0;
+    const days = [...block.querySelectorAll('.pt-dur')]
+      .reduce((s, inp) => s + Math.max(0, parseInt(inp.value) || 0), 0);
+    const children = allDelRows.map((_, j) => j).filter(j => parentIdxMap[j] === idx);
+    if (!children.length) return days;
+    return days + Math.max(...children.map(j => longestChainFrom(j)));
+  }
+
+  const directChildren = allDelRows.map((_, j) => j).filter(j => parentIdxMap[j] === parentDelIdx);
+  if (!directChildren.length) return 0;
+  return Math.max(...directChildren.map(j => longestChainFrom(j)));
 }
 
 // ── Phase row drag-and-drop ───────────────────────────────────────────────
@@ -900,29 +898,20 @@ export function applyPMPostPass() {
     return cur;
   }
 
-  // Collect delivery dates per chain root from checked items only.
-  // If all checked items in a chain share the same date, that date is used for all.
-  // If checked items have different dates, each item uses its own date (allSame = false).
-  const pmDeliveryByRoot = {};   // rootIdx → date string (only set when all dates agree)
-  const pmDatesPerRoot   = {};   // rootIdx → Set of date strings
+  const pmDeliveryByRoot = {};
   allDelRows.forEach((row, i) => {
     if (!row.dataset.pmDelivery) return;
-    const rootIdx = getChainRootIdx(i);
-    if (!pmDatesPerRoot[rootIdx]) pmDatesPerRoot[rootIdx] = new Set();
-    pmDatesPerRoot[rootIdx].add(row.dataset.pmDelivery);
-  });
-  // Only populate pmDeliveryByRoot when all checked items share a single date
-  Object.entries(pmDatesPerRoot).forEach(([rootIdx, dates]) => {
-    if (dates.size === 1) pmDeliveryByRoot[rootIdx] = [...dates][0];
-    // size > 1 → dates differ → each item will use its own row.dataset.pmDelivery
+    const rootIdx  = getChainRootIdx(i);
+    const existing = pmDeliveryByRoot[rootIdx];
+    if (!existing || row.dataset.pmDelivery < existing) {
+      pmDeliveryByRoot[rootIdx] = row.dataset.pmDelivery;
+    }
   });
 
+
   allDelRows.forEach((row, i) => {
-    // Only apply P&M to rows that were individually checked in section 2.1
-    if (!row.dataset.pmDelivery) return;
-    const rootIdx = getChainRootIdx(i);
-    // Use shared chain date if all items agree, otherwise fall back to this item's own date
-    const pmDelivery = pmDeliveryByRoot[rootIdx] || row.dataset.pmDelivery;
+    const rootIdx    = getChainRootIdx(i);
+    const pmDelivery = pmDeliveryByRoot[rootIdx];
     if (!pmDelivery) return;
 
     const product   = row.querySelector('select')?.value;
@@ -980,14 +969,28 @@ function getParentBlock(block) {
   const allBlocks  = [...document.querySelectorAll('#pbBlocks .pb-block')];
   const parentIdxMap = buildParentIdxMap(allDelRows);
 
-  // Use the stamped delIdx — unambiguous even when duplicate products exist
-  const blockDelIdx = parseInt(block.dataset.delIdx);
-  if (isNaN(blockDelIdx)) return null;
+  // Find the del-row index that corresponds to this block
+  const blockProduct   = block.dataset.product;
+  const blockIsRenewal = block.dataset.isrenewal === 'true';
+  const blockDelIdx    = allDelRows.findIndex(row => {
+    const sel = row.querySelector('select');
+    const renewal = row.querySelector('.nr-btn.r-active') !== null;
+    return sel && sel.value === blockProduct && renewal === blockIsRenewal;
+  });
+  if (blockDelIdx === -1) return null;
 
   const parentDelIdx = parentIdxMap[blockDelIdx];
   if (parentDelIdx === null || parentDelIdx === undefined) return null;
 
-  return allBlocks.find(b => parseInt(b.dataset.delIdx) === parentDelIdx) || null;
+  const parentRow       = allDelRows[parentDelIdx];
+  const parentProduct   = parentRow?.querySelector('select')?.value;
+  const parentIsRenewal = parentRow?.querySelector('.nr-btn.r-active') !== null;
+  if (!parentProduct) return null;
+
+  return allBlocks.find(b =>
+    b.dataset.product === parentProduct &&
+    (b.dataset.isrenewal === 'true') === parentIsRenewal
+  ) || null;
 }
 
 // ── Shared helper: get effective due date for a block ────────────────────
@@ -1021,7 +1024,8 @@ function getEffectiveDue(block) {
   let due = new Date(dueVal + 'T00:00:00');
   while (!isWorkDay(due)) due.setDate(due.getDate() - 1);
   if (!VALID_PARENTS[bp]) {
-    const appDays = getAppendedDays(bp, bir);
+    const delIdx  = parseInt(block.dataset.delIdx);
+    const appDays = !isNaN(delIdx) ? getAppendedDays(delIdx) : 0;
     if (appDays > 0) due = subtractBusinessDays(due, appDays);
   }
   return due;
