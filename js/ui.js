@@ -726,7 +726,6 @@ export function previewPhases() {
     // Title wrap
     const titleWrap = document.createElement('div');
     titleWrap.className = 'pb-title-wrap';
-    const variantLabel = isNA ? '' : (isRenewal ? ' &bull; Renewal' : ' &bull; New');
     const isLeaf = !!VALID_PARENTS[del.product];
 
     // For child/grandchild blocks, show which parent they are attached to
@@ -736,11 +735,12 @@ export function previewPhases() {
     const _parentProduct = (_parentIdx !== null && _parentIdx !== undefined)
       ? _allDelRows[_parentIdx]?.querySelector('select')?.value
       : null;
-    const parentLabel = _parentProduct ? ` &middot; ↳ ${esc(_parentProduct)}` : '';
+    const parentLabel = _parentProduct ? `: ${esc(_parentProduct)}` : '';
+    const renewalLabel = isNA ? '' : (isRenewal ? ' (Renewal)' : ' (New)');
 
     titleWrap.innerHTML = `
       <div class="pb-title">
-        <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${esc(dot)};margin-right:6px;vertical-align:middle"></span>${esc(del.product)}<span class="pb-title-sub">${esc(grp ? grp.group : '')}${variantLabel}${parentLabel} &middot; ${expanded.length} phases</span>
+        <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${esc(dot)};margin-right:6px;vertical-align:middle"></span>${esc(del.product)}<span class="pb-title-sub">${parentLabel}${renewalLabel}, ${expanded.length} phases</span>
       </div>
       <div class="pb-dates" style="min-height:16px"><span class="pb-total-days" style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-right:8px"></span><span class="pb-date-starts"></span><span class="pb-date-sep" style="display:none">→</span><span class="pb-date-ends"></span></div>
       <div class="pb-feas"${isLeaf ? ' style="display:none"' : ''}><div class="pb-feas-bar-track"><div class="pb-feas-bar-fill"></div></div><div class="pb-feas-diff"></div></div>`;
