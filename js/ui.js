@@ -996,6 +996,9 @@ function getParentBlock(block) {
 // ── Shared helper: get effective due date for a block ────────────────────
 // For PM chain blocks: pmDelivery is the hard ceiling (stamped on block in post-pass)
 // For regular parents/standalones: project due date - appended child days
+// For child blocks: parent's effective due + child's own days, so counting
+// backward by child days always lands on the parent's end date regardless
+// of child duration. This ensures parallel children share the same start date.
 // Returns a Date or null.
 function getEffectiveDue(block) {
   const bp  = block.dataset.product;
@@ -1021,6 +1024,18 @@ function getEffectiveDue(block) {
   }
 
   if (!dueVal) return null;
+
+  // Child blocks: effective due = parent's effective due + this block's own days.
+  // Counting backward by blockDays from that date lands exactly on the parent's
+  // end date — so all parallel children share the same start date.
+  const parentBlock = getParentBlock(block);
+  if (parentBlock) {
+    const parentDue = getEffectiveDue(parentBlock);
+    if (!parentDue) return null;
+    return addBusinessDays(parentDue, getBlockDays(block));
+  }
+
+  // Root block: project due date minus the longest child chain
   let due = new Date(dueVal + 'T00:00:00');
   while (!isWorkDay(due)) due.setDate(due.getDate() - 1);
   if (!VALID_PARENTS[bp]) {
