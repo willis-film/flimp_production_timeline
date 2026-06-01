@@ -1025,14 +1025,45 @@ function getEffectiveDue(block) {
 
   if (!dueVal) return null;
 
-  // Child blocks: effective due = parent's effective due + this block's own days.
-  // Counting backward by blockDays from that date lands exactly on the parent's
-  // end date — so all parallel children share the same start date.
+  // Child blocks: effective due = gateBlock's effective due + this block's own days.
+  // Counting backward by blockDays from that date lands exactly on the gate's end date.
+  // For most blocks the gate is the direct parent. For translations, it may be an
+  // alternate sibling — mirroring the engine's latestAlternateEndInChain logic:
+  // if any alternate sibling has translation children, all translations in the chain
+  // wait for the latest such alternate to complete before starting.
   const parentBlock = getParentBlock(block);
   if (parentBlock) {
-    const parentDue = getEffectiveDue(parentBlock);
-    if (!parentDue) return null;
-    return addBusinessDays(parentDue, getBlockDays(block));
+    let gateBlock = parentBlock;
+
+    if (PRODUCT_META[block.dataset.product]?.scheduleType === 'translation') {
+      const allDelRows   = [...document.querySelectorAll('#delRows .del-row')];
+      const allBlocks    = [...document.querySelectorAll('#pbBlocks .pb-block')];
+      const parentIdxMap = buildParentIdxMap(allDelRows);
+      const thisIdx      = parseInt(block.dataset.delIdx);
+      const parentIdx    = parentIdxMap[thisIdx];
+
+      allDelRows.forEach((_, j) => {
+        if (j === thisIdx || parentIdxMap[j] !== parentIdx) return; // must be a sibling
+        const sibBlock = allBlocks.find(b => parseInt(b.dataset.delIdx) === j);
+        if (!sibBlock) return;
+        if (PRODUCT_META[sibBlock.dataset.product]?.scheduleType !== 'alternate') return;
+        // Only gate if this alternate sibling has at least one translation child
+        const hasTransChild = allDelRows.some((_, k) => {
+          if (parentIdxMap[k] !== j) return false;
+          const cb = allBlocks.find(b => parseInt(b.dataset.delIdx) === k);
+          return cb && PRODUCT_META[cb.dataset.product]?.scheduleType === 'translation';
+        });
+        if (!hasTransChild) return;
+        // Among qualifying alternates, keep the one that ends latest
+        const sibDue     = getEffectiveDue(sibBlock);
+        const currentDue = gateBlock === parentBlock ? null : getEffectiveDue(gateBlock);
+        if (!currentDue || (sibDue && sibDue > currentDue)) gateBlock = sibBlock;
+      });
+    }
+
+    const gateDue = getEffectiveDue(gateBlock);
+    if (!gateDue) return null;
+    return addBusinessDays(gateDue, getBlockDays(block));
   }
 
   // Root block: project due date minus the longest child chain
