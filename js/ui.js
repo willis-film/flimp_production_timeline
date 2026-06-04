@@ -1207,12 +1207,33 @@ export function recalcPhaseDates(block, blockEndDate) {
 
     const pmDate    = new Date(pmDelivery + 'T00:00:00');
     const pmDur     = parseDur(durInputs[pmRowIdx]);
-    // P&M start = pmDate - pmDur. For leaf blocks, production ends at pmStart.
-    // For non-leaf blocks (root/alternate with children), production ends earlier —
-    // the child chain must complete before P&M can start across the whole project.
-    const pmStart      = subtractBusinessDays(pmDate, pmDur);
-    const appendedDays = getAppendedDays(parseInt(block.dataset.delIdx));
-    const productionDue = appendedDays > 0 ? subtractBusinessDays(pmStart, appendedDays) : pmStart;
+
+    // Use the LATEST P&M delivery date across all PM blocks in this chain as
+    // the shared production anchor. When delivery dates differ (e.g. root has
+    // an earlier date than children), each block independently computing from
+    // its own pmStart breaks the hierarchy — children would start after the
+    // root's P&M ends rather than running concurrently. A single chain-wide
+    // anchor keeps all production dates consistent with each other.
+    const allScanBlocks = [...document.querySelectorAll('#pbBlocks .pb-block')];
+    const allScanRows   = [...document.querySelectorAll('#delRows .del-row')];
+    const scanParentMap = buildParentIdxMap(allScanRows);
+    const thisDelIdx    = parseInt(block.dataset.delIdx);
+    function chainRootOf_pm(idx) {
+      let cur = idx, n = 0;
+      while (scanParentMap[cur] !== null && scanParentMap[cur] !== undefined && n++ < 20) cur = scanParentMap[cur];
+      return cur;
+    }
+    const chainRoot = chainRootOf_pm(thisDelIdx);
+    let latestDelivery = pmDate;
+    allScanBlocks.forEach(b => {
+      if (!b.dataset.pmDelivery || !b.dataset.pmChain) return;
+      if (chainRootOf_pm(parseInt(b.dataset.delIdx)) !== chainRoot) return;
+      const d = new Date(b.dataset.pmDelivery + 'T00:00:00');
+      if (d > latestDelivery) latestDelivery = d;
+    });
+    const chainPmStart  = subtractBusinessDays(latestDelivery, pmDur);
+    const appendedDays  = getAppendedDays(thisDelIdx);
+    const productionDue = appendedDays > 0 ? subtractBusinessDays(chainPmStart, appendedDays) : chainPmStart;
 
     // Production phases: all rows except pmRowIdx
     const prodDurs = durInputs
