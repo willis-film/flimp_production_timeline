@@ -851,6 +851,15 @@ export function previewPhases() {
     blockIndex++;
   });
 
+  // Second pass: recalculate all blocks now that the full chain is in the DOM.
+  // The first pass above may have produced wrong dates because sibling/child
+  // blocks didn't exist yet — getAppendedDays and the translation gate both
+  // need all blocks present to resolve correctly.
+  [...container.querySelectorAll('.pb-block')].forEach(block => {
+    recalcPhaseDates(block);
+    recalcBlockFeasibility(block);
+  });
+
   // Post-pass: remove Distribution from parents that have appended items
   refreshParentSelectors();
   refreshPMSelectors(); // stamp data-pm-delivery on del-rows before the timeout reads them
