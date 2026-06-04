@@ -384,12 +384,12 @@ export function refreshParentSelectors() {
     const curVal    = parentSel.value;
 
     const options = [], labelCounts = {};
-    allRows.forEach(otherRow => {
+    allRows.forEach((otherRow, rowIndex) => {
       if (otherRow === row) return;
       const info = getRowLabel(otherRow);
       if (!info || !validParentSet.has(info.product)) return;
       labelCounts[info.label] = (labelCounts[info.label] || 0) + 1;
-      options.push({ product: info.product, label: info.label, idx: labelCounts[info.label] });
+      options.push({ product: info.product, label: info.label, idx: labelCounts[info.label], rowIndex });
     });
     const finalOptions = options.map(o => ({
       ...o,
@@ -397,13 +397,13 @@ export function refreshParentSelectors() {
     }));
 
     parentSel.innerHTML = '<option value="">Select parent deliverable…</option>';
-    finalOptions.forEach((o, i) => {
+    finalOptions.forEach(o => {
       const opt = document.createElement('option');
-      opt.value = i; opt.textContent = o.label; opt.dataset.product = o.product;
-      if (String(i) === curVal) opt.selected = true;
+      opt.value = o.rowIndex; opt.textContent = o.label; opt.dataset.product = o.product;
+      if (String(o.rowIndex) === curVal) opt.selected = true;
       parentSel.appendChild(opt);
     });
-    if (finalOptions.length === 1) parentSel.value = '0';
+    if (finalOptions.length === 1) parentSel.value = String(finalOptions[0].rowIndex);
   });
 }
 
