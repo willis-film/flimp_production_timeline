@@ -921,20 +921,29 @@ export function applyPMPostPass() {
     return cur;
   }
 
-  const pmDeliveryByRoot = {};
+  // Collect delivery dates per chain root from checked items only.
+  // If all checked items in a chain share the same date, use that date for all.
+  // If checked items have different dates, each item uses its own date.
+  const pmDeliveryByRoot = {};   // rootIdx → date string (only set when all dates agree)
+  const pmDatesPerRoot   = {};   // rootIdx → Set of date strings
   allDelRows.forEach((row, i) => {
     if (!row.dataset.pmDelivery) return;
-    const rootIdx  = getChainRootIdx(i);
-    const existing = pmDeliveryByRoot[rootIdx];
-    if (!existing || row.dataset.pmDelivery < existing) {
-      pmDeliveryByRoot[rootIdx] = row.dataset.pmDelivery;
-    }
+    const rootIdx = getChainRootIdx(i);
+    if (!pmDatesPerRoot[rootIdx]) pmDatesPerRoot[rootIdx] = new Set();
+    pmDatesPerRoot[rootIdx].add(row.dataset.pmDelivery);
+  });
+  // Only populate pmDeliveryByRoot when all checked items share a single date
+  Object.entries(pmDatesPerRoot).forEach(([rootIdx, dates]) => {
+    if (dates.size === 1) pmDeliveryByRoot[rootIdx] = [...dates][0];
+    // size > 1 → dates differ → each item will use its own row.dataset.pmDelivery
   });
 
-
   allDelRows.forEach((row, i) => {
-    const rootIdx    = getChainRootIdx(i);
-    const pmDelivery = pmDeliveryByRoot[rootIdx];
+    // Only apply P&M to rows that were individually checked in section 2.1
+    if (!row.dataset.pmDelivery) return;
+    const rootIdx = getChainRootIdx(i);
+    // Use shared chain date if all items agree, otherwise fall back to this item's own date
+    const pmDelivery = pmDeliveryByRoot[rootIdx] || row.dataset.pmDelivery;
     if (!pmDelivery) return;
 
     const product   = row.querySelector('select')?.value;
