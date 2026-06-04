@@ -416,12 +416,13 @@ function getAppendedDays(parentDelIdx) {
   const allBlocks    = [...document.querySelectorAll('#pbBlocks .pb-block')];
   const parentIdxMap = buildParentIdxMap(allDelRows);
 
-  // Longest sequential chain starting from block at idx (its days + its longest child chain)
+  // Longest sequential chain starting from block at idx (production days only — excludes P&M rows)
   function longestChainFrom(idx) {
     const block = allBlocks.find(b => parseInt(b.dataset.delIdx) === idx);
     if (!block) return 0;
-    const days = [...block.querySelectorAll('.pt-dur')]
-      .reduce((s, inp) => s + Math.max(0, parseInt(inp.value) || 0), 0);
+    const days = [...block.querySelectorAll('.phase-table tbody tr')]
+      .filter(tr => !tr.querySelector('.pt-name')?.value.startsWith('Print & Mail'))
+      .reduce((s, tr) => s + Math.max(0, parseInt(tr.querySelector('.pt-dur')?.value) || 0), 0);
     const children = allDelRows.map((_, j) => j).filter(j => parentIdxMap[j] === idx);
     if (!children.length) return days;
     return days + Math.max(...children.map(j => longestChainFrom(j)));
@@ -1197,11 +1198,12 @@ export function recalcPhaseDates(block, blockEndDate) {
 
     const pmDate    = new Date(pmDelivery + 'T00:00:00');
     const pmDur     = parseDur(durInputs[pmRowIdx]);
-    // Production phases anchor to pmDelivery — they back-schedule from there
-    // so the last production phase ends exactly pmDur days before P&M ships.
-    // The "gap" is implicit: the last production phase ends before pmGate,
-    // and P&M starts at pmGate regardless.
-    const productionDue = subtractBusinessDays(pmDate, pmDur);
+    // P&M start = pmDate - pmDur. For leaf blocks, production ends at pmStart.
+    // For non-leaf blocks (root/alternate with children), production ends earlier —
+    // the child chain must complete before P&M can start across the whole project.
+    const pmStart      = subtractBusinessDays(pmDate, pmDur);
+    const appendedDays = getAppendedDays(parseInt(block.dataset.delIdx));
+    const productionDue = appendedDays > 0 ? subtractBusinessDays(pmStart, appendedDays) : pmStart;
 
     // Production phases: all rows except pmRowIdx
     const prodDurs = durInputs
