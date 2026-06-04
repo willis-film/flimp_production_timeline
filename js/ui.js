@@ -640,9 +640,12 @@ export function previewPhases() {
         : Math.max(1, del.rounds - fixedTotal);
 
       const groupPhases = phases.filter(gp => gp.round_group_name === p.round_group_name);
-      for (let r = 1; r <= rCount; r++) {
+      const OFFSET_GROUPS   = ['bground', 'cust bg round'];
+      const OFFSET_PRODUCTS = ['Premium Guide', 'Custom Guide'];
+      const startRound = (OFFSET_GROUPS.includes(p.round_group_name) && OFFSET_PRODUCTS.includes(del.product)) ? 3 : 1;
+      for (let r = startRound; r < startRound + rCount; r++) {
         groupPhases.forEach(gp => {
-          const baseName = rCount > 1 ? `${gp.name} Rd ${r}` : gp.name;
+          const baseName = (rCount > 1 || startRound > 1) ? `${gp.name} Rd ${r}` : gp.name;
           expanded.push({ ...gp, name: baseName });
         });
       }
