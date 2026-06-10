@@ -131,6 +131,10 @@ export function buildSelect() {
 
 // Exposed so main.js can include it in lastTimelineData for PDF export
 export let lastEarliestStart = null;
+// The Gantt computes the authoritative total project span (earliest start → anchor).
+// updateFeasibility reads this for the "Days Needed" box instead of re-deriving it,
+// so the boxes always agree with the Gantt and the timeline output.
+export let lastTotalSpanDays = 0;
 
 export function buildDelRow() {
   const row = document.createElement('div');
@@ -1445,62 +1449,13 @@ export function updateFeasibility() {
     return;
   }
 
-  const feasDelRows    = [...document.querySelectorAll('#delRows .del-row')];
-  const blockDaysByIdx = {};
-  blocks.forEach((block, i) => {
-    blockDaysByIdx[i] = [...block.querySelectorAll('tbody tr')]
-      .filter(tr => {
-        const name = tr.querySelector('.pt-name')?.value || '';
-        return !name.startsWith('Print & Mail');
-      })
-      .reduce((sum, tr) => sum + (Math.max(1, parseInt(tr.querySelector('.pt-dur')?.value) || 1)), 0);
-  });
-
-  const feasParentMap = buildParentIdxMap(feasDelRows);
-
-  function feasChainDays(idx) {
-    const children = blocks.map((_, j) => j).filter(j => feasParentMap[j] === idx);
-    if (!children.length) return blockDaysByIdx[idx] || 0;
-    return (blockDaysByIdx[idx] || 0) + Math.max(...children.map(j => feasChainDays(j)));
-  }
-
-  // For the global panel, needed = longest chain judged against project due date.
-  // PM parent chains are bounded by their delivery window, so we compute their
-  // effective days as: pmWindow - ownDays (available slack for chain).
-  // For simplicity, we report the longest non-PM chain against project due date,
-  // and flag if any PM parent chain exceeds its window.
-  // Total project span: earliest root blockStart → latest root anchor
-  // Mirrors updateGantt logic so Days Needed = total project length, not longest single chain
-  let earliestRootStart = null;
-  let latestRootAnchor  = null;
-  blocks.forEach((block, i) => {
-    if (feasParentMap[i] !== null) return; // not a root
-    const chain = feasChainDays(i);
-    // Determine this root's anchor (PM delivery date or project due date)
-    const pmRow = feasDelRows.find(r => {
-      const s = r.querySelector('select');
-      const renewal = r.querySelector('.nr-btn.r-active') !== null;
-      return s && s.value === block.dataset.product &&
-             (renewal) === (block.dataset.isrenewal === 'true') &&
-             r.dataset.pmDelivery;
-    });
-    const pmDelivery = pmRow?.dataset.pmDelivery;
-    let anchor;
-    if (pmDelivery) {
-      const pmDate = new Date(pmDelivery + 'T00:00:00');
-      const chainEnd = addBusinessDays(startDate, chain);
-      anchor = chainEnd > pmDate ? chainEnd : pmDate;
-    } else {
-      const chainEnd = addBusinessDays(startDate, chain);
-      anchor = dueDate ? (chainEnd > dueDate ? chainEnd : dueDate) : chainEnd;
-    }
-    const rootStart = subtractBusinessDays(anchor, chain);
-    if (!earliestRootStart || rootStart < earliestRootStart) earliestRootStart = rootStart;
-    if (!latestRootAnchor  || anchor > latestRootAnchor)     latestRootAnchor  = anchor;
-  });
-  const needed = (earliestRootStart && latestRootAnchor)
-    ? countBusinessDays(earliestRootStart, latestRootAnchor)
-    : 0;
+  // Run the Gantt first — it computes blockStart/blockEnd from the authoritative
+  // stamped phase dates and writes both "Latest Possible Start" (feasLatestStart)
+  // and the total project span (lastTotalSpanDays). Reading that here keeps the
+  // four feasibility boxes in lockstep with the Gantt and the timeline output,
+  // instead of re-deriving the schedule with separate (and drift-prone) math.
+  updateGantt();
+  const needed = lastTotalSpanDays;
   document.getElementById('feasNeeded').textContent = needed;
 
   if (available === null) {
@@ -1508,7 +1463,7 @@ export function updateFeasibility() {
     document.getElementById('feasMsg').textContent  = 'Set a due date to check feasibility';
     document.getElementById('feasFill').style.cssText = 'width:0%;background:var(--border)';
     document.getElementById('feasDiff').style.color   = 'var(--text)';
-    updateGantt(); return;
+    return;
   }
 
   const diff  = available - needed;
@@ -1522,8 +1477,6 @@ export function updateFeasibility() {
   else if (diff >= 1) { diffEl.style.color = '#b5920a'; msgEl.style.color = '#b5920a'; msgEl.textContent = `Tight — only ${diff} day${diff===1?'':'s'} buffer`;        fillEl.style.cssText = `width:${pct}%;background:var(--amber)`; }
   else if (diff === 0){ diffEl.style.color = '#b5920a'; msgEl.style.color = '#b5920a'; msgEl.textContent = 'Exactly on time — no buffer';                             fillEl.style.cssText = 'width:100%;background:var(--amber)'; }
   else               { diffEl.style.color = 'var(--red)'; msgEl.style.color = 'var(--red)'; msgEl.textContent = `${Math.abs(diff)} days over — compress`; fillEl.style.cssText = 'width:100%;background:var(--red)'; }
-
-  updateGantt();
 }
 
 // ── Gantt chart ───────────────────────────────────────────────────────────
@@ -1664,6 +1617,7 @@ export function updateGantt() {
   lastEarliestStart = earliestStart;
   // Total span: earliest blockStart → anchorDate, same convention as scaleDays
   const totalSpanDays = countBusinessDays(earliestStart, anchorDate);
+  lastTotalSpanDays = totalSpanDays;
   const latestStartEl = document.getElementById('feasLatestStart');
   if (latestStartEl) latestStartEl.textContent = earliestStart ? fmtDateShort(earliestStart) : '—';
   const totalWidthPct = Math.min(100, (totalSpanDays / scaleDays) * 100);
