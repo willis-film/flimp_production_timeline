@@ -1064,6 +1064,30 @@ function getParentBlock(block) {
 }
 
 // ── Shared helper: get effective due date for a block ────────────────────
+// ── Production-end date of a block, for gating its children ────────────────
+// A child must start when its parent's PRODUCTION completes — not when the
+// parent's P&M ships. For a PM parent, getEffectiveDue() returns pmDelivery
+// (correct for the parent's own phases, which end at the mail date), but using
+// that to gate a child would push the child past the delivery date. This helper
+// returns the parent's production-end date instead:
+//   PM block      → pmDelivery - pmDur (production ends pmDur days before mail)
+//   non-PM block  → its effective due (unchanged)
+// Returns a Date or null.
+function productionEndOf(block) {
+  const pmDelivery = block.dataset.pmDelivery
+    || (() => {
+      const r = [...document.querySelectorAll('#delRows .del-row')][parseInt(block.dataset.delIdx)];
+      return r?.dataset.pmDelivery;
+    })();
+  if (pmDelivery) {
+    const pmDate = new Date(pmDelivery + 'T00:00:00');
+    const pmInp  = [...block.querySelectorAll('.pt-name')].find(x => x.value.startsWith('Print & Mail'));
+    const pmDur  = pmInp ? (Math.max(1, parseInt(pmInp.closest('tr')?.querySelector('.pt-dur')?.value) || 10)) : 10;
+    return subtractBusinessDays(pmDate, pmDur);
+  }
+  return getEffectiveDue(block);
+}
+
 // For PM chain blocks: pmDelivery is the hard ceiling (stamped on block in post-pass)
 // For regular parents/standalones: project due date - appended child days
 // For child blocks: parent's effective due + child's own days, so counting
@@ -1122,14 +1146,19 @@ function getEffectiveDue(block) {
           return cb && PRODUCT_META[cb.dataset.product]?.scheduleType === 'translation';
         });
         if (!hasTransChild) return;
-        // Among qualifying alternates, keep the one that ends latest
-        const sibDue     = getEffectiveDue(sibBlock);
-        const currentDue = gateBlock === parentBlock ? null : getEffectiveDue(gateBlock);
+        // Among qualifying alternates, keep the one whose production ends latest.
+        // Compare on production end (not pmDelivery) to match the final gate basis.
+        const sibDue     = productionEndOf(sibBlock);
+        const currentDue = gateBlock === parentBlock ? null : productionEndOf(gateBlock);
         if (!currentDue || (sibDue && sibDue > currentDue)) gateBlock = sibBlock;
       });
     }
 
-    const gateDue = getEffectiveDue(gateBlock);
+    // Gate on the parent's PRODUCTION end, not its P&M delivery date. For a PM
+    // parent these differ by pmDur — using pmDelivery here would push the child
+    // (e.g. a chatbot) past the mail date instead of starting it when production
+    // completes.
+    const gateDue = productionEndOf(gateBlock);
     if (!gateDue) return null;
     return addBusinessDays(gateDue, getBlockDays(block));
   }
@@ -1570,9 +1599,17 @@ export function updateGantt() {
       blockEnd[i]   = prodEndDates.reduce((m, d) => d > m ? d : m);
       blockStart[i] = subtractBusinessDays(blockEnd[i], blockDays[i]);
     } else {
-      // No stamped dates yet (e.g. a block with no durations) — fall back to start
-      blockEnd[i]   = new Date(startDate);
-      blockStart[i] = new Date(startDate);
+      // No stamped dates — happens when recalcPhaseDates bailed (e.g. no project
+      // due date and no P&M delivery, so getEffectiveDue returned null). Don't
+      // collapse the bar to zero width; reconstruct position from the dependency:
+      // a child starts when its parent ends. sortedIdxs is DFS parent-first, so
+      // the parent's blockEnd is already set. Roots with no dates fall back to start.
+      const parIdx = parentIdxMap[i];
+      const start  = (parIdx !== null && blockEnd[parIdx])
+        ? nextWorkDay(new Date(blockEnd[parIdx]))
+        : new Date(startDate);
+      blockStart[i] = start;
+      blockEnd[i]   = addBusinessDays(start, blockDays[i]);
     }
   });
 
@@ -1653,6 +1690,15 @@ export function updateGantt() {
       connectorHtml = `${pipes}<span style="color:rgba(255,255,255,.3)">└─</span> `;
     }
 
+    // Whether the P&M segment butts directly against production (no gate gap).
+    // Drives the border-radius on both bars so they connect flush when adjacent
+    // and each round independently when there's a gap.
+    const pmAdjacent = (() => {
+      if (!isPMChain || !pmDelivery || pmDur <= 0) return false;
+      const pmStart = subtractBusinessDays(new Date(pmDelivery + 'T00:00:00'), pmDur);
+      return countBusinessDays(blockEnd[i], pmStart) <= 0;
+    })();
+
     // P&M segment: anchored to its actual delivery date, not appended to production.
     // recalcPhaseDates pins the P&M row's end to pmDelivery exactly, so the segment
     // spans (pmDelivery - pmDur) → pmDelivery. When production ends earlier than that
@@ -1664,7 +1710,9 @@ export function updateGantt() {
       const pmStart    = subtractBusinessDays(pmDate, pmDur);
       const pmLeftPct  = Math.max(0, (countBusinessDays(startDate, pmStart) / scaleDays) * 100);
       const pmWidthPct = Math.max(1, (pmDur / scaleDays) * 100);
-      return `<div style="left:${pmLeftPct.toFixed(2)}%;width:${pmWidthPct.toFixed(2)}%;background:#534AB7;position:absolute;top:0;bottom:0;border-radius:0 4px 4px 0;display:flex;align-items:center;justify-content:center;font-size:${isChild?'9':'10'}px;font-weight:700;color:rgba(255,255,255,.9);opacity:.9" title="P&amp;M: ${pmDur}d, ships ${fmtDateShort(pmDate)}">
+      // Square left edge only when flush against production; round it when gapped
+      const pmRadius   = pmAdjacent ? '0 4px 4px 0' : '4px';
+      return `<div style="left:${pmLeftPct.toFixed(2)}%;width:${pmWidthPct.toFixed(2)}%;background:#534AB7;position:absolute;top:0;bottom:0;border-radius:${pmRadius};display:flex;align-items:center;justify-content:center;font-size:${isChild?'9':'10'}px;font-weight:700;color:rgba(255,255,255,.9);opacity:.9" title="P&amp;M: ${pmDur}d, ships ${fmtDateShort(pmDate)}">
         ${pmWidthPct > 5 ? 'P&amp;M' : ''}
       </div>`;
     })();
@@ -1692,14 +1740,7 @@ export function updateGantt() {
     })();
 
     // Production bar: square the right edge only when the P&M segment butts
-    // directly against it (no gate gap). When there's a gap between production
-    // end and P&M start, round the production bar normally so it doesn't look
-    // like a broken/clipped bar floating in empty space.
-    const pmAdjacent = (() => {
-      if (!isPMChain || !pmDelivery || pmDur <= 0) return false;
-      const pmStart = subtractBusinessDays(new Date(pmDelivery + 'T00:00:00'), pmDur);
-      return countBusinessDays(blockEnd[i], pmStart) <= 0;
-    })();
+    // directly against it (no gate gap). When there's a gap, round normally.
     const prodRadius = pmAdjacent ? '4px 0 0 4px' : '4px';
 
     html += `<div class="${rowClass}">
