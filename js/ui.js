@@ -1495,6 +1495,14 @@ export function updateGantt() {
   }
   blocks.forEach((_, i) => { if (parentIdxMap[i] === null) dfsVisit(i); });
 
+  // ── Ensure all phase dates are fresh before reading them ─────────────────
+  // The Gantt now reads blockStart/blockEnd directly from each block's stamped
+  // phase dates (dataset.endDate), which are produced by recalcPhaseDates — the
+  // same logic that drives the email/PDF output. Recalc every block in DFS
+  // parent-first order so children read fresh parent dates, guaranteeing the
+  // Gantt can never disagree with the timeline output.
+  sortedIdxs.forEach(i => recalcPhaseDates(blocks[i]));
+
   const dueDate = dueVal ? (() => { let d = new Date(dueVal + 'T00:00:00'); while (!isWorkDay(d)) d.setDate(d.getDate() - 1); return d; })() : null;
 
   const blockDays = {};
@@ -1533,140 +1541,38 @@ export function updateGantt() {
   const availableDays = dueDate ? countBusinessDays(startDate, dueDate) : 0;
   const duePct        = dueDate ? Math.min(100, (availableDays / scaleDays) * 100) : null;
 
-  const rootAnchor = {};
-  blocks.forEach((block, i) => {
-    if (parentIdxMap[i] !== null) return;
-    const thisChainEnd = addBusinessDays(startDate, chainDays(i));
-    // Read pmDelivery from block.dataset (stamped in post-pass) first,
-    // then fall back to del-row for legacy compatibility
-    const pmDeliveryStr = block.dataset.pmDelivery || (() => {
-      const dIdx = parseInt(block.dataset.delIdx);
-      const r = !isNaN(dIdx) ? delRows[dIdx] : null;
-      return r?.dataset.pmDelivery;
-    })();
-    if (pmDeliveryStr) {
-      const pmDate = new Date(pmDeliveryStr + 'T00:00:00');
-      rootAnchor[i] = thisChainEnd > pmDate ? thisChainEnd : pmDate;
-    } else {
-      rootAnchor[i] = dueDate ? (thisChainEnd > dueDate ? thisChainEnd : dueDate) : thisChainEnd;
-    }
-  });
-
-  function getAnchor(idx) {
-    let cur = idx;
-    while (parentIdxMap[cur] !== null) cur = parentIdxMap[cur];
-    return rootAnchor[cur];
-  }
-
-  function chainRootOf(idx) {
-    let cur = idx, safety = 0;
-    while (parentIdxMap[cur] !== null && parentIdxMap[cur] !== undefined && safety++ < 20) cur = parentIdxMap[cur];
-    return cur;
-  }
-
-  function scheduleTypeOf(idx) {
-    return PRODUCT_META[blocks[idx]?.dataset.product]?.scheduleType || null;
-  }
-
-  // ── Forward-schedule blockStart using type-aware gate logic ──────────────
-  // We compute forward starts first, then reconcile with the backward anchor
-  // model for bar positioning on the Gantt.
-  const fwdStart = {}, fwdEnd = {};
-
-  // Compute latest alternate end in a chain (for translation gate)
-  function latestAlternateEndInChain(rootIdx) {
-    let latest = startDate;
-    sortedIdxs.forEach(j => {
-      if (chainRootOf(j) === rootIdx && scheduleTypeOf(j) === 'alternate') {
-        if (fwdEnd[j] && fwdEnd[j] > latest) latest = fwdEnd[j];
-      }
-    });
-    return latest;
-  }
-
-  // Compute P&M gate for a chain: max translation end, fallback to alternate, fallback to root
-  function pmGateForChain(rootIdx) {
-    const inChain = sortedIdxs.filter(j => chainRootOf(j) === rootIdx);
-    const transEnds = inChain.filter(j => scheduleTypeOf(j) === 'translation').map(j => fwdEnd[j]).filter(Boolean);
-    if (transEnds.length) return transEnds.reduce((m, d) => d > m ? d : m);
-    const altEnds = inChain.filter(j => scheduleTypeOf(j) === 'alternate').map(j => fwdEnd[j]).filter(Boolean);
-    if (altEnds.length) return altEnds.reduce((m, d) => d > m ? d : m);
-    return fwdEnd[rootIdx] || startDate;
-  }
-
-  sortedIdxs.forEach(idx => {
-    const type   = scheduleTypeOf(idx);
-    const parIdx = parentIdxMap[idx];
-    let s;
-
-    if (type === null) {
-      s = new Date(startDate);
-    } else if (type === 'alternate' || type === 'chatbot') {
-      s = parIdx !== null && fwdEnd[parIdx]
-        ? nextWorkDay(new Date(fwdEnd[parIdx]))
-        : new Date(startDate);
-    } else if (type === 'translation') {
-      const root    = chainRootOf(idx);
-      const altGate = latestAlternateEndInChain(root);
-      const parEnd  = parIdx !== null && fwdEnd[parIdx] ? fwdEnd[parIdx] : startDate;
-      const gate    = altGate > parEnd ? altGate : parEnd;
-      s = nextWorkDay(new Date(gate));
-    } else {
-      s = parIdx !== null && fwdEnd[parIdx]
-        ? nextWorkDay(new Date(fwdEnd[parIdx]))
-        : new Date(startDate);
-    }
-
-    fwdStart[idx] = s;
-    fwdEnd[idx]   = addBusinessDays(s, blockDays[idx]);
-  });
-
-  // ── Backward blockStart/blockEnd for Gantt bar positioning ───────────────
-  // Translations and chatbots use their forward start directly (they don't
-  // anchor backward from the due date — their position is gate-driven).
-  // Roots and alternates continue to use the existing backward anchor model.
+  // ── Read blockStart/blockEnd directly from stamped phase dates ───────────
+  // recalcPhaseDates (run above for every block) stamps dataset.endDate on each
+  // phase row using the authoritative scheduling logic — the same logic that
+  // produces the email/PDF output. The Gantt reads those dates directly instead
+  // of re-deriving positions, so the chart can never disagree with the timeline.
+  //
+  // For a block:
+  //   blockEnd   = latest non-P&M phase end date (production end)
+  //   blockStart = blockEnd - blockDays (production span backward from end)
+  //   P&M segment is rendered separately, pinned to pmDelivery (see render loop)
   const blockStart = {}, blockEnd = {};
-  const reverseSorted = [...sortedIdxs].reverse();
-  reverseSorted.forEach(i => {
-    const type = scheduleTypeOf(i);
+  sortedIdxs.forEach(i => {
+    const block = blocks[i];
+    const cells = [...block.querySelectorAll('.phase-end-date')];
+    const names = [...block.querySelectorAll('.pt-name')];
 
-    if (type === 'translation' || type === 'chatbot') {
-      blockStart[i] = new Date(fwdStart[i]);
-      blockEnd[i]   = new Date(fwdEnd[i]);
-      return;
-    }
+    // Collect end dates from production rows only (exclude the P&M row)
+    const prodEndDates = cells
+      .map((cell, ci) => {
+        const isPM = names[ci]?.value.startsWith('Print & Mail');
+        const iso  = cell.dataset.endDate;
+        return (!isPM && iso) ? new Date(iso + 'T00:00:00') : null;
+      })
+      .filter(Boolean);
 
-    // root and alternate: existing backward anchor model
-    const children = sortedIdxs.filter(j => parentIdxMap[j] === i);
-
-    // Exclude translation and chatbot children from backward anchor calc —
-    // they don't constrain the parent's backward position
-    const anchoringChildren = children.filter(j => {
-      const ct = scheduleTypeOf(j);
-      return ct !== 'translation' && ct !== 'chatbot';
-    });
-
-    if (!anchoringChildren.length) {
-      const anchor  = getAnchor(i);
-      // For PM chain blocks, production ends pmDur days before the P&M delivery date.
-      // The P&M segment is rendered separately — don't let it compress the production bar.
-      const pmDurForBlock = (() => {
-        const b = blocks[i];
-        if (b?.dataset.pmChain !== 'true' || !b?.dataset.pmDelivery) return 0;
-        const pmInp = [...b.querySelectorAll('.pt-name')]
-          .find(inp => inp.value.startsWith('Print & Mail'));
-        return pmInp ? (Math.max(1, parseInt(pmInp.closest('tr')?.querySelector('.pt-dur')?.value) || 10)) : 10;
-      })();
-      const productionAnchor = pmDurForBlock > 0
-        ? subtractBusinessDays(anchor, pmDurForBlock)
-        : anchor;
-      blockEnd[i]   = new Date(productionAnchor);
-      blockStart[i] = subtractBusinessDays(productionAnchor, blockDays[i]);
+    if (prodEndDates.length) {
+      blockEnd[i]   = prodEndDates.reduce((m, d) => d > m ? d : m);
+      blockStart[i] = subtractBusinessDays(blockEnd[i], blockDays[i]);
     } else {
-      const earliest = anchoringChildren.reduce((e, j) =>
-        blockStart[j] < e ? blockStart[j] : e, blockStart[anchoringChildren[0]]);
-      blockEnd[i]    = new Date(earliest);
-      blockStart[i]  = subtractBusinessDays(blockEnd[i], blockDays[i]);
+      // No stamped dates yet (e.g. a block with no durations) — fall back to start
+      blockEnd[i]   = new Date(startDate);
+      blockStart[i] = new Date(startDate);
     }
   });
 
