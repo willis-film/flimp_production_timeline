@@ -1653,11 +1653,16 @@ export function updateGantt() {
       connectorHtml = `${pipes}<span style="color:rgba(255,255,255,.3)">└─</span> `;
     }
 
-    // P&M segment: starts exactly at blockEnd (production end date)
+    // P&M segment: anchored to its actual delivery date, not appended to production.
+    // recalcPhaseDates pins the P&M row's end to pmDelivery exactly, so the segment
+    // spans (pmDelivery - pmDur) → pmDelivery. When production ends earlier than that
+    // (child-chain gate gap), this correctly shows the P&M block at the delivery date
+    // with a visible gap, rather than floating right after the production bar.
     const pmSegmentHtml = (() => {
       if (!isPMChain || !pmDelivery || pmDur <= 0) return '';
       const pmDate     = new Date(pmDelivery + 'T00:00:00');
-      const pmLeftPct  = Math.max(0, (countBusinessDays(startDate, blockEnd[i]) / scaleDays) * 100);
+      const pmStart    = subtractBusinessDays(pmDate, pmDur);
+      const pmLeftPct  = Math.max(0, (countBusinessDays(startDate, pmStart) / scaleDays) * 100);
       const pmWidthPct = Math.max(1, (pmDur / scaleDays) * 100);
       return `<div style="left:${pmLeftPct.toFixed(2)}%;width:${pmWidthPct.toFixed(2)}%;background:#534AB7;position:absolute;top:0;bottom:0;border-radius:0 4px 4px 0;display:flex;align-items:center;justify-content:center;font-size:${isChild?'9':'10'}px;font-weight:700;color:rgba(255,255,255,.9);opacity:.9" title="P&amp;M: ${pmDur}d, ships ${fmtDateShort(pmDate)}">
         ${pmWidthPct > 5 ? 'P&amp;M' : ''}
@@ -1686,10 +1691,21 @@ export function updateGantt() {
       return fmtDateShort(prodDue) + `<br><span style="color:rgba(180,140,255,.85);font-size:8px">P&amp;M: ${pmFmt}</span>`;
     })();
 
+    // Production bar: square the right edge only when the P&M segment butts
+    // directly against it (no gate gap). When there's a gap between production
+    // end and P&M start, round the production bar normally so it doesn't look
+    // like a broken/clipped bar floating in empty space.
+    const pmAdjacent = (() => {
+      if (!isPMChain || !pmDelivery || pmDur <= 0) return false;
+      const pmStart = subtractBusinessDays(new Date(pmDelivery + 'T00:00:00'), pmDur);
+      return countBusinessDays(blockEnd[i], pmStart) <= 0;
+    })();
+    const prodRadius = pmAdjacent ? '4px 0 0 4px' : '4px';
+
     html += `<div class="${rowClass}">
       <div style="width:150px;flex-shrink:0;font-size:${isChild?'10':'11'}px;color:rgba(255,255,255,${isChild?'.6':'.75'});font-family:Verdana,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;" title="${esc(product)}">${connectorHtml}<span style="overflow:hidden;text-overflow:ellipsis">${esc(product)}</span></div>
       <div class="${isChild?'gantt-nested-track':'gantt-track'}" style="position:relative">
-        <div style="left:${leftPct.toFixed(2)}%;width:${widthPct.toFixed(2)}%;background:${color};position:absolute;top:0;bottom:0;border-radius:${isPMChain && pmDelivery ? '4px 0 0 4px' : '4px'};display:flex;align-items:center;justify-content:center;font-size:${isChild?'9':'10'}px;font-weight:700;color:rgba(255,255,255,.9)" title="${esc(product)}: ${productionSpanDays}d">
+        <div style="left:${leftPct.toFixed(2)}%;width:${widthPct.toFixed(2)}%;background:${color};position:absolute;top:0;bottom:0;border-radius:${prodRadius};display:flex;align-items:center;justify-content:center;font-size:${isChild?'9':'10'}px;font-weight:700;color:rgba(255,255,255,.9)" title="${esc(product)}: ${productionSpanDays}d">
           ${widthPct > 8 ? productionSpanDays + 'd' : ''}
         </div>
         ${pmSegmentHtml}
