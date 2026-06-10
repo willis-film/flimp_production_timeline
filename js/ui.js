@@ -30,7 +30,7 @@ export function checkDateFlag(inputEl, iconEl) {
   const val = inputEl.value;
   if (!val) { iconEl.style.display = 'none'; return; }
   const d = new Date(val + 'T00:00:00');
-  iconEl.style.display = !isWorkDay(d) ? 'inline' : 'none';
+  iconEl.style.display = !isWorkDay(d) ? 'block' : 'none';
 }
 
 // Creates the standard flag icon span. Caller appends it wherever they want.
@@ -641,6 +641,15 @@ export function rebuildPhaseTable(block, skipPhases) {
 // ── Phase preview ─────────────────────────────────────────────────────────
 export function previewPhases() {
   const sdVal = document.getElementById('startDate').value;
+
+  // Due date is mandatory — the whole schedule anchors backward from it.
+  const ddEl  = document.getElementById('dueDate');
+  if (!ddEl.value) {
+    alert('Please enter a due date before previewing phases.');
+    ddEl.focus();
+    return;
+  }
+
   const rows  = [...document.querySelectorAll('#delRows .del-row')];
   const deliverables = rows.map((r, rowIdx) => ({
     product:   r.querySelector('select').value,

@@ -56,25 +56,21 @@
     <span class="section-title">Project Information</span>
   </div>
   <div class="card">
-    <div class="grid2" style="margin-bottom:10px">
-      <div class="field"><label>Client name</label><input type="text" id="clientName" placeholder="ABC Client"></div>
-      <div class="field"><label>Project name</label><input type="text" id="projectName" placeholder="Open Enrollment 2026"></div>
-    </div>
-    <div class="grid3" style="margin-bottom:10px">
-      <div class="field"><label>Start date</label><input type="date" id="startDate"></div>
-      <div class="field"><label>Due date</label><input type="date" id="dueDate"></div>
-      <div class="field" style="display:none">
-        <label>Working days / week</label>
-        <select id="workingDaysSelect" onchange="setDays(this.value)">
-          <option value="5" selected>5 days (Mon–Fri)</option>
-          <option value="6">6 days (Mon–Sat)</option>
-          <option value="7">7 days (Mon–Sun)</option>
-        </select>
-      </div>
+    <div class="field" style="margin-bottom:10px"><label>Client name</label><input type="text" id="clientName" placeholder="ABC Client"></div>
+    <div class="field" style="margin-bottom:10px"><label>Project name</label><input type="text" id="projectName" placeholder="Open Enrollment 2026"></div>
+    <div class="field" style="margin-bottom:10px"><label>Start date</label><input type="date" id="startDate"></div>
+    <div class="field" style="margin-bottom:10px"><label>Due date <span style="color:var(--red)">*</span></label><input type="date" id="dueDate" required></div>
+    <div class="field" style="display:none">
+      <label>Working days / week</label>
+      <select id="workingDaysSelect" onchange="setDays(this.value)">
+        <option value="5" selected>5 days (Mon–Fri)</option>
+        <option value="6">6 days (Mon–Sat)</option>
+        <option value="7">7 days (Mon–Sun)</option>
+      </select>
     </div>
     <div class="field">
       <label>PM name</label>
-      <select id="pmName" style="max-width:320px">
+      <select id="pmName">
         <option value="">Select PM…</option>
       </select>
     </div>

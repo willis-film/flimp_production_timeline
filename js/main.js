@@ -89,17 +89,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   // For each date field, wrap the input then nest wrap+icon inside a flex row
   // so the icon sits to the right of the input within the .field column layout.
   function setupDateFlag(inputEl) {
+    // wrapDateInput gives us a position:relative wrapper at full field width.
+    // Place the icon absolutely just past the wrapper's right edge so the date
+    // input fills the column exactly like the text inputs — the icon overhangs
+    // into the gutter rather than narrowing the field.
     const wrap = wrapDateInput(inputEl);
-    const icon = createDateFlagIcon();
-    const row  = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;gap:6px';
-    wrap.parentNode.insertBefore(row, wrap);
-    row.appendChild(wrap);
-    row.appendChild(icon);
-    // width:100% from .field input rule applies to the input itself; wrap and row
-    // need explicit 100% to fill the field column
     wrap.style.width = '100%';
-    row.style.width  = '100%';
+    const icon = createDateFlagIcon();
+    icon.style.cssText += ';position:absolute;left:calc(100% + 6px);top:50%;transform:translateY(-50%)';
+    wrap.appendChild(icon);
     return icon;
   }
   const startFlagIcon = setupDateFlag(document.getElementById('startDate'));
