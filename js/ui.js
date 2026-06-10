@@ -23,31 +23,27 @@ export { setDays };
 // a weekend or holiday. The input must be inside a position:relative wrapper
 // (class 'date-flag-wrap') — call wrapDateInput() to set that up, or ensure
 // the wrapper exists in HTML. Safe to call repeatedly; idempotent.
-export function checkDateFlag(inputEl) {
-  const wrap = inputEl.closest('.date-flag-wrap');
-  if (!wrap) return;
-  let icon = wrap.querySelector('.date-flag-icon');
+// iconEl: the span element to show/hide. Created externally and passed in
+// so placement in the DOM is fully controlled by the caller.
+export function checkDateFlag(inputEl, iconEl) {
+  if (!iconEl) return;
   const val = inputEl.value;
-  if (!val) {
-    if (icon) icon.style.display = 'none';
-    return;
-  }
+  if (!val) { iconEl.style.display = 'none'; return; }
   const d = new Date(val + 'T00:00:00');
-  const isOff = !isWorkDay(d);
-  if (!icon) {
-    icon = document.createElement('span');
-    icon.className = 'date-flag-icon';
-    icon.textContent = '🕶️';
-    icon.title = 'This date is a weekend or holiday';
-    icon.style.cssText = 'position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;line-height:1';
-    wrap.appendChild(icon);
-  }
-  icon.style.display = isOff ? 'block' : 'none';
+  iconEl.style.display = !isWorkDay(d) ? 'inline' : 'none';
 }
 
-// Wraps a date input in a .date-flag-wrap div (position:relative) and adds
-// padding-right to the input so the icon doesn't overlap the date text.
-// Returns the wrapper. No-op if already wrapped.
+// Creates the standard flag icon span. Caller appends it wherever they want.
+export function createDateFlagIcon() {
+  const icon = document.createElement('span');
+  icon.className = 'date-flag-icon';
+  icon.textContent = '🕶️';
+  icon.title = 'This date is a weekend or holiday';
+  icon.style.cssText = 'font-size:14px;cursor:default;line-height:1;display:none';
+  return icon;
+}
+
+// Wraps a date input in a .date-flag-wrap div so layout context is preserved.
 // Works whether the input is already in the DOM or still detached.
 export function wrapDateInput(inputEl) {
   if (inputEl.closest('.date-flag-wrap')) return inputEl.closest('.date-flag-wrap');
@@ -55,11 +51,9 @@ export function wrapDateInput(inputEl) {
   wrap.className = 'date-flag-wrap';
   wrap.style.cssText = 'position:relative;width:100%';
   if (inputEl.parentNode) {
-    // Already in the DOM — insert the wrapper in place
     inputEl.parentNode.insertBefore(wrap, inputEl);
   }
   wrap.appendChild(inputEl);
-  inputEl.style.paddingRight = '28px';
   return wrap;
 }
 
@@ -262,7 +256,7 @@ export function rebuildPMChecklist() {
   }
 
   const projectDue = document.getElementById('dueDate')?.value || '';
-  const colStyle   = 'display:grid;grid-template-columns:1fr 80px 160px;gap:.5rem;align-items:center;';
+  const colStyle   = 'display:grid;grid-template-columns:1fr 80px 160px 20px;gap:.5rem;align-items:center;';
 
   // Header row
   const header = document.createElement('div');
@@ -270,7 +264,8 @@ export function rebuildPMChecklist() {
   header.innerHTML = `
     <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-secondary);font-family:Calibri,sans-serif">Deliverable</span>
     <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-secondary);font-family:Calibri,sans-serif;text-align:center">Include P&amp;M</span>
-    <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-secondary);font-family:Calibri,sans-serif;text-align:center">Delivery Date</span>`;
+    <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-secondary);font-family:Calibri,sans-serif;text-align:center">Delivery Date</span>
+    <span></span>`;
   container.appendChild(header);
 
   eligibleItems.forEach(({ label, value, delIdx }) => {
@@ -301,34 +296,36 @@ export function rebuildPMChecklist() {
     dateInp.value      = date;
     dateInp.style.cssText = `font-family:Verdana,sans-serif;font-size:13px;height:34px;padding:0 8px;border:1px solid var(--border);border-radius:var(--radius);background:#fff;color:var(--text);width:100%;opacity:${checked ? '1' : '0.35'};pointer-events:${checked ? 'auto' : 'none'}`;
 
-    // Wrap in a relative container so the flag icon can be absolutely positioned
+    // Wrap in a relative container for layout consistency
     const dateWrap = wrapDateInput(dateInp);
+
+    // Flag icon — 4th grid cell, shown when date is a weekend or holiday
+    const flagIcon = createDateFlagIcon();
 
     cb.onchange = () => {
       dateInp.style.opacity       = cb.checked ? '1' : '0.35';
       dateInp.style.pointerEvents = cb.checked ? 'auto' : 'none';
       refreshPMSelectors();
-      // If phase blocks already exist, re-run the post-pass to add/remove P&M rows.
-      // If blocks don't exist yet, the user hasn't clicked Preview — do nothing.
       if (document.querySelectorAll('#pbBlocks .pb-block').length) {
         applyPMPostPass();
       }
     };
 
     dateInp.onchange = () => {
-      checkDateFlag(dateInp);
+      checkDateFlag(dateInp, flagIcon);
       refreshPMSelectors();
       if (document.querySelectorAll('#pbBlocks .pb-block').length) {
         applyPMPostPass();
       }
     };
 
-    // Show flag immediately if the initial date is already a weekend/holiday
-    checkDateFlag(dateInp);
+    // Check immediately in case the pre-filled date is a weekend/holiday
+    checkDateFlag(dateInp, flagIcon);
 
     row.appendChild(lbl);
     row.appendChild(cbWrap);
     row.appendChild(dateWrap);
+    row.appendChild(flagIcon);
     container.appendChild(row);
   });
 

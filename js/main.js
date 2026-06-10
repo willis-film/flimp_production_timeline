@@ -11,7 +11,7 @@ import {
   previewPhases, updateFeasibility, recalcPhaseDates,
   recalcBlockFeasibility, togglePMSection, addPMRow,
   refreshPMSelectors, rebuildPMChecklist, applyPMPostPass, readPMConfig, lastEarliestStart,
-  wrapDateInput, checkDateFlag
+  wrapDateInput, checkDateFlag, createDateFlagIcon
 } from './ui.js';
 import {
   renderTimelineTable, copyEmailTable, switchTab,
@@ -86,18 +86,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Default start date to today
   document.getElementById('startDate').value = toISO(new Date());
 
-  // Wrap date inputs so the weekend/holiday flag icon has a positioning context
-  wrapDateInput(document.getElementById('startDate'));
-  wrapDateInput(document.getElementById('dueDate'));
+  // For each date field, wrap the input then nest wrap+icon inside a flex row
+  // so the icon sits to the right of the input within the .field column layout.
+  function setupDateFlag(inputEl) {
+    const wrap = wrapDateInput(inputEl);
+    const icon = createDateFlagIcon();
+    const row  = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:6px';
+    wrap.parentNode.insertBefore(row, wrap);
+    row.appendChild(wrap);
+    row.appendChild(icon);
+    // width:100% from .field input rule applies to the input itself; wrap and row
+    // need explicit 100% to fill the field column
+    wrap.style.width = '100%';
+    row.style.width  = '100%';
+    return icon;
+  }
+  const startFlagIcon = setupDateFlag(document.getElementById('startDate'));
+  const dueFlagIcon   = setupDateFlag(document.getElementById('dueDate'));
 
   // Date change listeners
   document.getElementById('startDate').addEventListener('change', () => {
-    checkDateFlag(document.getElementById('startDate'));
+    checkDateFlag(document.getElementById('startDate'), startFlagIcon);
     updateFeasibility();
     document.querySelectorAll('#pbBlocks .pb-block').forEach(b => recalcBlockFeasibility(b));
   });
   document.getElementById('dueDate').addEventListener('change', () => {
-    checkDateFlag(document.getElementById('dueDate'));
+    checkDateFlag(document.getElementById('dueDate'), dueFlagIcon);
     updateFeasibility();
     document.querySelectorAll('#pbBlocks .pb-block').forEach(b => {
       recalcPhaseDates(b);
@@ -106,7 +121,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Check start date immediately — it was just set to today, which could be a weekend
-  checkDateFlag(document.getElementById('startDate'));
+  checkDateFlag(document.getElementById('startDate'), startFlagIcon);
 
   // PM localStorage restore handled after Supabase populates the dropdown
   document.getElementById('pmName').addEventListener('change', function () {
