@@ -1068,9 +1068,15 @@ function getParentBlock(block) {
 // A child must start when its parent's PRODUCTION completes — not when the
 // parent's P&M ships. For a PM parent, getEffectiveDue() returns pmDelivery
 // (correct for the parent's own phases, which end at the mail date), but using
-// that to gate a child would push the child past the delivery date. This helper
-// returns the parent's production-end date instead:
-//   PM block      → pmDelivery - pmDur (production ends pmDur days before mail)
+// that to gate a child would push the child past the delivery date.
+//
+// This returns the same productionDue that recalcPhaseDates uses to end the
+// block's production phases:
+//   PM block      → chainPmStart - appendedDays
+//                   where chainPmStart = (latest delivery in chain) - pmDur,
+//                   and appendedDays is the longest child chain. The appendedDays
+//                   gap is exactly the window the children run in, so gating a
+//                   child here lands it after production and finishing by chainPmStart.
 //   non-PM block  → its effective due (unchanged)
 // Returns a Date or null.
 function productionEndOf(block) {
@@ -1080,10 +1086,28 @@ function productionEndOf(block) {
       return r?.dataset.pmDelivery;
     })();
   if (pmDelivery) {
-    const pmDate = new Date(pmDelivery + 'T00:00:00');
-    const pmInp  = [...block.querySelectorAll('.pt-name')].find(x => x.value.startsWith('Print & Mail'));
-    const pmDur  = pmInp ? (Math.max(1, parseInt(pmInp.closest('tr')?.querySelector('.pt-dur')?.value) || 10)) : 10;
-    return subtractBusinessDays(pmDate, pmDur);
+    const pmInp = [...block.querySelectorAll('.pt-name')].find(x => x.value.startsWith('Print & Mail'));
+    const pmDur = pmInp ? (Math.max(1, parseInt(pmInp.closest('tr')?.querySelector('.pt-dur')?.value) || 10)) : 10;
+
+    // Chain-wide latest delivery (mirrors recalcPhaseDates) so siblings sharing a
+    // chain use one production anchor even when their delivery dates differ.
+    const allBlocks    = [...document.querySelectorAll('#pbBlocks .pb-block')];
+    const allDelRows   = [...document.querySelectorAll('#delRows .del-row')];
+    const parentIdxMap = buildParentIdxMap(allDelRows);
+    const thisDelIdx   = parseInt(block.dataset.delIdx);
+    const chainRootOf  = idx => { let c = idx, n = 0; while (parentIdxMap[c] !== null && parentIdxMap[c] !== undefined && n++ < 20) c = parentIdxMap[c]; return c; };
+    const chainRoot    = chainRootOf(thisDelIdx);
+    let latestDelivery = new Date(pmDelivery + 'T00:00:00');
+    allBlocks.forEach(b => {
+      if (!b.dataset.pmDelivery || !b.dataset.pmChain) return;
+      if (chainRootOf(parseInt(b.dataset.delIdx)) !== chainRoot) return;
+      const d = new Date(b.dataset.pmDelivery + 'T00:00:00');
+      if (d > latestDelivery) latestDelivery = d;
+    });
+
+    const chainPmStart = subtractBusinessDays(latestDelivery, pmDur);
+    const appendedDays = getAppendedDays(thisDelIdx);
+    return appendedDays > 0 ? subtractBusinessDays(chainPmStart, appendedDays) : chainPmStart;
   }
   return getEffectiveDue(block);
 }
