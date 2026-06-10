@@ -5,12 +5,13 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { loadReferenceData, PM_NAMES } from './database.js';
-import { setDays, toISO, nextWorkDay, scheduleTimeline, buildParentIdxMap } from './engine.js';
+import { setDays, toISO, nextWorkDay, scheduleTimeline, buildParentIdxMap, isWorkDay } from './engine.js';
 import {
   buildDelRow, buildSelect, addRow, updateRemove,
   previewPhases, updateFeasibility, recalcPhaseDates,
   recalcBlockFeasibility, togglePMSection, addPMRow,
-  refreshPMSelectors, rebuildPMChecklist, applyPMPostPass, readPMConfig, lastEarliestStart
+  refreshPMSelectors, rebuildPMChecklist, applyPMPostPass, readPMConfig, lastEarliestStart,
+  wrapDateInput, checkDateFlag
 } from './ui.js';
 import {
   renderTimelineTable, copyEmailTable, switchTab,
@@ -85,18 +86,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Default start date to today
   document.getElementById('startDate').value = toISO(new Date());
 
+  // Wrap date inputs so the weekend/holiday flag icon has a positioning context
+  wrapDateInput(document.getElementById('startDate'));
+  wrapDateInput(document.getElementById('dueDate'));
+
   // Date change listeners
   document.getElementById('startDate').addEventListener('change', () => {
+    checkDateFlag(document.getElementById('startDate'));
     updateFeasibility();
     document.querySelectorAll('#pbBlocks .pb-block').forEach(b => recalcBlockFeasibility(b));
   });
   document.getElementById('dueDate').addEventListener('change', () => {
+    checkDateFlag(document.getElementById('dueDate'));
     updateFeasibility();
     document.querySelectorAll('#pbBlocks .pb-block').forEach(b => {
       recalcPhaseDates(b);
       recalcBlockFeasibility(b);
     });
   });
+
+  // Check start date immediately — it was just set to today, which could be a weekend
+  checkDateFlag(document.getElementById('startDate'));
 
   // PM localStorage restore handled after Supabase populates the dropdown
   document.getElementById('pmName').addEventListener('change', function () {

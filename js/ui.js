@@ -18,6 +18,47 @@ import {
 // ── Exported for main.js ──────────────────────────────────────────────────
 export { setDays };
 
+// ── Date flag helper ──────────────────────────────────────────────────────
+// Inserts a 🕶️ indicator next to a date input when the entered date falls on
+// a weekend or holiday. The input must be inside a position:relative wrapper
+// (class 'date-flag-wrap') — call wrapDateInput() to set that up, or ensure
+// the wrapper exists in HTML. Safe to call repeatedly; idempotent.
+export function checkDateFlag(inputEl) {
+  const wrap = inputEl.closest('.date-flag-wrap');
+  if (!wrap) return;
+  let icon = wrap.querySelector('.date-flag-icon');
+  const val = inputEl.value;
+  if (!val) {
+    if (icon) icon.style.display = 'none';
+    return;
+  }
+  const d = new Date(val + 'T00:00:00');
+  const isOff = !isWorkDay(d);
+  if (!icon) {
+    icon = document.createElement('span');
+    icon.className = 'date-flag-icon';
+    icon.textContent = '🕶️';
+    icon.title = 'This date is a weekend or holiday';
+    icon.style.cssText = 'position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;line-height:1';
+    wrap.appendChild(icon);
+  }
+  icon.style.display = isOff ? 'block' : 'none';
+}
+
+// Wraps a date input in a .date-flag-wrap div (position:relative) and adds
+// padding-right to the input so the icon doesn't overlap the date text.
+// Returns the wrapper. No-op if already wrapped.
+export function wrapDateInput(inputEl) {
+  if (inputEl.closest('.date-flag-wrap')) return inputEl.closest('.date-flag-wrap');
+  const wrap = document.createElement('div');
+  wrap.className = 'date-flag-wrap';
+  wrap.style.cssText = 'position:relative;width:100%';
+  inputEl.parentNode.insertBefore(wrap, inputEl);
+  wrap.appendChild(inputEl);
+  inputEl.style.paddingRight = '28px';
+  return wrap;
+}
+
 // ── Product helpers ───────────────────────────────────────────────────────
 export function getProductGroup(name) {
   return PRODUCTS.find(g => g.items.includes(name)) || null;
@@ -256,6 +297,9 @@ export function rebuildPMChecklist() {
     dateInp.value      = date;
     dateInp.style.cssText = `font-family:Verdana,sans-serif;font-size:13px;height:34px;padding:0 8px;border:1px solid var(--border);border-radius:var(--radius);background:#fff;color:var(--text);width:100%;opacity:${checked ? '1' : '0.35'};pointer-events:${checked ? 'auto' : 'none'}`;
 
+    // Wrap in a relative container so the flag icon can be absolutely positioned
+    const dateWrap = wrapDateInput(dateInp);
+
     cb.onchange = () => {
       dateInp.style.opacity       = cb.checked ? '1' : '0.35';
       dateInp.style.pointerEvents = cb.checked ? 'auto' : 'none';
@@ -268,15 +312,19 @@ export function rebuildPMChecklist() {
     };
 
     dateInp.onchange = () => {
+      checkDateFlag(dateInp);
       refreshPMSelectors();
       if (document.querySelectorAll('#pbBlocks .pb-block').length) {
         applyPMPostPass();
       }
     };
 
+    // Show flag immediately if the initial date is already a weekend/holiday
+    checkDateFlag(dateInp);
+
     row.appendChild(lbl);
     row.appendChild(cbWrap);
-    row.appendChild(dateInp);
+    row.appendChild(dateWrap);
     container.appendChild(row);
   });
 
