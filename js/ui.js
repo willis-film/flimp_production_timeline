@@ -48,12 +48,16 @@ export function checkDateFlag(inputEl) {
 // Wraps a date input in a .date-flag-wrap div (position:relative) and adds
 // padding-right to the input so the icon doesn't overlap the date text.
 // Returns the wrapper. No-op if already wrapped.
+// Works whether the input is already in the DOM or still detached.
 export function wrapDateInput(inputEl) {
   if (inputEl.closest('.date-flag-wrap')) return inputEl.closest('.date-flag-wrap');
   const wrap = document.createElement('div');
   wrap.className = 'date-flag-wrap';
   wrap.style.cssText = 'position:relative;width:100%';
-  inputEl.parentNode.insertBefore(wrap, inputEl);
+  if (inputEl.parentNode) {
+    // Already in the DOM — insert the wrapper in place
+    inputEl.parentNode.insertBefore(wrap, inputEl);
+  }
   wrap.appendChild(inputEl);
   inputEl.style.paddingRight = '28px';
   return wrap;
