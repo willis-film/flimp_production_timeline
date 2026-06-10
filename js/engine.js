@@ -134,19 +134,27 @@ export function buildParentIdxMap(delRows) {
         map[i] = null; return;
     }
 
-    const targetPosition = parseInt(parentSel.value, 10);
+    // The parent <option> value IS the parent's absolute row index — that's what
+    // refreshParentSelectors writes (opt.value = o.rowIndex). Use it directly.
+    // (A prior version treated this as an ordinal position among valid-parent
+    // candidates and re-counted rows, which resolved to the wrong row whenever
+    // the valid-parent set contained more than one matching row — e.g. a chatbot
+    // whose valid parents include both an alternate and a translation.)
+    const parentRowIdx   = parseInt(parentSel.value, 10);
     const validParentSet = VALID_PARENTS[childSel.value];
 
-    let position = 0, matchedRowIdx = null;
-    for (let j = 0; j < delRows.length; j++) {
-      if (j === i) continue;
-      const otherSel = delRows[j].querySelector('select');
-      if (!otherSel || !otherSel.value) continue;
-      if (!validParentSet.has(otherSel.value)) continue;
-      if (position === targetPosition) { matchedRowIdx = j; break; }
-      position++;
+    // Validate the referenced row exists, isn't self, and is actually a valid parent
+    const parentRow    = delRows[parentRowIdx];
+    const parentRowSel = parentRow?.querySelector('select');
+    if (
+      isNaN(parentRowIdx) ||
+      parentRowIdx === i ||
+      !parentRowSel?.value ||
+      !validParentSet.has(parentRowSel.value)
+    ) {
+      map[i] = null; return;
     }
-    map[i] = matchedRowIdx;
+    map[i] = parentRowIdx;
   });
   return map;
 }
