@@ -871,7 +871,10 @@ export function previewPhases() {
 
   document.getElementById('phasePreviewSection').style.display = 'block';
   updateGenerateBtn();
-  updateGantt();
+  // If PM is active, skip the Gantt render here — applyPMPostPass (above) will call
+  // updateGantt after stamping pmChain/pmDelivery on blocks, ensuring a single correct render.
+  // Without PM, render immediately so the Gantt appears without any delay.
+  if (!document.getElementById('pmCheckbox')?.checked) updateGantt();
   document.getElementById('phasePreviewSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -1029,13 +1032,11 @@ function getEffectiveDue(block) {
     return new Date(blockPmDelivery + 'T00:00:00');
   }
 
-  // Fall back to del-row pmDelivery for backwards compat
+  // Fall back to del-row pmDelivery for the initial render window (before applyPMPostPass
+  // has stamped block.dataset.pmDelivery). Use delIdx for an exact row lookup — matching
+  // by product+isRenewal would pick the wrong row if the same product appears twice.
   const allDelRows = [...document.querySelectorAll('#delRows .del-row')];
-  const matchedRow = allDelRows.find(r => {
-    const s = r.querySelector('select');
-    const renewal = r.querySelector('.nr-btn.r-active') !== null;
-    return s && s.value === bp && renewal === bir;
-  });
+  const matchedRow = allDelRows[parseInt(block.dataset.delIdx)];
   const pmDelivery = matchedRow?.dataset.pmDelivery;
   if (pmDelivery) {
     return new Date(pmDelivery + 'T00:00:00');
@@ -1299,14 +1300,10 @@ export function recalcPhaseDates(block, blockEndDate) {
       const starts = subtractBusinessDays(due, total);
       startsEl.innerHTML = `<span class="pb-date-label">Starts</span> ${fmtDateShort(starts)}`;
 
-      const bp  = block.dataset.product;
-      const bir = block.dataset.isrenewal === 'true';
+      // Use delIdx for an exact row lookup — matching by product+isRenewal would pick
+      // the wrong row if the same product appears twice with the same new/renewal setting.
       const allDelRows  = [...document.querySelectorAll('#delRows .del-row')];
-      const matchedRow  = allDelRows.find(r => {
-        const s = r.querySelector('select');
-        const renewal = r.querySelector('.nr-btn.r-active') !== null;
-        return s && s.value === bp && renewal === bir;
-      });
+      const matchedRow  = allDelRows[parseInt(block.dataset.delIdx)];
       const rowPmDelivery = matchedRow?.dataset.pmDelivery;
       if (rowPmDelivery) {
         const deliveryDate = new Date(rowPmDelivery + 'T00:00:00');
@@ -1437,10 +1434,6 @@ export function updateGantt() {
 
   if (!startVal || !blocks.length) { wrap.style.display = 'none'; return; }
   document.getElementById('feasibilityPanel').style.display = 'block';
-
-  blocks.forEach((b, i) => {
-    const meta = PRODUCT_META[b.dataset.product];
-  });
 
   const startDate = nextWorkDay(new Date(startVal + 'T00:00:00'));
   const delRows   = [...document.querySelectorAll('#delRows .del-row')];
@@ -1628,16 +1621,6 @@ export function updateGantt() {
     }
   });
 
-  // ── Diagnostic: log computed bar dates for each block ──────────────────
-  sortedIdxs.forEach(i => {
-    const b = blocks[i];
-    const pmDurLog = (() => {
-      if (b?.dataset.pmChain !== 'true') return 0;
-      const inp = [...b.querySelectorAll('.pt-name')].find(x => x.value.startsWith('Print & Mail'));
-      return inp ? (parseInt(inp.closest('tr')?.querySelector('.pt-dur')?.value) || 10) : 10;
-    })();
-  });
-
   // Axis ticks
   const ticks = [];
   const tickCur = new Date(startDate);
@@ -1661,19 +1644,8 @@ export function updateGantt() {
 
   // Total bar: span from earliest root blockStart to anchorDate (handles PM parents pushing left)
   const rootIdxs = sortedIdxs.filter(i => parentIdxMap[i] === null);
-  rootIdxs.forEach(i => {
-    const block = blocks[i];
-    const product = block.dataset.product || `block[${i}]`;
-    const cd = chainDays(i);
-    const bs = blockStart[i];
-    const be = blockEnd[i];
-    const anchor = rootAnchor[i];
-    const spanFromStart = bs ? countBusinessDays(bs, anchor) : null;
-    const rehydrated = bs ? addBusinessDays(bs, cd) : null;
-  });
   const earliestStart = rootIdxs.reduce((e, i) => blockStart[i] < e ? blockStart[i] : e, blockStart[rootIdxs[0]]);
   lastEarliestStart = earliestStart;
-  const totalSpanCheck = countBusinessDays(earliestStart, anchorDate);
   // Total span: earliest blockStart → anchorDate, same convention as scaleDays
   const totalSpanDays = countBusinessDays(earliestStart, anchorDate);
   const latestStartEl = document.getElementById('feasLatestStart');
@@ -1715,16 +1687,6 @@ export function updateGantt() {
     const widthPct = Math.max(0.5, rightPct - leftPct);
     const productionSpanDays = countBusinessDays(blockStart[i], blockEnd[i]);
 
-    function daysAfter(idx) {
-      const ch = sortedIdxs.filter(j => parentIdxMap[j] === idx);
-      if (!ch.length) return 0;
-      return Math.max(...ch.map(j => blockDays[j] + daysAfter(j)));
-    }
-    const thisAnchor     = getAnchor(i);
-    const anchorGapDays  = countBusinessDays(thisAnchor, anchorDate);
-
-
-
     const isChild  = parIdx !== null;
     const rowClass = isChild ? 'gantt-nested-row' : 'gantt-row';
     let connectorHtml = '';
@@ -1756,18 +1718,17 @@ export function updateGantt() {
         return fmtDateShort(prodEnd) + `<br><span style="color:rgba(180,140,255,.85);font-size:8px">P&amp;M: ${pmFmt}</span>`;
       }
       if (parIdx !== null) return fmtDateShort(blockEnd[i]);
-      const pmR = delRows.find(r => {
-        const s = r.querySelector('select');
-        const renewal = r.querySelector('.nr-btn.r-active') !== null;
-        return s && s.value === product &&
-               renewal === (block.dataset.isrenewal === 'true') &&
-               r.dataset.pmDelivery;
-      });
-      if (!pmR) return fmtDateShort(blockEnd[i]);
-      const pmD    = new Date(pmR.dataset.pmDelivery + 'T00:00:00');
-      const pmFmt  = pmD.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      const prodDue = subtractBusinessDays(pmD, 10);
-      return fmtDateShort(prodDue) + `<br><span style="color:rgba(255,160,80,.85);font-size:8px">Del: ${pmFmt}</span>`;
+      // Pre-post-pass window: block doesn't have isPMChain yet but del-row may have pmDelivery.
+      // Use delIdx for exact row lookup; read PM duration from the P&M phase row if it exists,
+      // otherwise fall back to the default 10.
+      const pmR = delRows[parseInt(block.dataset.delIdx)];
+      if (!pmR?.dataset.pmDelivery) return fmtDateShort(blockEnd[i]);
+      const pmD   = new Date(pmR.dataset.pmDelivery + 'T00:00:00');
+      const pmFmt = pmD.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const pmPhaseInp = [...block.querySelectorAll('.pt-name')].find(x => x.value.startsWith('Print & Mail'));
+      const pmDurFallback = pmPhaseInp ? (Math.max(1, parseInt(pmPhaseInp.closest('tr')?.querySelector('.pt-dur')?.value) || 10)) : 10;
+      const prodDue = subtractBusinessDays(pmD, pmDurFallback);
+      return fmtDateShort(prodDue) + `<br><span style="color:rgba(180,140,255,.85);font-size:8px">P&amp;M: ${pmFmt}</span>`;
     })();
 
     html += `<div class="${rowClass}">
@@ -1779,16 +1740,13 @@ export function updateGantt() {
         ${pmSegmentHtml}
         ${(() => {
           if (parIdx !== null || isPMChain) return '';
-          const pmR = delRows.find(r => {
-            const s = r.querySelector('select');
-            const renewal = r.querySelector('.nr-btn.r-active') !== null;
-            return s && s.value === product &&
-                   renewal === (block.dataset.isrenewal === 'true') &&
-                   r.dataset.pmDelivery;
-          });
-          if (!pmR) return '';
+          // Pre-post-pass window: use delIdx for exact row lookup.
+          const pmR = delRows[parseInt(block.dataset.delIdx)];
+          if (!pmR?.dataset.pmDelivery) return '';
           const pmD = new Date(pmR.dataset.pmDelivery + 'T00:00:00');
-          const prodDue = subtractBusinessDays(pmD, 10);
+          const pmPhaseInp = [...block.querySelectorAll('.pt-name')].find(x => x.value.startsWith('Print & Mail'));
+          const pmDurFallback = pmPhaseInp ? (Math.max(1, parseInt(pmPhaseInp.closest('tr')?.querySelector('.pt-dur')?.value) || 10)) : 10;
+          const prodDue = subtractBusinessDays(pmD, pmDurFallback);
           const dividerPct = (countBusinessDays(startDate, prodDue) / scaleDays) * 100;
           return `<div style="position:absolute;left:${dividerPct}%;top:-2px;bottom:-2px;width:2px;background:rgba(255,255,255,.4);z-index:5;transform:translateX(-1px);pointer-events:none"></div>`;
         })()}
