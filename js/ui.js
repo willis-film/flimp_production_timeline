@@ -1550,9 +1550,11 @@ export function updateGantt() {
   const anchorDate   = [dueDate, chainEndDate, maxPMDate]
     .filter(Boolean)
     .reduce((m, d) => d > m ? d : m, chainEndDate);
-  const scaleDays    = Math.max(1, countBusinessDays(startDate, anchorDate));
-  const availableDays = dueDate ? countBusinessDays(startDate, dueDate) : 0;
-  const duePct        = dueDate ? Math.min(100, (availableDays / scaleDays) * 100) : null;
+  // scaleDays / scaleStart are finalized AFTER block positions are known, because
+  // an over-allotted block can start BEFORE startDate (it must begin earlier than
+  // day one to hit its deadline). If we anchored the scale's left edge to startDate,
+  // those bars would render at negative offsets and the total bar would overflow.
+  // scaleStart is set below to min(startDate, earliest blockStart).
 
   // ── Read blockStart/blockEnd directly from stamped phase dates ───────────
   // recalcPhaseDates (run above for every block) stamps dataset.endDate on each
@@ -1597,12 +1599,23 @@ export function updateGantt() {
     }
   });
 
+  // Finalize the scale now that all positions are known. The left edge is the
+  // earliest of startDate and every block's start — so over-allotted bars that
+  // begin before day one stay on-canvas instead of rendering at negative offsets.
+  let scaleStart = new Date(startDate);
+  sortedIdxs.forEach(i => { if (blockStart[i] < scaleStart) scaleStart = new Date(blockStart[i]); });
+  const scaleDays = Math.max(1, countBusinessDays(scaleStart, anchorDate));
+  // Percent offset of any date along the scale (clamped to 0–100).
+  const offsetPct = d => Math.max(0, Math.min(100, (countBusinessDays(scaleStart, d) / scaleDays) * 100));
+  const availableDays = dueDate ? countBusinessDays(scaleStart, dueDate) : 0;
+  const duePct        = dueDate ? Math.min(100, (availableDays / scaleDays) * 100) : null;
+
   // Axis ticks
   const ticks = [];
-  const tickCur = new Date(startDate);
+  const tickCur = new Date(scaleStart);
   tickCur.setDate(1); tickCur.setMonth(tickCur.getMonth() + 1);
   while (tickCur < anchorDate) {
-    const bd = countBusinessDays(startDate, tickCur);
+    const bd = countBusinessDays(scaleStart, tickCur);
     const pct = (bd / scaleDays) * 100;
     // Skip ticks too close to either edge (avoids overlap with fixed start/end labels)
     if (pct > 5 && pct < 92) {
@@ -1613,7 +1626,7 @@ export function updateGantt() {
 
   let html = '';
   html += `<div class="gantt-axis-row"><div style="width:150px;flex-shrink:0"></div><div class="gantt-axis-track">`;
-  html += `<span class="gantt-axis-tick" style="left:0;transform:none">${fmtDateShort(startDate)}</span>`;
+  html += `<span class="gantt-axis-tick" style="left:0;transform:none">${fmtDateShort(scaleStart)}</span>`;
   ticks.forEach(t => html += `<span class="gantt-axis-tick" style="left:${t.pct}%">${t.label}</span>`);
   html += `<span class="gantt-axis-tick" style="right:0;left:auto;transform:none">${fmtDateShort(anchorDate)}</span>`;
   html += `</div></div>`;
@@ -1628,7 +1641,7 @@ export function updateGantt() {
   const latestStartEl = document.getElementById('feasLatestStart');
   if (latestStartEl) latestStartEl.textContent = earliestStart ? fmtDateShort(earliestStart) : '—';
   const totalWidthPct = Math.min(100, (totalSpanDays / scaleDays) * 100);
-  const totalLeftPct  = Math.max(0, (countBusinessDays(startDate, earliestStart) / scaleDays) * 100);
+  const totalLeftPct  = offsetPct(earliestStart);
   html += `<div class="gantt-row">
     <div class="gantt-label" style="color:rgba(255,255,255,.45);font-style:italic">Total project</div>
     <div class="gantt-track">
@@ -1659,8 +1672,8 @@ export function updateGantt() {
         })()
       : 0;
 
-    const leftPct  = Math.max(0, (countBusinessDays(startDate, blockStart[i]) / scaleDays) * 100);
-    const rightPct = Math.max(0, (countBusinessDays(startDate, blockEnd[i])   / scaleDays) * 100);
+    const leftPct  = Math.max(0, (countBusinessDays(scaleStart, blockStart[i]) / scaleDays) * 100);
+    const rightPct = Math.max(0, (countBusinessDays(scaleStart, blockEnd[i])   / scaleDays) * 100);
     const widthPct = Math.max(0.5, rightPct - leftPct);
     const productionSpanDays = countBusinessDays(blockStart[i], blockEnd[i]);
 
@@ -1693,7 +1706,7 @@ export function updateGantt() {
       if (!isPMChain || !pmDelivery || pmDur <= 0) return '';
       const pmDate     = new Date(pmDelivery + 'T00:00:00');
       const pmStart    = subtractBusinessDays(pmDate, pmDur);
-      const pmLeftPct  = Math.max(0, (countBusinessDays(startDate, pmStart) / scaleDays) * 100);
+      const pmLeftPct  = Math.max(0, (countBusinessDays(scaleStart, pmStart) / scaleDays) * 100);
       const pmWidthPct = Math.max(1, (pmDur / scaleDays) * 100);
       // Square left edge only when flush against production; round it when gapped
       const pmRadius   = pmAdjacent ? '0 4px 4px 0' : '4px';
@@ -1744,7 +1757,7 @@ export function updateGantt() {
           const pmPhaseInp = [...block.querySelectorAll('.pt-name')].find(x => x.value.startsWith('Print & Mail'));
           const pmDurFallback = pmPhaseInp ? (Math.max(1, parseInt(pmPhaseInp.closest('tr')?.querySelector('.pt-dur')?.value) || 10)) : 10;
           const prodDue = subtractBusinessDays(pmD, pmDurFallback);
-          const dividerPct = (countBusinessDays(startDate, prodDue) / scaleDays) * 100;
+          const dividerPct = (countBusinessDays(scaleStart, prodDue) / scaleDays) * 100;
           return `<div style="position:absolute;left:${dividerPct}%;top:-2px;bottom:-2px;width:2px;background:rgba(255,255,255,.4);z-index:5;transform:translateX(-1px);pointer-events:none"></div>`;
         })()}
       </div>
