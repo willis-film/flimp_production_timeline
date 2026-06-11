@@ -1282,46 +1282,6 @@ export function recalcBlockFeasibility(block) {
   if (delta > 5)       { fill.style.cssText = `width:${pct}%;background:var(--green)`; diff.className = 'pb-feas-diff ok';   diff.textContent = `+${delta} days buffer`; }
   else if (delta >= 0) { fill.style.cssText = `width:${pct}%;background:var(--amber)`; diff.className = 'pb-feas-diff warn'; diff.textContent = delta === 0 ? 'Exactly on time' : `+${delta} days`; }
   else                 { fill.style.cssText = 'width:100%;background:var(--red)';       diff.className = 'pb-feas-diff over'; diff.textContent = `${Math.abs(delta)} days over`; }
-
-  // Re-evaluate generate button — over state may have changed
-  const generateBtn = document.getElementById('generateBtn');
-  if (generateBtn) {
-    const blocks  = [...document.querySelectorAll('#pbBlocks .pb-block')];
-    const total   = blocks.length;
-    const confirmed = blocks.filter(b => b.dataset.confirmed === 'true').length;
-    const anyOver = blocks.some(b => b.querySelector('.pb-feas-diff.over') !== null);
-    generateBtn.disabled = total === 0 || confirmed < total || anyOver;
-    const warn = document.getElementById('overScopeWarning');
-    if (warn) warn.style.display = anyOver ? 'block' : 'none';
-    if (anyOver) {
-      generateBtn.title = 'One or more deliverables exceed the available time — reduce durations or extend the due date.';
-    } else if (confirmed < total) {
-      generateBtn.title = 'Confirm all deliverables before generating.';
-    } else {
-      generateBtn.title = '';
-    }
-  }
-
-  // Cascade: when this block's days change, its parent and children need re-evaluation
-  // too since their effectiveAvailable depends on this block's duration.
-  // _cascading flag prevents infinite recursion.
-  if (!block._feasCascading) {
-    block._feasCascading = true;
-    const allBlocks = [...document.querySelectorAll('#pbBlocks .pb-block')];
-
-    // Re-run on parent block (its effectiveAvailable = available - ourDays)
-    const parent = getParentBlock(block);
-    if (parent && !parent._feasCascading) recalcBlockFeasibility(parent);
-
-    // Re-run on child blocks (their effectiveAvailable = available - ourDays)
-    allBlocks.forEach(b => {
-      if (b === block || b._feasCascading) return;
-      const bp = getParentBlock(b);
-      if (bp === block) recalcBlockFeasibility(b);
-    });
-
-    block._feasCascading = false;
-  }
 }
 
 // ── Phase date recalculation ──────────────────────────────────────────────
@@ -1495,6 +1455,14 @@ export function updateFeasibility() {
   // instead of re-deriving the schedule with separate (and drift-prone) math.
   updateGantt();
   const needed = lastTotalSpanDays;
+
+  // updateGantt just re-stamped phase dates on every block. Refresh each block's
+  // feasibility bar against those fresh dates so dependent blocks (parents/children
+  // affected by an edit elsewhere) show correct over/buffer state — then the generate
+  // button reflects the true aggregate. recalcBlockFeasibility evaluates one block only
+  // and does not cascade, so this single pass is what keeps all blocks consistent.
+  blocks.forEach(b => recalcBlockFeasibility(b));
+  updateGenerateBtn();
   document.getElementById('feasNeeded').textContent = needed;
 
   if (available === null) {
@@ -1829,6 +1797,4 @@ export function updateGenerateBtn() {
   } else {
     generateBtn.title = '';
   }
-
-  updateFeasibility();
 }
