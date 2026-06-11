@@ -1533,28 +1533,18 @@ export function updateGantt() {
     blockDays[i] = Math.max(1, durs.reduce((a, b) => a + b, 0));
   });
 
-  function chainDays(idx) {
-    const children = blocks.map((_, j) => j).filter(j => parentIdxMap[j] === idx);
-    if (!children.length) return blockDays[idx];
-    return blockDays[idx] + Math.max(...children.map(j => chainDays(j)));
-  }
-  const longestChainDays = Math.max(...blocks.map((_, i) => parentIdxMap[i] !== null ? 0 : chainDays(i)));
-
-  const chainEndDate = addBusinessDays(startDate, longestChainDays);
-  // Consider PM delivery dates from both del-rows and stamped block datasets
+  // Latest P&M delivery date across all blocks/rows — part of the right-edge anchor.
   const allPMDates = [
     ...delRows.filter(r => r.dataset.pmDelivery).map(r => new Date(r.dataset.pmDelivery + 'T00:00:00')),
     ...blocks.filter(b => b.dataset.pmDelivery).map(b => new Date(b.dataset.pmDelivery + 'T00:00:00'))
   ];
   const maxPMDate = allPMDates.length ? allPMDates.reduce((m, d) => d > m ? d : m) : null;
-  const anchorDate   = [dueDate, chainEndDate, maxPMDate]
-    .filter(Boolean)
-    .reduce((m, d) => d > m ? d : m, chainEndDate);
-  // scaleDays / scaleStart are finalized AFTER block positions are known, because
-  // an over-allotted block can start BEFORE startDate (it must begin earlier than
-  // day one to hit its deadline). If we anchored the scale's left edge to startDate,
-  // those bars would render at negative offsets and the total bar would overflow.
-  // scaleStart is set below to min(startDate, earliest blockStart).
+  // anchorDate (right edge) and scaleStart/scaleDays (left edge + width) are finalized
+  // AFTER block positions are known. The right edge must come from the actual latest
+  // block end date — NOT a forward projection from startDate, which would overshoot by
+  // the overage amount when a deliverable is over-allotted (it ends at its due date,
+  // not at startDate + its length). The left edge is min(startDate, earliest blockStart)
+  // so over-allotted bars that begin before day one stay on-canvas.
 
   // ── Read blockStart/blockEnd directly from stamped phase dates ───────────
   // recalcPhaseDates (run above for every block) stamps dataset.endDate on each
@@ -1599,9 +1589,20 @@ export function updateGantt() {
     }
   });
 
-  // Finalize the scale now that all positions are known. The left edge is the
-  // earliest of startDate and every block's start — so over-allotted bars that
-  // begin before day one stay on-canvas instead of rendering at negative offsets.
+  // Finalize the scale now that all positions are known.
+  // Right edge (anchorDate): the latest of the due date, the actual latest block end,
+  // and the latest P&M delivery. Using the real block ends — not a forward projection
+  // from startDate — means an over-allotted deliverable extends the canvas to its true
+  // end (the due date), rather than overshooting by the overage amount.
+  let latestEnd = null;
+  sortedIdxs.forEach(i => { if (!latestEnd || blockEnd[i] > latestEnd) latestEnd = blockEnd[i]; });
+  const anchorDate = [dueDate, latestEnd, maxPMDate]
+    .filter(Boolean)
+    .reduce((m, d) => d > m ? d : m, latestEnd || startDate);
+
+  // Left edge (scaleStart): the earliest of startDate and every block's start — so
+  // over-allotted bars that begin before day one stay on-canvas instead of rendering
+  // at negative offsets.
   let scaleStart = new Date(startDate);
   sortedIdxs.forEach(i => { if (blockStart[i] < scaleStart) scaleStart = new Date(blockStart[i]); });
   const scaleDays = Math.max(1, countBusinessDays(scaleStart, anchorDate));
