@@ -1231,37 +1231,57 @@ export function recalcBlockFeasibility(block) {
   const startVal = document.getElementById('startDate').value;
   if (!startVal) return;
 
-  const start       = nextWorkDay(new Date(startVal + 'T00:00:00'));
-  const parentBlock = getParentBlock(block);
+  const start = nextWorkDay(new Date(startVal + 'T00:00:00'));
 
-  let effectiveDue;
-  if (parentBlock) {
-    // Child block: judged against project due date minus parent days
-    const dueVal = document.getElementById('dueDate').value;
-    effectiveDue = dueVal ? (() => { let d = new Date(dueVal + 'T00:00:00'); while (!isWorkDay(d)) d.setDate(d.getDate() - 1); return d; })() : null;
-  } else {
-    // Root block: PM parent uses delivery-10, regular uses due-appended
-    effectiveDue = getEffectiveDue(block);
-  }
-  if (!effectiveDue) return;
+  // Judge feasibility against the block's OWN stamped dates (set by recalcPhaseDates,
+  // the same authoritative logic that drives the Gantt and timeline output) rather than
+  // re-deriving a window with naive parent-day subtraction. A block is feasible when its
+  // production can start on or after the project start date.
+  //
+  //   productionEnd   = latest non-P&M phase end date (the production deadline)
+  //   requiredStart   = productionEnd - production days
+  //   buffer/overage  = business days between project start and requiredStart
+  //
+  // This is uniform for roots, children, PM and non-PM: the stamped dates already encode
+  // every gate (parent production end, translation gate, P&M carve-out), so we don't
+  // re-implement that here — and a P&M block whose delivery aligns with the due date
+  // reads as "exactly on time", not over.
+  const rows      = [...block.querySelectorAll('.phase-table tbody tr')];
+  const prodRows  = rows.filter(tr => !(tr.querySelector('.pt-name')?.value || '').startsWith('Print & Mail'));
+  if (!prodRows.length) return;
 
-  const available = countBusinessDays(start, effectiveDue);
-  const needed    = getBlockDays(block);
+  const prodDays = prodRows.reduce((s, tr) => s + Math.max(0, parseInt(tr.querySelector('.pt-dur')?.value) || 0), 0);
 
-  const effectiveAvailable = parentBlock
-    ? available - getBlockDays(parentBlock)
-    : available;
+  // Latest stamped production end date among non-P&M rows
+  let productionEnd = null;
+  prodRows.forEach(tr => {
+    const iso = tr.querySelector('.phase-end-date')?.dataset.endDate;
+    if (iso) {
+      const d = new Date(iso + 'T00:00:00');
+      if (!productionEnd || d > productionEnd) productionEnd = d;
+    }
+  });
+  if (!productionEnd) return;
+
+  const requiredStart = subtractBusinessDays(productionEnd, prodDays);
 
   const fill = block.querySelector('.pb-feas-bar-fill');
   const diff = block.querySelector('.pb-feas-diff');
-  if (!fill || !diff || effectiveAvailable <= 0) return;
+  if (!fill || !diff) return;
 
-  const pct   = Math.min(100, (needed / effectiveAvailable) * 100);
-  const delta = effectiveAvailable - needed;
+  // delta > 0: requiredStart is after project start (buffer). delta < 0: must start before
+  // project start (overage). countBusinessDays returns 0 when start >= requiredStart.
+  const delta = requiredStart >= start
+    ? countBusinessDays(start, requiredStart)
+    : -countBusinessDays(requiredStart, start);
 
-  if (delta > 5)     { fill.style.cssText = `width:${pct}%;background:var(--green)`; diff.className = 'pb-feas-diff ok';   diff.textContent = `+${delta} days buffer`; }
-  else if (delta >= 0) { fill.style.cssText = `width:${pct}%;background:var(--amber)`; diff.className = 'pb-feas-diff warn';  diff.textContent = delta === 0 ? 'Exactly on time' : `+${delta} days`; }
-  else               { fill.style.cssText = 'width:100%;background:var(--red)';      diff.className = 'pb-feas-diff over';  diff.textContent = `${delta} days over`; }
+  // Bar fill: proportion of the available window the production consumes
+  const windowDays = countBusinessDays(start, productionEnd) || prodDays;
+  const pct = Math.min(100, (prodDays / windowDays) * 100);
+
+  if (delta > 5)       { fill.style.cssText = `width:${pct}%;background:var(--green)`; diff.className = 'pb-feas-diff ok';   diff.textContent = `+${delta} days buffer`; }
+  else if (delta >= 0) { fill.style.cssText = `width:${pct}%;background:var(--amber)`; diff.className = 'pb-feas-diff warn'; diff.textContent = delta === 0 ? 'Exactly on time' : `+${delta} days`; }
+  else                 { fill.style.cssText = 'width:100%;background:var(--red)';       diff.className = 'pb-feas-diff over'; diff.textContent = `${Math.abs(delta)} days over`; }
 
   // Re-evaluate generate button — over state may have changed
   const generateBtn = document.getElementById('generateBtn');
