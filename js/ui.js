@@ -633,6 +633,16 @@ export function rebuildPhaseTable(block, skipPhases) {
     subtitle.innerHTML = `${esc(grp ? grp.group : '')}${variantLabel} &middot; ${expanded.length} phases`;
   }
 
+  // rebuildPhaseTable regenerates phases from ALL_PHASES, which does NOT include the
+  // appended Print & Mail row (that's added by applyPMPostPass). If this block is in a
+  // PM chain, the rebuild just dropped its P&M row — re-run the post-pass to re-append
+  // it, otherwise recalcPhaseDates can't find the P&M row and the production/P&M gate
+  // separation is lost. applyPMPostPass handles recalc + feasibility + Gantt itself.
+  if (block.dataset.pmChain === 'true') {
+    applyPMPostPass();
+    return;
+  }
+
   updateFeasibility();
   recalcPhaseDates(block);
   recalcBlockFeasibility(block);
