@@ -88,13 +88,38 @@ function buildFooterRow(startDate, projectSpanDays, dueDate, projectEndDate) {
 }
 
 // ── Build chronological table HTML ────────────────────────────────────────
+// When multiple phases share a date, each task gets its own row with its own
+// deliverable in the deliverable column (rather than collapsing them into a
+// single comma-joined row). Distinct deliverable+task pairs are preserved;
+// exact duplicates (same deliverable and task) are de-duplicated.
 function buildChronTable({ milestoneGroups, projectEndDate, projectSpanDays, startDate, dueDate, project, client }) {
   let rows = buildTableHeader(project);
 
   milestoneGroups.forEach(group => {
-    const dels  = [...new Set(group.items.map(m => fmtDeliverable(m)))].join(', ');
-    const tasks = [...new Set(group.items.map(m => m.task))].join(', ');
-    rows += buildDataRow(groupParty(group, client), dels, tasks, fmtDateShort(group.date), group.isPastDue);
+    const dateFmt = fmtDateShort(group.date);
+
+    // One row per unique deliverable+task pair within this date.
+    const seen = new Set();
+    const lines = [];
+    group.items.forEach(item => {
+      const deliverable = fmtDeliverable(item);
+      const task = item.task;
+      const key = `${deliverable}\u0000${task}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      lines.push({ item, deliverable, task });
+    });
+
+    lines.forEach(({ item, deliverable, task }, idx) => {
+      // Party blanks for Kickoff/Distribution rows; computed per-row from the item.
+      const taskKey = task.trim().toLowerCase();
+      const party   = PARTY_BLANK_TASKS.has(taskKey) ? '' : partyName(item.owner, client);
+      // Show the date only on the first line of a shared date; blank on the rest so
+      // the grouping under one date reads cleanly. Extra bottom padding on the last
+      // line of the group separates date clusters.
+      const isLast = idx === lines.length - 1;
+      rows += buildDataRow(party, deliverable, task, idx === 0 ? dateFmt : '', group.isPastDue, isLast);
+    });
   });
 
   rows += buildFooterRow(startDate, projectSpanDays, dueDate, projectEndDate);
