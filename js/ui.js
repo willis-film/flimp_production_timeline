@@ -1589,36 +1589,67 @@ export function updateGantt() {
     }
   });
 
-  // Finalize the scale now that all positions are known.
-  // Right edge (anchorDate): the latest of the due date, the actual latest block end,
-  // and the latest P&M delivery. Using the real block ends — not a forward projection
-  // from startDate — means an over-allotted deliverable extends the canvas to its true
-  // end (the due date), rather than overshooting by the overage amount.
-  let latestEnd = null;
-  sortedIdxs.forEach(i => { if (!latestEnd || blockEnd[i] > latestEnd) latestEnd = blockEnd[i]; });
-  const anchorDate = [dueDate, latestEnd, maxPMDate]
-    .filter(Boolean)
-    .reduce((m, d) => d > m ? d : m, latestEnd || startDate);
+  // ── Per-chain overage offset (RENDER ONLY — does not touch any dates) ─────
+  // Backward scheduling is unchanged: blockStart/blockEnd are the true backward-
+  // computed dates. This positions bars so the left edge is pinned to the project
+  // start. A chain whose earliest block start falls BEFORE the project start is
+  // "over-allotted"; rather than drawing left of the edge, we shift that whole chain
+  // RIGHT by its overage so it starts at the edge and overflows PAST the due line.
+  // The shift is per CHAIN (root + all descendants share one offset) so children stay
+  // glued to their parents. A chain that fits gets offset 0 and stays anchored to its
+  // due/delivery date (ending on the due line).
+  const chainRootOfIdx = idx => {
+    let c = idx, n = 0;
+    while (parentIdxMap[c] !== null && parentIdxMap[c] !== undefined && n++ < 50) c = parentIdxMap[c];
+    return c;
+  };
+  // Earliest block start within each chain (keyed by chain root index).
+  const chainEarliest = {};
+  sortedIdxs.forEach(i => {
+    const root = chainRootOfIdx(i);
+    if (!chainEarliest[root] || blockStart[i] < chainEarliest[root]) chainEarliest[root] = blockStart[i];
+  });
+  // Offset (in business days) to push each chain right so its earliest start lands on
+  // the project start. 0 for chains that already begin on or after the start.
+  const chainOffsetDays = {};
+  Object.keys(chainEarliest).forEach(root => {
+    chainOffsetDays[root] = Math.max(0, countBusinessDays(chainEarliest[root], startDate));
+  });
+  // The shifted end date of a block = its real end pushed right by its chain's offset.
+  const shiftedEnd = i => addBusinessDays(blockEnd[i], chainOffsetDays[chainRootOfIdx(i)]);
 
-  // Left edge (scaleStart): the earliest of startDate and every block's start — so
-  // over-allotted bars that begin before day one stay on-canvas instead of rendering
-  // at negative offsets.
-  let scaleStart = new Date(startDate);
-  sortedIdxs.forEach(i => { if (blockStart[i] < scaleStart) scaleStart = new Date(blockStart[i]); });
-  const scaleDays = Math.max(1, countBusinessDays(scaleStart, anchorDate));
-  // Percent offset of any date along the scale (clamped to 0–100).
-  const offsetPct = d => Math.max(0, Math.min(100, (countBusinessDays(scaleStart, d) / scaleDays) * 100));
+  // Right edge: the latest SHIFTED block end (so an over chain's overflow is on-canvas),
+  // also considering the due date and P&M dates (which are not shifted).
+  let latestShiftedEnd = null;
+  sortedIdxs.forEach(i => { const e = shiftedEnd(i); if (!latestShiftedEnd || e > latestShiftedEnd) latestShiftedEnd = e; });
+  const anchorDate = [dueDate, latestShiftedEnd, maxPMDate]
+    .filter(Boolean)
+    .reduce((m, d) => d > m ? d : m, latestShiftedEnd || startDate);
+
+  // Left edge = project start (pinned, always).
+  const scaleStart = new Date(startDate);
+  const scaleDays  = Math.max(1, countBusinessDays(scaleStart, anchorDate));
+
+  // Position a real date along the scale, optionally shifted right by a chain offset.
+  // Unshifted (offsetDays = 0) for the due line, axis, and fitting chains; shifted for
+  // over-allotted chains' bars.
+  const offsetPctShifted = (d, offsetDays = 0) =>
+    Math.max(0, Math.min(100, (countBusinessDays(scaleStart, addBusinessDays(d, offsetDays)) / scaleDays) * 100));
+  // Convenience for unshifted dates (axis ticks, due line).
+  const offsetPct = d => offsetPctShifted(d, 0);
+
+  // The due line is never shifted — it marks the real due date, sitting short of the
+  // right edge when any chain overflows past it.
   const availableDays = dueDate ? countBusinessDays(scaleStart, dueDate) : 0;
   const duePct        = dueDate ? Math.min(100, (availableDays / scaleDays) * 100) : null;
 
-  // Axis ticks
+  // Axis ticks march through real calendar months but are positioned with offsetPct so
+  // they line up with the (shifted) bars. The right-edge label shows the true latest end.
   const ticks = [];
   const tickCur = new Date(scaleStart);
   tickCur.setDate(1); tickCur.setMonth(tickCur.getMonth() + 1);
   while (tickCur < anchorDate) {
-    const bd = countBusinessDays(scaleStart, tickCur);
-    const pct = (bd / scaleDays) * 100;
-    // Skip ticks too close to either edge (avoids overlap with fixed start/end labels)
+    const pct = offsetPct(tickCur);
     if (pct > 5 && pct < 92) {
       ticks.push({ label: tickCur.toLocaleDateString('en-US', { month: 'short' }) + ' ' + tickCur.getDate(), pct });
     }
@@ -1632,17 +1663,25 @@ export function updateGantt() {
   html += `<span class="gantt-axis-tick" style="right:0;left:auto;transform:none">${fmtDateShort(anchorDate)}</span>`;
   html += `</div></div>`;
 
-  // Total bar: span from earliest root blockStart to anchorDate (handles PM parents pushing left)
+  // Total bar: spans the full canvas from the pinned start edge to the right edge.
   const rootIdxs = sortedIdxs.filter(i => parentIdxMap[i] === null);
+  // Latest shifted end across all blocks — the visual right end of all work.
+  let latestShiftedEndIdx = sortedIdxs[0];
+  sortedIdxs.forEach(i => { if (shiftedEnd(i) > shiftedEnd(latestShiftedEndIdx)) latestShiftedEndIdx = i; });
+  // lastEarliestStart / lastTotalSpanDays feed the feasibility boxes — these report the
+  // REAL (unshifted) schedule: the earliest real start and the real total span. The shift
+  // is render-only and must not leak into the reported numbers.
   const earliestStart = rootIdxs.reduce((e, i) => blockStart[i] < e ? blockStart[i] : e, blockStart[rootIdxs[0]]);
   lastEarliestStart = earliestStart;
-  // Total span: earliest blockStart → anchorDate, same convention as scaleDays
-  const totalSpanDays = countBusinessDays(earliestStart, anchorDate);
+  let realLatestEnd = blockEnd[sortedIdxs[0]];
+  sortedIdxs.forEach(i => { if (blockEnd[i] > realLatestEnd) realLatestEnd = blockEnd[i]; });
+  const totalSpanDays = countBusinessDays(earliestStart, realLatestEnd);
   lastTotalSpanDays = totalSpanDays;
   const latestStartEl = document.getElementById('feasLatestStart');
   if (latestStartEl) latestStartEl.textContent = earliestStart ? fmtDateShort(earliestStart) : '—';
-  const totalWidthPct = Math.min(100, (totalSpanDays / scaleDays) * 100);
-  const totalLeftPct  = offsetPct(earliestStart);
+  // The total bar fills from the start edge to the latest shifted end (the visual extent).
+  const totalLeftPct  = 0;
+  const totalWidthPct = Math.min(100, offsetPctShifted(blockEnd[latestShiftedEndIdx], chainOffsetDays[chainRootOfIdx(latestShiftedEndIdx)]));
   html += `<div class="gantt-row">
     <div class="gantt-label" style="color:rgba(255,255,255,.45);font-style:italic">Total project</div>
     <div class="gantt-track">
@@ -1673,8 +1712,11 @@ export function updateGantt() {
         })()
       : 0;
 
-    const leftPct  = Math.max(0, (countBusinessDays(scaleStart, blockStart[i]) / scaleDays) * 100);
-    const rightPct = Math.max(0, (countBusinessDays(scaleStart, blockEnd[i])   / scaleDays) * 100);
+    // This block's chain offset — shifts the whole over-allotted chain right as a unit
+    // so children stay glued to their parent. 0 for chains that fit.
+    const thisOffset = chainOffsetDays[chainRootOfIdx(i)] || 0;
+    const leftPct  = offsetPctShifted(blockStart[i], thisOffset);
+    const rightPct = offsetPctShifted(blockEnd[i],   thisOffset);
     const widthPct = Math.max(0.5, rightPct - leftPct);
     const productionSpanDays = countBusinessDays(blockStart[i], blockEnd[i]);
 
@@ -1707,7 +1749,7 @@ export function updateGantt() {
       if (!isPMChain || !pmDelivery || pmDur <= 0) return '';
       const pmDate     = new Date(pmDelivery + 'T00:00:00');
       const pmStart    = subtractBusinessDays(pmDate, pmDur);
-      const pmLeftPct  = Math.max(0, (countBusinessDays(scaleStart, pmStart) / scaleDays) * 100);
+      const pmLeftPct  = offsetPctShifted(pmStart, thisOffset);
       const pmWidthPct = Math.max(1, (pmDur / scaleDays) * 100);
       // Square left edge only when flush against production; round it when gapped
       const pmRadius   = pmAdjacent ? '0 4px 4px 0' : '4px';
@@ -1758,7 +1800,7 @@ export function updateGantt() {
           const pmPhaseInp = [...block.querySelectorAll('.pt-name')].find(x => x.value.startsWith('Print & Mail'));
           const pmDurFallback = pmPhaseInp ? (Math.max(1, parseInt(pmPhaseInp.closest('tr')?.querySelector('.pt-dur')?.value) || 10)) : 10;
           const prodDue = subtractBusinessDays(pmD, pmDurFallback);
-          const dividerPct = (countBusinessDays(scaleStart, prodDue) / scaleDays) * 100;
+          const dividerPct = offsetPctShifted(prodDue, thisOffset);
           return `<div style="position:absolute;left:${dividerPct}%;top:-2px;bottom:-2px;width:2px;background:rgba(255,255,255,.4);z-index:5;transform:translateX(-1px);pointer-events:none"></div>`;
         })()}
       </div>
