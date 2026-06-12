@@ -541,6 +541,27 @@ function makePhaseTbodyDraggable(tbody, block) {
 }
 
 // ── Rebuild phase table ───────────────────────────────────────────────────
+// ── Deleted-phase tracking ─────────────────────────────────────────────────
+// When a user removes a phase row from the review table, we record its (expanded)
+// name on the block so a later rebuildPhaseTable — triggered by a rounds change or
+// precondition toggle — doesn't regenerate it from ALL_PHASES. Without this, deleted
+// phases reappear whenever the table is rebuilt.
+function getDeletedPhases(block) {
+  try { return new Set(JSON.parse(block.dataset.deletedPhases || '[]')); }
+  catch { return new Set(); }
+}
+function recordDeletedPhase(block, name) {
+  if (!name) return;
+  const set = getDeletedPhases(block);
+  set.add(name);
+  block.dataset.deletedPhases = JSON.stringify([...set]);
+}
+function unrecordDeletedPhase(block, name) {
+  if (!name) return;
+  const set = getDeletedPhases(block);
+  if (set.delete(name)) block.dataset.deletedPhases = JSON.stringify([...set]);
+}
+
 export function rebuildPhaseTable(block, skipPhases) {
   const product   = block.dataset.product;
   const isRenewal = block.dataset.isrenewal === 'true';
@@ -597,11 +618,16 @@ export function rebuildPhaseTable(block, skipPhases) {
   if (!tbody) return;
   tbody.innerHTML = '';
 
+  // Drop phases the user explicitly deleted from the review table (matched on the
+  // expanded/displayed name, e.g. "Initial Edits Rd 2") so they don't reappear on rebuild.
+  const deletedSet = getDeletedPhases(block);
+  const finalPhases = deletedSet.size > 0 ? expanded.filter(p => !deletedSet.has(p.name)) : expanded;
+
   // Update table header to include drag handle column
   const thead = block.querySelector('.phase-table thead');
   if (thead) thead.innerHTML = '<tr><th style="width:22px"></th><th>Phase</th><th style="text-align:center">Owner</th><th style="text-align:center">Days</th><th style="text-align:center">Ends</th><th></th></tr>';
 
-  expanded.forEach(phase => {
+  finalPhases.forEach(phase => {
     const tr = document.createElement('tr');
     const ownerClass = phase.owner === 'Client' ? 'owner-client' : 'owner-flimp';
     tr.dataset.isMilestone = phase.is_milestone ? 'true' : 'false';
@@ -618,7 +644,7 @@ export function rebuildPhaseTable(block, skipPhases) {
 
     const rmBtn = document.createElement('button');
     rmBtn.className = 'phase-rm-btn'; rmBtn.textContent = '×';
-    rmBtn.onclick = () => { tr.remove(); updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block); };
+    rmBtn.onclick = () => { recordDeletedPhase(block, tr.querySelector('.pt-name')?.value); tr.remove(); updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block); };
     tr.querySelector('.phase-rm-btn').replaceWith(rmBtn);
 
     tbody.appendChild(tr);
@@ -630,7 +656,7 @@ export function rebuildPhaseTable(block, skipPhases) {
   if (subtitle) {
     const grp = getProductGroup(product);
     const variantLabel = isNA ? '' : (isRenewal ? ' &bull; Renewal' : ' &bull; New');
-    subtitle.innerHTML = `${esc(grp ? grp.group : '')}${variantLabel} &middot; ${expanded.length} phases`;
+    subtitle.innerHTML = `${esc(grp ? grp.group : '')}${variantLabel} &middot; ${finalPhases.length} phases`;
   }
 
   // rebuildPhaseTable regenerates phases from ALL_PHASES, which does NOT include the
@@ -896,7 +922,7 @@ export function previewPhases() {
       durInp.addEventListener('change', () => { updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block); });
 
       const rmBtn2 = tr.querySelector('.phase-rm-btn');
-      rmBtn2.onclick = () => { tr.remove(); updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block); };
+      rmBtn2.onclick = () => { recordDeletedPhase(block, tr.querySelector('.pt-name')?.value); tr.remove(); updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block); };
 
       tbody.appendChild(tr);
     });
@@ -912,7 +938,10 @@ export function previewPhases() {
       const newRow = buildNewPhaseRow();
       tbody.appendChild(newRow);
       newRow.querySelector('.pt-dur').addEventListener('change', () => { updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block); });
-      newRow.querySelector('.phase-rm-btn').onclick = () => { newRow.remove(); updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block); };
+      // Typing a name that was previously deleted clears it from the deleted set so it
+      // won't be filtered out on the next rebuild.
+      newRow.querySelector('.pt-name').addEventListener('input', e => unrecordDeletedPhase(block, e.target.value));
+      newRow.querySelector('.phase-rm-btn').onclick = () => { recordDeletedPhase(block, newRow.querySelector('.pt-name')?.value); newRow.remove(); updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block); };
       newRow.querySelector('.pt-name').focus();
       newRow.querySelector('.pt-name').select();
       // Re-wire all rows for drag since new row was appended
