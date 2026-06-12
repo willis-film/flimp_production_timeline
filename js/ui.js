@@ -1533,12 +1533,6 @@ export function updateGantt() {
     blockDays[i] = Math.max(1, durs.reduce((a, b) => a + b, 0));
   });
 
-  // Latest P&M delivery date across all blocks/rows — part of the right-edge anchor.
-  const allPMDates = [
-    ...delRows.filter(r => r.dataset.pmDelivery).map(r => new Date(r.dataset.pmDelivery + 'T00:00:00')),
-    ...blocks.filter(b => b.dataset.pmDelivery).map(b => new Date(b.dataset.pmDelivery + 'T00:00:00'))
-  ];
-  const maxPMDate = allPMDates.length ? allPMDates.reduce((m, d) => d > m ? d : m) : null;
   // anchorDate (right edge) and scaleStart/scaleDays (left edge + width) are finalized
   // AFTER block positions are known. The right edge must come from the actual latest
   // block end date — NOT a forward projection from startDate, which would overshoot by
@@ -1615,14 +1609,26 @@ export function updateGantt() {
   Object.keys(chainEarliest).forEach(root => {
     chainOffsetDays[root] = Math.max(0, countBusinessDays(chainEarliest[root], startDate));
   });
-  // The shifted end date of a block = its real end pushed right by its chain's offset.
-  const shiftedEnd = i => addBusinessDays(blockEnd[i], chainOffsetDays[chainRootOfIdx(i)]);
+  // The rightmost REAL date of a block: its P&M delivery if it's a PM chain block
+  // (P&M runs after production and ends on the delivery date), else its production end.
+  const blockRightDate = i => {
+    const b = blocks[i];
+    const pmd = b.dataset.pmChain === 'true' ? b.dataset.pmDelivery : null;
+    if (pmd) {
+      const pmDate = new Date(pmd + 'T00:00:00');
+      return pmDate > blockEnd[i] ? pmDate : blockEnd[i];
+    }
+    return blockEnd[i];
+  };
+  // The shifted rightmost point of a block = its real right date pushed right by its
+  // chain's offset. Used for the scale's right edge and the total bar extent.
+  const shiftedEnd = i => addBusinessDays(blockRightDate(i), chainOffsetDays[chainRootOfIdx(i)]);
 
-  // Right edge: the latest SHIFTED block end (so an over chain's overflow is on-canvas),
-  // also considering the due date and P&M dates (which are not shifted).
+  // Right edge: the latest SHIFTED block right-edge (so an over chain's overflow — including
+  // its P&M segment — stays on-canvas), plus the due date as a floor.
   let latestShiftedEnd = null;
   sortedIdxs.forEach(i => { const e = shiftedEnd(i); if (!latestShiftedEnd || e > latestShiftedEnd) latestShiftedEnd = e; });
-  const anchorDate = [dueDate, latestShiftedEnd, maxPMDate]
+  const anchorDate = [dueDate, latestShiftedEnd]
     .filter(Boolean)
     .reduce((m, d) => d > m ? d : m, latestShiftedEnd || startDate);
 
@@ -1679,9 +1685,9 @@ export function updateGantt() {
   lastTotalSpanDays = totalSpanDays;
   const latestStartEl = document.getElementById('feasLatestStart');
   if (latestStartEl) latestStartEl.textContent = earliestStart ? fmtDateShort(earliestStart) : '—';
-  // The total bar fills from the start edge to the latest shifted end (the visual extent).
+  // The total bar fills from the start edge to the latest shifted right-edge (P&M-aware).
   const totalLeftPct  = 0;
-  const totalWidthPct = Math.min(100, offsetPctShifted(blockEnd[latestShiftedEndIdx], chainOffsetDays[chainRootOfIdx(latestShiftedEndIdx)]));
+  const totalWidthPct = Math.min(100, offsetPctShifted(blockRightDate(latestShiftedEndIdx), chainOffsetDays[chainRootOfIdx(latestShiftedEndIdx)]));
   html += `<div class="gantt-row">
     <div class="gantt-label" style="color:rgba(255,255,255,.45);font-style:italic">Total project</div>
     <div class="gantt-track">
