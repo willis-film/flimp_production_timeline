@@ -478,12 +478,12 @@ function pdfDeliverableSchedule(deliverables, phasesPerDeliverable, milestoneGro
 
   const isPMPhase = name => name.trim().toLowerCase().startsWith('print & mail');
 
-  const rows = deliverables.map((del, idx) => {
+  // Pre-compute each deliverable's dates so we can decide whether ANY has a P&M
+  // date. If none do, the P&M column is hidden entirely (header + cells + colgroup).
+  const computed = deliverables.map((del, idx) => {
     const phases = phasesPerDeliverable[idx] || [];
-    if (!phases.length) return '';
+    if (!phases.length) return null;
 
-    // Start = earliest of any phase. End = latest PRODUCTION phase (P&M excluded).
-    // pmDate = the Print & Mail delivery date (if this deliverable has one).
     let minDate = null, prodEnd = null, pmDate = null;
     phases.forEach(phase => {
       const key = `${del.product}||${phase.name}`;
@@ -497,40 +497,58 @@ function pdfDeliverableSchedule(deliverables, phasesPerDeliverable, milestoneGro
         if (!prodEnd || d > prodEnd) prodEnd = d;
       }
     });
+    return { del, minDate, prodEnd, pmDate };
+  });
+
+  // Show the P&M column only when at least one deliverable actually has a P&M date.
+  const showPM = computed.some(c => c && c.pmDate);
+
+  const rows = computed.map(c => {
+    if (!c) return '';
+    const { del, minDate, prodEnd, pmDate } = c;
 
     const variant  = del.isRenewal ? 'Renewal' : 'New';
     const startStr = minDate ? fmtDateShort(minDate) : '—';
     const endStr   = prodEnd ? fmtDateShort(prodEnd) : '—';
     const pmStr    = pmDate  ? fmtDateShort(pmDate)  : '—';
 
+    const pmCell = showPM
+      ? `<td style="padding:6px 0 6px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${PDF.textLight};font-family:${PDF.font};white-space:nowrap;text-align:right">${esc(pmStr)}</td>`
+      : '';
+
     return `
       <tr>
         <td style="padding:6px 10px 6px 0;border-bottom:1px solid ${PDF.border};font-size:10px;color:${PDF.text};font-weight:400;font-family:${PDF.font}">${esc(del.product)}</td>
         <td style="padding:6px 10px;border-bottom:1px solid ${PDF.border};font-size:9px;color:${PDF.textMuted};font-family:${PDF.font};white-space:nowrap">${variant}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${PDF.textLight};font-family:${PDF.font};white-space:nowrap;text-align:right">${esc(startStr)}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${PDF.textLight};font-family:${PDF.font};white-space:nowrap;text-align:right">${esc(endStr)}</td>
-        <td style="padding:6px 0 6px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${PDF.textLight};font-family:${PDF.font};white-space:nowrap;text-align:right">${esc(pmStr)}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;font-weight:700;color:${PDF.textLight};font-family:${PDF.font};white-space:nowrap;text-align:right">${esc(startStr)}</td>
+        <td style="padding:6px ${showPM ? '10px' : '0 6px 10px'};border-bottom:1px solid ${PDF.border};font-size:10px;font-weight:700;color:${PDF.textLight};font-family:${PDF.font};white-space:nowrap;text-align:right">${esc(endStr)}</td>
+        ${pmCell}
       </tr>`;
   }).join('');
 
   if (!rows) return '';
 
+  // Column widths: redistribute the P&M column's share to Deliverable when hidden.
+  const colgroup = showPM
+    ? `<col style="width:40%"><col style="width:15%"><col style="width:15%"><col style="width:15%"><col style="width:15%">`
+    : `<col style="width:50%"><col style="width:18%"><col style="width:16%"><col style="width:16%">`;
+
+  const pmHeader = showPM
+    ? `<td style="padding:0 0 5px 10px;font-size:7px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};border-bottom:1.5px solid ${PDF.dark};font-family:${PDF.font};text-align:right">P&amp;M</td>`
+    : '';
+
   return `
     <table style="width:100%;border-collapse:collapse;table-layout:fixed">
       <colgroup>
-        <col style="width:40%">
-        <col style="width:15%">
-        <col style="width:15%">
-        <col style="width:15%">
-        <col style="width:15%">
+        ${colgroup}
       </colgroup>
       <thead>
         <tr>
           <td style="padding:0 10px 5px 0;font-size:7px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};border-bottom:1.5px solid ${PDF.dark};font-family:${PDF.font}">Deliverable</td>
           <td style="padding:0 10px 5px;font-size:7px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};border-bottom:1.5px solid ${PDF.dark};font-family:${PDF.font}">Type</td>
           <td style="padding:0 10px 5px;font-size:7px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};border-bottom:1.5px solid ${PDF.dark};font-family:${PDF.font};text-align:right">Start</td>
-          <td style="padding:0 10px 5px;font-size:7px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};border-bottom:1.5px solid ${PDF.dark};font-family:${PDF.font};text-align:right">End</td>
-          <td style="padding:0 0 5px 10px;font-size:7px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};border-bottom:1.5px solid ${PDF.dark};font-family:${PDF.font};text-align:right">P&amp;M</td>
+          <td style="padding:0 ${showPM ? '10px' : '0 5px 10px'};font-size:7px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};border-bottom:1.5px solid ${PDF.dark};font-family:${PDF.font};text-align:right">End</td>
+          ${pmHeader}
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -665,10 +683,10 @@ function pdfMilestoneTable(milestoneGroups, dueDate, client) {
     const dateLabel = dayName + ' ' + fmtDateShort(group.date);
     return `
       <tr>
-        <td style="padding:7px 10px 7px 0;border-bottom:1px solid ${PDF.border};font-size:10px;color:${isPastDue ? PDF.red : PDF.textLight};font-family:${PDF.font};white-space:nowrap;width:80px">${dateLabel}</td>
-        <td style="padding:7px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${PDF.textMuted};font-family:${PDF.font};width:60px">${esc(groupParty(group, client))}</td>
-        <td style="padding:7px 10px;border-bottom:1px solid ${PDF.border};font-size:9px;color:${PDF.textMuted};font-family:${PDF.font}">${esc(dels)}</td>
-        <td style="padding:7px 0 7px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;font-weight:600;color:${isPastDue ? PDF.red : PDF.text};font-family:${PDF.font}">${esc(tasks)}</td>
+        <td style="padding:7px 10px 7px 0;border-bottom:1px solid ${PDF.border};font-size:10px;color:${isPastDue ? PDF.red : PDF.text};font-family:${PDF.font};white-space:nowrap;width:80px">${dateLabel}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${PDF.text};font-family:${PDF.font};width:60px">${esc(groupParty(group, client))}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid ${PDF.border};font-size:9px;color:${PDF.text};font-family:${PDF.font}">${esc(dels)}</td>
+        <td style="padding:7px 0 7px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${isPastDue ? PDF.red : PDF.text};font-family:${PDF.font}">${esc(tasks)}</td>
       </tr>`;
   }).join('');
 
