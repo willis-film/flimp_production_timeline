@@ -24,14 +24,14 @@ html{font-size:14px}
 body{font-family:Verdana,sans-serif;background:#F2F8F0;color:var(--text);min-height:100vh}
 
 /* ── Header ── */
-.app-header{background:var(--dark);padding:0 2rem;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.app-header{background:var(--dark);max-width:900px;margin:1.5rem auto 0;padding:0 1.5rem;height:56px;border-radius:var(--radius-lg);display:flex;align-items:center;justify-content:space-between;z-index:100}
 .logo{display:flex;align-items:center;gap:6px}
 .logo-wordmark{font-size:21px;font-weight:700;color:var(--lime);letter-spacing:-.01em}
-.logo-sub{font-size:12px;color:#ffffff45;margin-left:4px;letter-spacing:.02em}
+.logo-sub{font-size:12px;color:#ffffff;margin-left:4px;letter-spacing:.02em}
 .header-right{font-size:12px;color:#ffffff40}
 
 /* ── Layout ── */
-.page{max-width:900px;margin:0 auto;padding:2rem 1.5rem 4rem}
+.page{max-width:900px;margin:0 auto;padding:1.25rem 1.5rem 4rem}
 
 /* ── Section titles ── */
 .section-head{display:flex;align-items:center;gap:10px;margin-bottom:1rem;flex-wrap:wrap}
