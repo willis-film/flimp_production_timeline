@@ -1728,6 +1728,13 @@ export function updateGantt() {
   const totalLeftPct  = shiftedStart(earliestStartIdx);
   const totalRightPct = Math.min(100, offsetPctShifted(blockRightDate(latestEndIdx), chainOffsetDays[chainRootOfIdx(latestEndIdx)]));
   const totalWidthPct = Math.max(0.5, totalRightPct - totalLeftPct);
+  // ── TEMP DIAGNOSTIC — remove after debugging total-bar left edge ──
+  console.log('[TOTALBAR] scaleStart=', toISO(scaleStart), 'scaleDays=', scaleDays);
+  console.log('[TOTALBAR] earliestStartIdx=', earliestStartIdx, 'totalLeftPct=', totalLeftPct.toFixed(2), 'totalRightPct=', totalRightPct.toFixed(2), 'totalWidthPct=', totalWidthPct.toFixed(2));
+  sortedIdxs.forEach(i => {
+    console.log('[TOTALBAR]  block', i, blocks[i].dataset.product, '| blockStart=', toISO(blockStart[i]), '| shiftedStartPct=', shiftedStart(i).toFixed(2), '| offset=', chainOffsetDays[chainRootOfIdx(i)]);
+  });
+  // ── END TEMP DIAGNOSTIC ──
   html += `<div class="gantt-row">
     <div class="gantt-label" style="color:rgba(255,255,255,.45);font-style:italic">Total project</div>
     <div class="gantt-track">
