@@ -72,6 +72,22 @@ function buildDataRow(party, deliverable, task, date, isPastDue, extraBottomPad 
     </tr>`;
 }
 
+// Variant of buildDataRow where deliverable/task are PRE-ESCAPED HTML (so they may
+// contain <br> for stacking multiple phases on their own lines within one cell).
+// Cells top-align so the deliverable line and its paired task line stay aligned.
+function buildDataRowHTML(party, deliverableHTML, taskHTML, date, isPastDue, extraBottomPad = false) {
+  const rowBg   = isPastDue ? 'background:#fff0f0;' : '';
+  const dateFmt = isPastDue ? `${E.tdDate}color:#c00;` : E.tdDate;
+  const padExtra = extraBottomPad ? 'padding-bottom:14px;' : '';
+  return `
+    <tr style="${rowBg}">
+      <td contenteditable="true" style="${E.tdFirst}${padExtra}vertical-align:top;">${esc(party)}</td>
+      <td contenteditable="true" style="${E.td}${padExtra}vertical-align:top;line-height:1.6;">${deliverableHTML}</td>
+      <td contenteditable="true" style="${E.tdTask}${padExtra}vertical-align:top;line-height:1.6;">${taskHTML}</td>
+      <td contenteditable="true" style="${dateFmt}${padExtra}vertical-align:top;">${esc(date)}</td>
+    </tr>`;
+}
+
 // ── Footer summary row ────────────────────────────────────────────────────
 function buildFooterRow(startDate, projectSpanDays, dueDate, projectEndDate) {
   const parts = [
@@ -88,38 +104,56 @@ function buildFooterRow(startDate, projectSpanDays, dueDate, projectEndDate) {
 }
 
 // ── Build chronological table HTML ────────────────────────────────────────
-// When multiple phases share a date, each task gets its own row with its own
-// deliverable in the deliverable column (rather than collapsing them into a
-// single comma-joined row). Distinct deliverable+task pairs are preserved;
-// exact duplicates (same deliverable and task) are de-duplicated.
 function buildChronTable({ milestoneGroups, projectEndDate, projectSpanDays, startDate, dueDate, project, client }) {
   let rows = buildTableHeader(project);
 
+  // Tasks that stay comma-joined on one line rather than being stacked per-phase.
+  // Kickoff/Distribution are intentional singletons (one row listing all deliverables);
+  // Print & Mail is treated the same way for display.
+  const NO_STACK_TASKS = new Set(['kickoff', 'distribution', 'print & mail']);
+
   milestoneGroups.forEach(group => {
-    const dateFmt = fmtDateShort(group.date);
-
-    // One row per unique deliverable+task pair within this date.
-    const seen = new Set();
-    const lines = [];
-    group.items.forEach(item => {
-      const deliverable = fmtDeliverable(item);
-      const task = item.task;
-      const key = `${deliverable}\u0000${task}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      lines.push({ item, deliverable, task });
+    // Split the group's items into "regular" (stacked, paired line-by-line) and
+    // "no-stack" (Kickoff/Distribution/Print & Mail — kept comma-joined as before).
+    const regular = [];
+    const noStack = [];
+    group.items.forEach(m => {
+      (NO_STACK_TASKS.has(m.task.trim().toLowerCase()) ? noStack : regular).push(m);
     });
 
-    lines.forEach(({ item, deliverable, task }, idx) => {
-      // Party blanks for Kickoff/Distribution rows; computed per-row from the item.
-      const taskKey = task.trim().toLowerCase();
-      const party   = PARTY_BLANK_TASKS.has(taskKey) ? '' : partyName(item.owner, client);
-      // Show the date only on the first line of a shared date; blank on the rest so
-      // the grouping under one date reads cleanly. Extra bottom padding on the last
-      // line of the group separates date clusters.
-      const isLast = idx === lines.length - 1;
-      rows += buildDataRow(party, deliverable, task, idx === 0 ? dateFmt : '', group.isPastDue, isLast);
-    });
+    if (regular.length <= 1 && noStack.length === 0) {
+      // Single regular phase — plain row, no stacking needed.
+      const m = group.items[0];
+      rows += buildDataRow(groupParty(group, client), fmtDeliverable(m), m.task, fmtDateShort(group.date), group.isPastDue);
+      return;
+    }
+
+    if (regular.length === 0) {
+      // Only no-stack tasks — preserve the original comma-joined behavior.
+      const dels  = [...new Set(noStack.map(m => fmtDeliverable(m)))].join(', ');
+      const tasks = [...new Set(noStack.map(m => m.task))].join(', ');
+      rows += buildDataRow(groupParty(group, client), dels, tasks, fmtDateShort(group.date), group.isPastDue);
+      return;
+    }
+
+    // Build paired deliverable/task lines for the regular phases (each phase keeps its
+    // own line in BOTH columns, in matching order, so reading across pairs them up).
+    const delLines  = regular.map(m => esc(fmtDeliverable(m)));
+    const taskLines = regular.map(m => esc(m.task));
+
+    // Append any no-stack tasks (rare to co-occur) as their own comma-joined trailing line.
+    if (noStack.length) {
+      delLines.push(esc([...new Set(noStack.map(m => fmtDeliverable(m)))].join(', ')));
+      taskLines.push(esc([...new Set(noStack.map(m => m.task))].join(', ')));
+    }
+
+    rows += buildDataRowHTML(
+      groupParty(group, client),
+      delLines.join('<br>'),
+      taskLines.join('<br>'),
+      fmtDateShort(group.date),
+      group.isPastDue
+    );
   });
 
   rows += buildFooterRow(startDate, projectSpanDays, dueDate, projectEndDate);
@@ -406,6 +440,8 @@ function pdfSection(title) {
   return `
     <div style="
       display:block;
+      width:100%;
+      box-sizing:border-box;
       background:${PDF.dark};
       color:#fff;
       font-size:8px;
@@ -419,6 +455,86 @@ function pdfSection(title) {
       -webkit-print-color-adjust:exact;
       print-color-adjust:exact;
     ">${title}</div>`;
+}
+
+// ── Deliverable schedule: each product with start / end / P&M dates ─────────
+// Mirrors the per-product info from the phase review headers. Start = earliest
+// phase date; End = latest PRODUCTION phase date (excludes Print & Mail); P&M =
+// the Print & Mail delivery date (blank for non-P&M deliverables). Dates come
+// from the milestone groups (the same authoritative dates used everywhere else).
+function pdfDeliverableSchedule(deliverables, phasesPerDeliverable, milestoneGroups, client) {
+  // Map each deliverable's phases to their dates, plus a singleton fallback for
+  // Kickoff/Distribution (which are stored under a joined deliverable string).
+  const dateByKey = new Map();
+  const SINGLETON_TASKS = new Set(['kickoff', 'distribution']);
+  milestoneGroups.forEach(group => {
+    group.items.forEach(item => {
+      dateByKey.set(`${item.deliverable}||${item.task}`, group.date);
+      if (SINGLETON_TASKS.has(item.task.trim().toLowerCase())) {
+        dateByKey.set(`__singleton__||${item.task.trim().toLowerCase()}`, group.date);
+      }
+    });
+  });
+
+  const isPMPhase = name => name.trim().toLowerCase().startsWith('print & mail');
+
+  const rows = deliverables.map((del, idx) => {
+    const phases = phasesPerDeliverable[idx] || [];
+    if (!phases.length) return '';
+
+    // Start = earliest of any phase. End = latest PRODUCTION phase (P&M excluded).
+    // pmDate = the Print & Mail delivery date (if this deliverable has one).
+    let minDate = null, prodEnd = null, pmDate = null;
+    phases.forEach(phase => {
+      const key = `${del.product}||${phase.name}`;
+      const singletonKey = `__singleton__||${phase.name.trim().toLowerCase()}`;
+      const d = dateByKey.get(key) || dateByKey.get(singletonKey);
+      if (!d) return;
+      if (!minDate || d < minDate) minDate = d;
+      if (isPMPhase(phase.name)) {
+        if (!pmDate || d > pmDate) pmDate = d;
+      } else {
+        if (!prodEnd || d > prodEnd) prodEnd = d;
+      }
+    });
+
+    const variant  = del.isRenewal ? 'Renewal' : 'New';
+    const startStr = minDate ? fmtDateShort(minDate) : '—';
+    const endStr   = prodEnd ? fmtDateShort(prodEnd) : '—';
+    const pmStr    = pmDate  ? fmtDateShort(pmDate)  : '—';
+
+    return `
+      <tr>
+        <td style="padding:6px 10px 6px 0;border-bottom:1px solid ${PDF.border};font-size:10px;color:${PDF.text};font-weight:400;font-family:${PDF.font}">${esc(del.product)}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid ${PDF.border};font-size:9px;color:${PDF.textMuted};font-family:${PDF.font};white-space:nowrap">${variant}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${PDF.textLight};font-family:${PDF.font};white-space:nowrap;text-align:right">${esc(startStr)}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${PDF.textLight};font-family:${PDF.font};white-space:nowrap;text-align:right">${esc(endStr)}</td>
+        <td style="padding:6px 0 6px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;color:${PDF.textLight};font-family:${PDF.font};white-space:nowrap;text-align:right">${esc(pmStr)}</td>
+      </tr>`;
+  }).join('');
+
+  if (!rows) return '';
+
+  return `
+    <table style="width:100%;border-collapse:collapse;table-layout:fixed">
+      <colgroup>
+        <col style="width:40%">
+        <col style="width:15%">
+        <col style="width:15%">
+        <col style="width:15%">
+        <col style="width:15%">
+      </colgroup>
+      <thead>
+        <tr>
+          <td style="padding:0 10px 5px 0;font-size:7px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};border-bottom:1.5px solid ${PDF.dark};font-family:${PDF.font}">Deliverable</td>
+          <td style="padding:0 10px 5px;font-size:7px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};border-bottom:1.5px solid ${PDF.dark};font-family:${PDF.font}">Type</td>
+          <td style="padding:0 10px 5px;font-size:7px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};border-bottom:1.5px solid ${PDF.dark};font-family:${PDF.font};text-align:right">Start</td>
+          <td style="padding:0 10px 5px;font-size:7px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};border-bottom:1.5px solid ${PDF.dark};font-family:${PDF.font};text-align:right">End</td>
+          <td style="padding:0 0 5px 10px;font-size:7px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${PDF.textMuted};border-bottom:1.5px solid ${PDF.dark};font-family:${PDF.font};text-align:right">P&amp;M</td>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 }
 
 // ── Build Basic PDF HTML ──────────────────────────────────────────────────
@@ -440,6 +556,13 @@ function buildBasicPdf(data) {
             ${pdfMilestoneTable(milestoneGroups, dueDate, client)}
           </div>
         </div>` : ''}
+
+      <div style="margin-bottom:28px">
+        ${pdfSection('Deliverable Schedule')}
+        <div style="padding-top:8px">
+          ${pdfDeliverableSchedule(deliverables, phasesPerDeliverable, milestoneGroups, client)}
+        </div>
+      </div>
 
       <div>
         ${pdfSection('Phases by Deliverable')}
@@ -506,6 +629,13 @@ async function buildExpandedPdf(data) {
         ${pdfSection('Timeline by Week')}
         <div style="padding-top:8px">
           ${buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, startDate, dueDate, project, client }, true).replace('max-width:550px', 'max-width:100%')}
+        </div>
+      </div>
+
+      <div style="margin-bottom:28px">
+        ${pdfSection('Deliverable Schedule')}
+        <div style="padding-top:8px">
+          ${pdfDeliverableSchedule(deliverables, phasesPerDeliverable, milestoneGroups, client)}
         </div>
       </div>
 
