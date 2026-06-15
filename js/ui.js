@@ -1698,25 +1698,36 @@ export function updateGantt() {
   html += `<span class="gantt-axis-tick" style="right:0;left:auto;transform:none">${fmtDateShort(anchorDate)}</span>`;
   html += `</div></div>`;
 
-  // Total bar: spans the full canvas from the pinned start edge to the right edge.
+  // Total bar: spans from the earliest shifted block START to the latest shifted END,
+  // where "end" is whichever is later per block — production end OR P&M mail/ship date.
   const rootIdxs = sortedIdxs.filter(i => parentIdxMap[i] === null);
-  // Latest shifted end across all blocks — the visual right end of all work.
-  let latestShiftedEndIdx = sortedIdxs[0];
-  sortedIdxs.forEach(i => { if (shiftedEnd(i) > shiftedEnd(latestShiftedEndIdx)) latestShiftedEndIdx = i; });
+  // blockRightDate(i) returns the later of production end and P&M delivery for a block.
+  // The total project isn't done until the last real thing happens, so both the bar's
+  // right edge and the reported span measure to it. shiftedEnd applies the chain render offset.
+  let latestEndIdx = sortedIdxs[0];
+  sortedIdxs.forEach(i => { if (shiftedEnd(i) > shiftedEnd(latestEndIdx)) latestEndIdx = i; });
   // lastEarliestStart / lastTotalSpanDays feed the feasibility boxes — these report the
   // REAL (unshifted) schedule: the earliest real start and the real total span. The shift
   // is render-only and must not leak into the reported numbers.
   const earliestStart = rootIdxs.reduce((e, i) => blockStart[i] < e ? blockStart[i] : e, blockStart[rootIdxs[0]]);
   lastEarliestStart = earliestStart;
-  let realLatestEnd = blockEnd[sortedIdxs[0]];
-  sortedIdxs.forEach(i => { if (blockEnd[i] > realLatestEnd) realLatestEnd = blockEnd[i]; });
+  // realLatestEnd = latest real endpoint across all blocks (production end OR P&M ship,
+  // whichever is later per block). Unshifted — this is the true schedule, not the render.
+  let realLatestEnd = blockRightDate(sortedIdxs[0]);
+  sortedIdxs.forEach(i => { const e = blockRightDate(i); if (e > realLatestEnd) realLatestEnd = e; });
   const totalSpanDays = countBusinessDays(earliestStart, realLatestEnd);
   lastTotalSpanDays = totalSpanDays;
   const latestStartEl = document.getElementById('feasLatestStart');
   if (latestStartEl) latestStartEl.textContent = earliestStart ? fmtDateShort(earliestStart) : '—';
-  // The total bar fills from the start edge to the latest shifted right-edge (P&M-aware).
-  const totalLeftPct  = 0;
-  const totalWidthPct = Math.min(100, offsetPctShifted(blockRightDate(latestShiftedEndIdx), chainOffsetDays[chainRootOfIdx(latestShiftedEndIdx)]));
+  // The total bar spans from the earliest shifted block START to the latest shifted END.
+  // The left edge aligns with the first deliverable bar (not the canvas edge); the right
+  // edge reaches the last real endpoint (production or P&M ship), matching the "Nd" number.
+  const shiftedStart = i => offsetPctShifted(blockStart[i], chainOffsetDays[chainRootOfIdx(i)]);
+  let earliestStartIdx = sortedIdxs[0];
+  sortedIdxs.forEach(i => { if (shiftedStart(i) < shiftedStart(earliestStartIdx)) earliestStartIdx = i; });
+  const totalLeftPct  = shiftedStart(earliestStartIdx);
+  const totalRightPct = Math.min(100, offsetPctShifted(blockRightDate(latestEndIdx), chainOffsetDays[chainRootOfIdx(latestEndIdx)]));
+  const totalWidthPct = Math.max(0.5, totalRightPct - totalLeftPct);
   html += `<div class="gantt-row">
     <div class="gantt-label" style="color:rgba(255,255,255,.45);font-style:italic">Total project</div>
     <div class="gantt-track">
