@@ -549,6 +549,13 @@ function buildBasicPdf(data) {
 
     <div style="padding:0 ${PDF.margin} 80px">
 
+      <div style="margin-bottom:28px">
+        ${pdfSection('Deliverable Schedule')}
+        <div style="padding-top:8px">
+          ${pdfDeliverableSchedule(deliverables, phasesPerDeliverable, milestoneGroups, client)}
+        </div>
+      </div>
+
       ${hasMilestones ? `
         <div style="margin-bottom:28px">
           ${pdfSection('Key Milestones')}
@@ -556,13 +563,6 @@ function buildBasicPdf(data) {
             ${pdfMilestoneTable(milestoneGroups, dueDate, client)}
           </div>
         </div>` : ''}
-
-      <div style="margin-bottom:28px">
-        ${pdfSection('Deliverable Schedule')}
-        <div style="padding-top:8px">
-          ${pdfDeliverableSchedule(deliverables, phasesPerDeliverable, milestoneGroups, client)}
-        </div>
-      </div>
 
       <div>
         ${pdfSection('Phases by Deliverable')}
@@ -617,6 +617,13 @@ async function buildExpandedPdf(data) {
 
       ${ganttHtml}
 
+      <div style="margin-bottom:28px">
+        ${pdfSection('Deliverable Schedule')}
+        <div style="padding-top:8px">
+          ${pdfDeliverableSchedule(deliverables, phasesPerDeliverable, milestoneGroups, client)}
+        </div>
+      </div>
+
       ${hasMilestones ? `
         <div style="margin-bottom:28px">
           ${pdfSection('Key Milestones')}
@@ -629,13 +636,6 @@ async function buildExpandedPdf(data) {
         ${pdfSection('Timeline by Week')}
         <div style="padding-top:8px">
           ${buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, startDate, dueDate, project, client }, true).replace('max-width:550px', 'max-width:100%')}
-        </div>
-      </div>
-
-      <div style="margin-bottom:28px">
-        ${pdfSection('Deliverable Schedule')}
-        <div style="padding-top:8px">
-          ${pdfDeliverableSchedule(deliverables, phasesPerDeliverable, milestoneGroups, client)}
         </div>
       </div>
 
