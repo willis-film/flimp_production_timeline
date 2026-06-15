@@ -741,7 +741,10 @@ export function previewPhases() {
       const groupPhases = phases.filter(gp => gp.round_group_name === p.round_group_name);
       const OFFSET_GROUPS   = ['bground', 'cust bg round'];
       const OFFSET_PRODUCTS = ['Premium Guide', 'Custom Guide'];
-      const startRound = (OFFSET_GROUPS.includes(p.round_group_name) && OFFSET_PRODUCTS.includes(del.product)) ? 3 : 1;
+      // The +2 round-number offset (visible rounds start at "Rd 3") reflects the two
+      // prior background rounds baked into a NEW Premium/Custom Guide. Renewals don't
+      // carry those, so they number from Rd 1 like every other product.
+      const startRound = (!del.isRenewal && OFFSET_GROUPS.includes(p.round_group_name) && OFFSET_PRODUCTS.includes(del.product)) ? 3 : 1;
       for (let r = startRound; r < startRound + rCount; r++) {
         groupPhases.forEach(gp => {
           const baseName = (rCount > 1 || startRound > 1) ? `${gp.name} Rd ${r}` : gp.name;
