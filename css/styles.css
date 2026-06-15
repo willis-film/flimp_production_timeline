@@ -35,7 +35,7 @@ body{font-family:Verdana,sans-serif;background:#F2F8F0;color:var(--text);min-hei
 
 /* ── Section titles ── */
 .section-head{display:flex;align-items:center;gap:10px;margin-bottom:1rem;flex-wrap:wrap}
-.section-num{width:22px;height:22px;border-radius:50%;background:var(--dark);color:#fff;font-size:9px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.section-num{width:24px;height:24px;border-radius:6px;background:var(--dark);color:var(--lime);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .section-title{font-size:13px;font-weight:600;color:var(--text);letter-spacing:.03em;text-transform:uppercase}
 .section-hint{font-size:12px;color:var(--text-tertiary)}
 
