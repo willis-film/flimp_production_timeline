@@ -49,6 +49,57 @@ function readDeliverablesFromDOM() {
 // ── Last generated timeline data — used by PDF renderers ─────────────────
 let lastTimelineData = null;
 
+// ── Staleness tracking ────────────────────────────────────────────────────
+// After a timeline is generated, any edit in the review section (durations,
+// phase add/remove/reorder, owner toggles, preconditions, rounds) or upstream
+// (dates, deliverables, P&M config) makes the displayed output wrong.
+//
+// Rather than dirty-flagging every mutation site — brittle, and easy to miss one —
+// we fingerprint the inputs that actually feed scheduleTimeline and compare. This
+// means an edit that's undone (duration 3→4→3, an owner toggled twice) correctly
+// clears the warning instead of leaving it stuck on.
+//
+// Phase endDate is included deliberately: recalcPhaseDates stamps it from the
+// authoritative gate logic, so it absorbs upstream changes (due date, parent
+// production end, P&M delivery) without us having to enumerate them.
+let lastFingerprint = null;
+
+function computeFingerprint() {
+  return JSON.stringify({
+    client:  document.getElementById('clientName').value.trim(),
+    project: document.getElementById('projectName').value.trim(),
+    start:   document.getElementById('startDate').value,
+    due:     document.getElementById('dueDate').value,
+    dels:    readDeliverablesFromDOM(),
+    parents: buildParentIdxMap([...document.querySelectorAll('#delRows .del-row')]),
+    pm:      readPMConfig(),
+    phases:  readPhasesFromDOM().map(block =>
+               block.map(p => [
+                 p.name,
+                 p.dur,
+                 p.owner,
+                 p.endDate ? toISO(p.endDate) : '',
+                 p.is_milestone
+               ])
+             )
+  });
+}
+
+// Show/hide the warning. No-op until a timeline has actually been generated.
+function refreshStaleState() {
+  const warning = document.getElementById('staleWarning');
+  if (!warning || lastFingerprint === null) return;
+  const stale = computeFingerprint() !== lastFingerprint;
+  warning.classList.toggle('visible', stale);
+}
+
+// Relabel the green button once a timeline exists. updateGenerateBtn (ui.js) owns
+// the disabled state and tooltip; it never touches textContent, so this is safe.
+function updateGenerateBtnLabel() {
+  const btn = document.getElementById('generateBtn');
+  if (btn && lastFingerprint !== null) btn.textContent = 'Regenerate Timeline';
+}
+
 // ── Generate timeline ─────────────────────────────────────────────────────
 function generateTimeline() {
   const client   = document.getElementById('clientName').value.trim() || 'Client';
@@ -73,6 +124,12 @@ function generateTimeline() {
   lastTimelineData = { ...result, startDate, dueDate, project, client, earliestStart: lastEarliestStart };
 
   renderTimelineTable(lastTimelineData);
+
+  // Snapshot the inputs this output was built from — subsequent edits are compared
+  // against this to decide whether the displayed timeline has gone stale.
+  lastFingerprint = computeFingerprint();
+  document.getElementById('staleWarning')?.classList.remove('visible');
+  updateGenerateBtnLabel();
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────
@@ -131,6 +188,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (e.target.classList.contains('pt-dur')) updateFeasibility();
   });
 
+  // ── Staleness detection ────────────────────────────────────────────────
+  // Rather than hooking each of the ~10 mutation sites in the review section
+  // (duration change, phase add/remove, drag reorder, owner toggle, precondition,
+  // rounds stepper, del-row edits, P&M checklist, dates) — where missing one means
+  // a silently stale table — we re-fingerprint after any interaction and let the
+  // comparison decide. computeFingerprint only reads the DOM, so this is cheap.
+  //
+  // These run on the bubble phase, after the app's own handlers have updated the
+  // DOM. Drag-reorder is the exception: 'dragend' doesn't bubble to document
+  // reliably across browsers, so it's captured explicitly.
+  ['change', 'click', 'input'].forEach(evt => {
+    document.addEventListener(evt, () => setTimeout(refreshStaleState, 0));
+  });
+  document.addEventListener('dragend', () => setTimeout(refreshStaleState, 0), true);
+
   // Wire global onclick handlers used by inline HTML attributes
   window.previewPhases    = previewPhases;
   window.addRow           = addRow;
@@ -147,6 +219,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Save button
   document.querySelector('[data-action="save-timeline"]')?.addEventListener('click', async () => {
+    // The save path re-reads the DOM and re-runs scheduleTimeline, so if the review
+    // section has changed since generate, it would save data that doesn't match the
+    // table the user is looking at. Make that explicit rather than silent.
+    if (lastFingerprint !== null && computeFingerprint() !== lastFingerprint) {
+      const proceed = confirm(
+        'The review section has changed since this timeline was generated, so the table above is out of date.\n\n' +
+        'Saving now will store the CURRENT phase data, not what is displayed.\n\n' +
+        'Regenerate first for these to match. Save anyway?'
+      );
+      if (!proceed) return;
+    }
+
     const startVal = document.getElementById('startDate').value;
     const dueVal   = document.getElementById('dueDate').value;
     const startDate = nextWorkDay(new Date(startVal + 'T00:00:00'));
