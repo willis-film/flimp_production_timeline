@@ -401,6 +401,32 @@ export function readPMConfig() {
     .filter(Boolean);
 }
 
+// ── Owner badge toggle ────────────────────────────────────────────────────
+// Makes an .owner-badge click-to-toggle between Flimp and Client. The badge's
+// textContent is the single source of truth — readPhasesFromDOM (main.js) reads
+// it directly, so a toggle flows straight through to the engine with no other
+// bookkeeping. Idempotent: safe to call on a badge that's already wired.
+//
+// The owner affects only WHO is listed against a phase, not its duration, so no
+// date recalculation is needed here. The milestone grouping key in the engine is
+// date+owner, so a toggle does change how phases group in the output — but that's
+// resolved at generate time, not in the review table.
+export function wireOwnerBadge(badge) {
+  if (!badge || badge.dataset.ownerWired === 'true') return;
+  badge.dataset.ownerWired = 'true';
+  badge.style.cursor = 'pointer';
+  badge.title = 'Click to switch owner';
+
+  badge.addEventListener('click', e => {
+    e.stopPropagation();  // don't collapse the block via the header click handler
+    const isClient = badge.textContent.trim() === 'Client';
+    const next     = isClient ? 'Flimp' : 'Client';
+    badge.textContent = next;
+    badge.classList.toggle('owner-client', next === 'Client');
+    badge.classList.toggle('owner-flimp',  next === 'Flimp');
+  });
+}
+
 // ── New phase row builder ─────────────────────────────────────────────────
 function buildNewPhaseRow() {
   const tr = document.createElement('tr');
@@ -411,6 +437,7 @@ function buildNewPhaseRow() {
     <td style="text-align:center"><input class="pt-dur" type="number" min="1" max="120" value="3"></td>
     <td class="phase-end-date" style="text-align:center;font-size:11px;color:var(--text-muted);white-space:nowrap">—</td>
     <td style="text-align:center"><button class="phase-rm-btn" title="Remove phase">&times;</button></td>`;
+  wireOwnerBadge(tr.querySelector('.owner-badge'));
   return tr;
 }
 
@@ -641,6 +668,8 @@ export function rebuildPhaseTable(block, skipPhases) {
 
     const durInp = tr.querySelector('.pt-dur');
     durInp.addEventListener('change', () => { updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block); });
+
+    wireOwnerBadge(tr.querySelector('.owner-badge'));
 
     const rmBtn = document.createElement('button');
     rmBtn.className = 'phase-rm-btn'; rmBtn.textContent = '×';
@@ -924,6 +953,8 @@ export function previewPhases() {
       const durInp = tr.querySelector('.pt-dur');
       durInp.addEventListener('change', () => { updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block); });
 
+      wireOwnerBadge(tr.querySelector('.owner-badge'));
+
       const rmBtn2 = tr.querySelector('.phase-rm-btn');
       rmBtn2.onclick = () => { recordDeletedPhase(block, tr.querySelector('.pt-name')?.value); tr.remove(); updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block); };
 
@@ -1083,6 +1114,7 @@ export function applyPMPostPass() {
         tr.querySelector('.pt-dur').addEventListener('change', () => {
           updateFeasibility(); recalcPhaseDates(block); recalcBlockFeasibility(block);
         });
+        wireOwnerBadge(tr.querySelector('.owner-badge'));
         tr.querySelector('.phase-rm-btn').onclick = () => {
           tr.remove();
           delete block.dataset.pmChain;

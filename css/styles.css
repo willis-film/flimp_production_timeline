@@ -159,7 +159,10 @@ tr.dragging{opacity:.4}
 .pt-dur{font-family:Verdana,sans-serif;font-size:13px;height:30px;padding:0 6px;border:1px solid transparent;border-radius:5px;color:var(--text);width:62px;text-align:center;background:transparent;transition:border-color .12s}
 .pt-dur:hover{border-color:var(--border)}
 .pt-dur:focus{outline:none;border-color:var(--blue);background:#fff}
-.owner-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px;letter-spacing:.03em}
+.owner-badge{font-size:10px;font-weight:600;padding:2px 7px;border-radius:3px;letter-spacing:.03em;user-select:none;transition:filter .12s,box-shadow .12s}
+.owner-badge[data-owner-wired]{cursor:pointer}
+.owner-badge[data-owner-wired]:hover{filter:brightness(.94);box-shadow:0 0 0 2px rgba(8,33,45,.08)}
+.owner-badge[data-owner-wired]:active{transform:translateY(.5px)}
 .owner-flimp{background:var(--green-bg);color:var(--green)}
 .owner-client{background:var(--blue-bg);color:var(--blue)}
 .phase-rm-btn{width:22px;height:22px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text-tertiary);cursor:pointer;font-size:14px;display:inline-flex;align-items:center;justify-content:center;line-height:1;padding:0;transition:all .12s}
