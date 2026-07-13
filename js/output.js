@@ -89,7 +89,9 @@ function buildDataRowHTML(party, deliverableHTML, taskHTML, date, isPastDue, ext
 }
 
 // ── Footer summary row ────────────────────────────────────────────────────
-function buildFooterRow(startDate, projectSpanDays, dueDate, projectEndDate) {
+// `cols` matches the colspan to the table's column count. Defaults to 4 for the
+// chronological and weekly tables; the by-product table passes 3.
+function buildFooterRow(startDate, projectSpanDays, dueDate, projectEndDate, cols = 4) {
   const parts = [
     `Project Start: ${fmtDateShort(startDate)}`,
     `Working Days: ${projectSpanDays}`,
@@ -99,7 +101,7 @@ function buildFooterRow(startDate, projectSpanDays, dueDate, projectEndDate) {
 
   return `
     <tr>
-      <td colspan="4" contenteditable="true" style="${E.footer}">${parts}</td>
+      <td colspan="${cols}" contenteditable="true" style="${E.footer}">${parts}</td>
     </tr>`;
 }
 
@@ -279,7 +281,8 @@ function buildByProductTable({ phasesPerDeliverable, deliverables, milestoneGrou
     });
   });
 
-  rows += buildFooterRow(startDate, projectSpanDays, dueDate, projectEndDate);
+  // 3 columns in this table (Owner / Phase / Due Date), not 4.
+  rows += buildFooterRow(startDate, projectSpanDays, dueDate, projectEndDate, 3);
   return `<table style="${E.table}"><tbody>${rows}</tbody></table>`;
 }
 
@@ -825,14 +828,26 @@ export async function downloadPdf(type, data) {
 // preserve table formatting when pasted. Falls back to plain text
 // if ClipboardItem isn't supported (Firefox, some mobile browsers).
 export async function copyEmailTable(tab) {
-  const wrapperId = tab === 'chron' ? 'chronTableWrap' : 'weeklyTableWrap';
-  const tableEl   = document.querySelector(`#${wrapperId} table`);
+  // Keyed by tab so a new tab can't silently fall through to the weekly table —
+  // an unknown tab is a no-op rather than copying the wrong content.
+  const WRAPPERS = {
+    chron:     'chronTableWrap',
+    weekly:    'weeklyTableWrap',
+    byProduct: 'byProductTableWrap'
+  };
+  const BUTTONS = {
+    chron:     '#panelChron .tl-action-btn',
+    weekly:    '#panelWeekly .tl-action-btn',
+    byProduct: '#panelByProduct .tl-action-btn'
+  };
+
+  const wrapperId = WRAPPERS[tab];
+  if (!wrapperId) return;
+
+  const tableEl = document.querySelector(`#${wrapperId} table`);
   if (!tableEl) return;
 
-  const btnSel = tab === 'chron'
-    ? '#panelChron .tl-action-btn'
-    : '#panelWeekly .tl-action-btn';
-  const btn = document.querySelector(btnSel);
+  const btn = document.querySelector(BUTTONS[tab]);
   const origHTML = btn ? btn.innerHTML : '';
 
   try {
