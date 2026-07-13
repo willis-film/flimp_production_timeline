@@ -194,12 +194,16 @@ function buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, st
     const weekLabel = `<strong>Week ${weekNum}</strong>&nbsp;&nbsp;<em>${fmtDateShort(weekDate)} – ${fmtDateShort(weekEnd)}</em>`;
     rows += `<tr><td colspan="4" style="${E.weekHdr}">${weekLabel}</td></tr>`;
 
-    // Within the week, group tasks by deliverable + owner so related items batch together
+    // Within the week, group tasks by deliverable + owner + DATE so related items
+    // batch together only when they actually share a due date. Keying on
+    // deliverable+owner alone merged phases that complete on different days into a
+    // single row and displayed the latest date for all of them (e.g. "Revisions Rd 1,
+    // Revisions Rd 2 — Jul 10" when Rd 1 was really due Jul 8).
     const byKey = new Map();
     groups.forEach(group => {
       group.items.forEach(item => {
         const delLabel = fmtDeliverable(item);
-        const key = `${delLabel}||${group.owner}`;
+        const key = `${delLabel}||${group.owner}||${toISO(group.date)}`;
         if (!byKey.has(key)) byKey.set(key, {
           deliverable: delLabel,
           owner:       group.owner,
@@ -208,11 +212,15 @@ function buildWeeklyTable({ milestoneGroups, projectEndDate, projectSpanDays, st
           isPastDue:   group.isPastDue
         });
         byKey.get(key).tasks.push(item.task);
-        if (group.date > byKey.get(key).date) byKey.get(key).date = group.date;
       });
     });
 
-    const weekEntries = [...byKey.values()];
+    // Sort chronologically within the week. Map insertion order follows first
+    // encounter, which is not date order once multiple owners interleave, so rows
+    // could otherwise appear out of sequence. Owner is the tiebreaker for same-day rows.
+    const weekEntries = [...byKey.values()]
+      .sort((a, b) => a.date - b.date || a.owner.localeCompare(b.owner));
+
     weekEntries.forEach(({ deliverable, owner, tasks, date, isPastDue }, idx) => {
       const isBlankParty = tasks.every(t => PARTY_BLANK_TASKS.has(t.trim().toLowerCase()));
       const isLast = idx === weekEntries.length - 1;
