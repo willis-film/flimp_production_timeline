@@ -30,6 +30,12 @@ body{font-family:Verdana,sans-serif;background:#F2F8F0;color:var(--text);min-hei
 .logo-sub{font-size:12px;color:#ffffff;margin-left:4px;letter-spacing:.02em}
 .header-right{font-size:12px;color:#ffffff40}
 
+/* Clear All — destructive, so deliberately understated against the dark header.
+   Reveals a red tint on hover rather than advertising itself at rest. */
+.clear-all-btn{font-family:Verdana,sans-serif;font-size:11px;font-weight:600;letter-spacing:.03em;color:#ffffff99;background:transparent;border:1px solid #ffffff2e;border-radius:6px;padding:6px 13px;cursor:pointer;transition:color .14s,border-color .14s,background .14s}
+.clear-all-btn:hover{color:#fff;border-color:var(--red);background:#D83A3126}
+.clear-all-btn:active{transform:translateY(.5px)}
+
 /* ── Layout ── */
 .page{max-width:900px;margin:0 auto;padding:1.25rem 1.5rem 4rem}
 

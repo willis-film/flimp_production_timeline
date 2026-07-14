@@ -136,6 +136,17 @@ export let lastEarliestStart = null;
 // so the boxes always agree with the Gantt and the timeline output.
 export let lastTotalSpanDays = 0;
 
+// ── Reset module-level feasibility state ──────────────────────────────────
+// lastEarliestStart / lastTotalSpanDays are assigned deep inside updateFeasibility,
+// past its early-return guard for the no-blocks case. After a Clear All there are no
+// blocks, so that guard fires and these would otherwise retain values from the
+// previous project. They're module-scoped, and imported bindings are read-only, so
+// main.js can't null them directly — hence this exported resetter.
+export function resetFeasibilityState() {
+  lastEarliestStart = null;
+  lastTotalSpanDays = 0;
+}
+
 export function buildDelRow() {
   const row = document.createElement('div');
   row.className = 'del-row';

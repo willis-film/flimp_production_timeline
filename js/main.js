@@ -11,7 +11,7 @@ import {
   previewPhases, updateFeasibility, recalcPhaseDates,
   recalcBlockFeasibility, togglePMSection, addPMRow,
   refreshPMSelectors, rebuildPMChecklist, applyPMPostPass, readPMConfig, lastEarliestStart,
-  wrapDateInput, checkDateFlag, createDateFlagIcon
+  wrapDateInput, checkDateFlag, createDateFlagIcon, resetFeasibilityState
 } from './ui.js';
 import {
   renderTimelineTable, copyEmailTable, switchTab,
@@ -132,6 +132,68 @@ function generateTimeline() {
   updateGenerateBtnLabel();
 }
 
+// ── Clear All — reset the tool to a fresh state ───────────────────────────
+// Mirrors the DOMContentLoaded bootstrap rather than reloading the page, so the
+// Supabase reference data (PRODUCTS, ALL_PHASES, …) stays in memory and the user
+// doesn't sit through the loading overlay again.
+//
+// PM name is deliberately preserved: it's persisted to localStorage and behaves as
+// a user setting, not project data. Everything else is cleared.
+function clearAll() {
+  if (!confirm('Clear all inputs and start over?\n\nThis discards the current timeline and cannot be undone.')) return;
+
+  // Project info
+  document.getElementById('clientName').value  = '';
+  document.getElementById('projectName').value = '';
+  document.getElementById('startDate').value   = toISO(new Date());
+  document.getElementById('dueDate').value     = '';
+
+  // Deliverables — rebuild the default 3 empty rows
+  const dr = document.getElementById('delRows');
+  dr.innerHTML = '';
+  for (let i = 0; i < 3; i++) dr.appendChild(buildDelRow());
+  updateRemove();
+
+  // P&M — uncheck, then let togglePMSection collapse the section so its show/hide
+  // logic stays in one place. Rows are dropped explicitly.
+  const pmCheckbox = document.getElementById('pmCheckbox');
+  if (pmCheckbox) pmCheckbox.checked = false;
+  const pmRows = document.getElementById('pmRows');
+  if (pmRows) pmRows.innerHTML = '';
+  togglePMSection();
+  refreshPMSelectors();
+
+  // Review phases — drop all blocks and hide the Gantt
+  document.getElementById('pbBlocks').innerHTML = '';
+  const ganttWrap = document.getElementById('ganttWrap');
+  if (ganttWrap) ganttWrap.style.display = 'none';
+
+  // Generated output — hide, and clear the staleness state so the banner and the
+  // button label return to their pre-generate condition.
+  document.getElementById('timelineOutput').style.display = 'none';
+  document.getElementById('staleWarning')?.classList.remove('visible');
+  lastTimelineData = null;
+  lastFingerprint  = null;
+
+  const genBtn = document.getElementById('generateBtn');
+  if (genBtn) { genBtn.textContent = 'Generate Timeline'; genBtn.disabled = true; }
+
+  // Reset ui.js's module-scoped feasibility state, then recompute. updateFeasibility
+  // early-returns with no blocks present, which is why the explicit reset is needed.
+  resetFeasibilityState();
+  updateFeasibility();
+
+  // Re-flag the start date — it was just set to today, which may be a weekend.
+  const startInput = document.getElementById('startDate');
+  const startIcon  = startInput.parentElement?.querySelector('.date-flag-icon');
+  if (startIcon) checkDateFlag(startInput, startIcon);
+  const dueInput = document.getElementById('dueDate');
+  const dueIcon  = dueInput.parentElement?.querySelector('.date-flag-icon');
+  if (dueIcon) checkDateFlag(dueInput, dueIcon);
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   // Build initial deliverable rows (selects will be empty and rebuilt after loadReferenceData)
@@ -250,6 +312,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       ...result
     });
   });
+
+  // Clear All
+  document.getElementById('clearAllBtn')?.addEventListener('click', clearAll);
 
   // Bootstrap: load Supabase data then unlock UI
   const ok = await loadReferenceData();
