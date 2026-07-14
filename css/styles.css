@@ -118,6 +118,14 @@ body{font-family:Verdana,sans-serif;background:#F2F8F0;color:var(--text);min-hei
 .pb-block{background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:.75rem;overflow:hidden}
 .pb-header{padding:.6rem 1.1rem;display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;transition:background .12s}
 .pb-header:hover{background:var(--warm-white)}
+
+/* Rename pencil — reveals on header hover so it doesn't compete with the title at
+   rest. Kept focusable-visible for keyboard users. */
+.pb-rename-btn{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;margin-left:6px;padding:0;vertical-align:middle;background:transparent;border:none;border-radius:4px;color:var(--text-tertiary);cursor:pointer;opacity:0;transition:opacity .12s,color .12s,background .12s}
+.pb-header:hover .pb-rename-btn{opacity:1}
+.pb-rename-btn:focus-visible{opacity:1;outline:2px solid var(--blue);outline-offset:1px}
+.pb-rename-btn:hover{color:var(--blue);background:var(--blue-bg)}
+.pb-rename-btn svg{width:13px;height:13px}
 .pb-confirm{width:18px;height:18px;border-radius:4px;border:2px solid var(--border);background:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;cursor:pointer}
 .pb-confirm.confirmed{background:var(--green);border-color:var(--green)}
 .pb-confirm.confirmed::after{content:'';width:5px;height:9px;border:2px solid #fff;border-top:none;border-left:none;transform:rotate(45deg) translate(-1px,-1px);display:block}

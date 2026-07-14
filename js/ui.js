@@ -412,6 +412,31 @@ export function readPMConfig() {
     .filter(Boolean);
 }
 
+// ── Refresh parent names in child block subtitles ─────────────────────────
+// A child block's header reads ": Parent Name". Renaming a parent must update
+// those in place — a full re-render would be heavy and would collapse open blocks.
+// Only the parent-name segment is rewritten; the renewal/phase-count text after it
+// is preserved as-is.
+function refreshParentLabels() {
+  const delRows      = [...document.querySelectorAll('#delRows .del-row')];
+  const parentIdxMap = buildParentIdxMap(delRows);
+
+  document.querySelectorAll('#pbBlocks .pb-block').forEach(block => {
+    const idx    = parseInt(block.dataset.delIdx, 10);
+    const parIdx = parentIdxMap[idx];
+    const sub    = block.querySelector('.pb-title-sub');
+    if (!sub || parIdx === null || parIdx === undefined) return;
+
+    const parentRow  = delRows[parIdx];
+    if (!parentRow) return;
+    const parentName = parentRow.dataset.label || parentRow.querySelector('select')?.value;
+    if (!parentName) return;
+
+    // Subtitle is ": Parent (New), 17 phases" — swap only the leading name segment.
+    sub.textContent = sub.textContent.replace(/^:\s*[^(,]*/, `: ${parentName}`);
+  });
+}
+
 // ── Owner badge toggle ────────────────────────────────────────────────────
 // Makes an .owner-badge click-to-toggle between Flimp and Client. The badge's
 // textContent is the single source of truth — readPhasesFromDOM (main.js) reads
@@ -729,6 +754,9 @@ export function previewPhases() {
   const rows  = [...document.querySelectorAll('#delRows .del-row')];
   const deliverables = rows.map((r, rowIdx) => ({
     product:   r.querySelector('select').value,
+    // Display alias — see readDeliverablesFromDOM in main.js. Stored on the del-row
+    // so it survives the wholesale re-render of #pbBlocks that this function performs.
+    label:     r.dataset.label || '',
     count:     parseInt(r.querySelector('input[type=number]').value) || 1,
     isRenewal: r.querySelector('.nr-btn.r-active') !== null,
     rounds:    parseInt(r.querySelector('.rounds-val').textContent) || 2,
@@ -877,15 +905,26 @@ export function previewPhases() {
     const _allDelRows   = [...document.querySelectorAll('#delRows .del-row')];
     const _parentIdxMap = buildParentIdxMap(_allDelRows);
     const _parentIdx    = _parentIdxMap[del.delIdx];
-    const _parentProduct = (_parentIdx !== null && _parentIdx !== undefined)
-      ? _allDelRows[_parentIdx]?.querySelector('select')?.value
+    const _parentRow = (_parentIdx !== null && _parentIdx !== undefined)
+      ? _allDelRows[_parentIdx]
+      : null;
+    // Show the parent's alias if it has one, so a renamed parent reads consistently
+    // in its children's headers.
+    const _parentProduct = _parentRow
+      ? (_parentRow.dataset.label || _parentRow.querySelector('select')?.value)
       : null;
     const parentLabel = _parentProduct ? `: ${esc(_parentProduct)}` : '';
     const renewalLabel = isNA ? '' : (isRenewal ? ' (Renewal)' : ' (New)');
 
+    // Display alias falls back to the canonical product name. The product name itself
+    // is never mutated — it stays the lookup key for ALL_PHASES, VALID_PARENTS, etc.
+    const displayName = del.label || del.product;
+
     titleWrap.innerHTML = `
       <div class="pb-title">
-        <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${esc(dot)};margin-right:6px;vertical-align:middle"></span>${esc(del.product)}<span class="pb-title-sub">${parentLabel}${renewalLabel}, ${expanded.length} phases</span>
+        <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${esc(dot)};margin-right:6px;vertical-align:middle"></span><span class="pb-title-name">${esc(displayName)}</span><button type="button" class="pb-rename-btn" title="Rename this deliverable">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M11.5 2.5a1.6 1.6 0 0 1 2.3 2.3L5.6 13 2.5 13.5l.5-3.1z"/></svg>
+        </button><span class="pb-title-sub">${parentLabel}${renewalLabel}, ${expanded.length} phases</span>
       </div>
       <div class="pb-dates" style="min-height:16px"><span class="pb-total-days" style="font-size:13px;font-weight:700;color:var(--text-secondary);margin-right:8px"></span><span class="pb-date-starts"></span><span class="pb-date-sep" style="display:none">→</span><span class="pb-date-ends"></span></div>
       <div class="pb-feas"${isLeaf ? ' style="display:none"' : ''}><div class="pb-feas-bar-track"><div class="pb-feas-bar-fill"></div></div><div class="pb-feas-diff"></div></div>`;
@@ -902,6 +941,44 @@ export function previewPhases() {
       const body = block.querySelector('.pb-body');
       const open = body.classList.toggle('open');
       chevron.classList.toggle('open', open);
+    });
+
+    // ── Rename (display alias) ──────────────────────────────────────────────
+    // Writes to the DEL-ROW's dataset, not the block's: #pbBlocks is regenerated
+    // wholesale whenever rounds or preconditions change, so an alias stored on the
+    // block would be wiped by the next re-render. The del-row is durable.
+    //
+    // Only the label changes — del.product stays the lookup key for ALL_PHASES,
+    // ROUND_GROUPS, PRECONDITIONS, VALID_PARENTS and PRODUCT_META, so scheduling,
+    // parent/child gating and P&M eligibility are all untouched by a rename.
+    const renameBtn = titleWrap.querySelector('.pb-rename-btn');
+    renameBtn?.addEventListener('click', e => {
+      e.stopPropagation();  // don't collapse the block
+
+      const delRow = [...document.querySelectorAll('#delRows .del-row')][del.delIdx];
+      if (!delRow) return;
+
+      const current = delRow.dataset.label || del.product;
+      const next    = prompt(
+        `Rename "${del.product}" for this timeline.\n\n` +
+        `This changes the display name in the review section and all exports. ` +
+        `Leave blank to restore the original name.`,
+        current
+      );
+      if (next === null) return;  // cancelled
+
+      const trimmed = next.trim().slice(0, 120);
+      if (!trimmed || trimmed === del.product) {
+        delete delRow.dataset.label;   // back to the canonical name
+      } else {
+        delRow.dataset.label = trimmed;
+      }
+
+      // Repaint this block's title, plus any child block whose header names this
+      // one as its parent.
+      const nameEl = titleWrap.querySelector('.pb-title-name');
+      if (nameEl) nameEl.textContent = delRow.dataset.label || del.product;
+      refreshParentLabels();
     });
 
     // Body

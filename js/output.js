@@ -50,14 +50,18 @@ function groupParty(group, client) {
 }
 
 // ── Deliverable display — child Distribution phases show their parent ──────
+// Display name for a deliverable. Prefers the user's alias (set via the pencil in the
+// review block header) and falls back to the canonical product name.
 function fmtDeliverable(item) {
+  const label       = item.deliverableLabel       || item.deliverable;
+  const parentLabel = item.parentDeliverableLabel || item.parentDeliverable;
   if (
     item.task.trim().toLowerCase() === 'distribution' &&
     item.parentDeliverable
   ) {
-    return `${item.deliverable} (via ${item.parentDeliverable})`;
+    return `${label} (via ${parentLabel})`;
   }
-  return item.deliverable;
+  return label;
 }
 function buildDataRow(party, deliverable, task, date, isPastDue, extraBottomPad = false) {
   const rowBg   = isPastDue ? 'background:#fff0f0;' : '';
@@ -267,7 +271,7 @@ function buildByProductTable({ phasesPerDeliverable, deliverables, milestoneGrou
     const phases = phasesPerDeliverable[idx] || [];
     if (!phases.length) return;
 
-    const label = `${del.product}${del.isRenewal ? ' — Renewal' : ' — New'}`;
+    const label = `${del.label || del.product}${del.isRenewal ? ' — Renewal' : ' — New'}`;
     rows += sectionHdr(label);
     rows += thRow;
 
@@ -529,7 +533,7 @@ function pdfDeliverableSchedule(deliverables, phasesPerDeliverable, milestoneGro
 
     return `
       <tr>
-        <td style="padding:6px 10px 6px 0;border-bottom:1px solid ${PDF.border};font-size:10px;color:${PDF.text};font-weight:400;font-family:${PDF.font}">${esc(del.product)}</td>
+        <td style="padding:6px 10px 6px 0;border-bottom:1px solid ${PDF.border};font-size:10px;color:${PDF.text};font-weight:400;font-family:${PDF.font}">${esc(del.label || del.product)}</td>
         <td style="padding:6px 10px;border-bottom:1px solid ${PDF.border};font-size:9px;color:${PDF.textMuted};font-family:${PDF.font};white-space:nowrap">${variant}</td>
         <td style="padding:6px 10px;border-bottom:1px solid ${PDF.border};font-size:10px;font-weight:700;color:${PDF.textLight};font-family:${PDF.font};white-space:nowrap;text-align:right">${esc(startStr)}</td>
         <td style="padding:6px ${showPM ? '10px' : '0 6px 10px'};border-bottom:1px solid ${PDF.border};font-size:10px;font-weight:700;color:${PDF.textLight};font-family:${PDF.font};white-space:nowrap;text-align:right">${esc(endStr)}</td>
@@ -734,7 +738,7 @@ function pdfPhasesByProduct(deliverables, phasesPerDeliverable, milestoneGroups,
     const phases = phasesPerDeliverable[idx] || [];
     if (!phases.length) return '';
 
-    const label = `${del.product} — ${del.isRenewal ? 'Renewal' : 'New'}`;
+    const label = `${del.label || del.product} — ${del.isRenewal ? 'Renewal' : 'New'}`;
     const rows = phases.map(phase => {
       const key   = `${del.product}||${phase.name}`;
       const singletonKey = `__singleton__||${phase.name.trim().toLowerCase()}`;

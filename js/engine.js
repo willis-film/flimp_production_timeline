@@ -322,7 +322,15 @@ export function scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdx
         date:              endDate,
         owner:             phase.owner,
         deliverable:       del.product,
+        // Display alias. `deliverable` stays the canonical product name — it's the
+        // grouping key for milestone demotion and the Kickoff/Distribution rollup,
+        // so overwriting it would merge two blocks of the same product that carry
+        // different aliases. Output reads label ?? deliverable.
+        deliverableLabel:  del.label || del.product,
         parentDeliverable: parIdx !== null ? deliverables[parIdx].product : null,
+        parentDeliverableLabel: parIdx !== null
+          ? (deliverables[parIdx].label || deliverables[parIdx].product)
+          : null,
         task:              phase.name,
         isMilestone:       phase.is_milestone || false
       });
@@ -407,11 +415,15 @@ export function scheduleTimeline({ deliverables, phasesPerDeliverable, parentIdx
 
     // Collect all deliverable names across all instances
     const allDeliverables = [...new Set(matches.map(m => m.deliverable))];
+    // …and their display labels, so an aliased product shows its alias in the
+    // rolled-up Kickoff/Distribution row rather than reverting to the product name.
+    const allLabels = [...new Set(matches.map(m => m.deliverableLabel || m.deliverable))];
 
     // Keep the first match as the surviving entry, update it with merged data
     const keeper = matches[0];
-    keeper.date        = anchorDate;
-    keeper.deliverable = allDeliverables.join(', ');
+    keeper.date             = anchorDate;
+    keeper.deliverable      = allDeliverables.join(', ');
+    keeper.deliverableLabel = allLabels.join(', ');
 
     // Remove all other instances
     for (let i = matches.length - 1; i >= 1; i--) {

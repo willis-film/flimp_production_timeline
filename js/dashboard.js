@@ -140,7 +140,10 @@ function renderTimelineDetail(tl) {
   milestoneGroups.forEach(group => {
     const tr = document.createElement('tr');
     if (group.isPastDue) tr.style.background = 'var(--red-bg)';
-    const dels  = [...new Set(group.items.map(m => m.deliverable))].map(esc).join(', ');
+    // Prefer the display alias (set via the review-block rename) so the dashboard
+    // matches what went out in the exports. Older saved versions have no label —
+    // fall back to the canonical product name.
+    const dels  = [...new Set(group.items.map(m => m.deliverableLabel || m.deliverable))].map(esc).join(', ');
     const tasks = [...new Set(group.items.map(m => m.task))].map(esc).join(', ');
     tr.innerHTML = `
       <td>${esc(group.owner)}</td>

@@ -39,6 +39,11 @@ function readDeliverablesFromDOM() {
   return [...document.querySelectorAll('#delRows .del-row')]
     .map(r => ({
       product:   r.querySelector('select').value,
+      // Display alias, set via the pencil in the review block header. Lives on the
+      // del-row (not the block) so it survives block re-renders, which regenerate
+      // #pbBlocks wholesale on rounds/precondition changes. Empty string when unset,
+      // and consumers fall back to `product`.
+      label:     r.dataset.label || '',
       count:     parseInt(r.querySelector('input[type=number]').value) || 1,
       isRenewal: r.querySelector('.nr-btn.r-active') !== null,
       rounds:    parseInt(r.querySelector('.rounds-val').textContent) || 2
