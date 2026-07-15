@@ -349,7 +349,6 @@ export function rebuildPMChecklist() {
 
 // ── Stub kept for backwards compat — replaced by rebuildPMChecklist ───────
 export function buildPMRow() { return document.createElement('div'); }
-export function addPMRow()    { rebuildPMChecklist(); }
 
 // ── Refresh PM state — stamps data-pm-delivery on del-rows ────────────────
 // Called after checklist changes and after section 2 changes.

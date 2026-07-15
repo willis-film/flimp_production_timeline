@@ -9,7 +9,7 @@ import { setDays, toISO, nextWorkDay, scheduleTimeline, buildParentIdxMap, isWor
 import {
   buildDelRow, buildSelect, addRow, updateRemove,
   previewPhases, updateFeasibility, recalcPhaseDates,
-  recalcBlockFeasibility, togglePMSection, addPMRow,
+  recalcBlockFeasibility, togglePMSection,
   refreshPMSelectors, rebuildPMChecklist, applyPMPostPass, readPMConfig, lastEarliestStart,
   wrapDateInput, checkDateFlag, createDateFlagIcon, resetFeasibilityState
 } from './ui.js';
@@ -274,7 +274,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.previewPhases    = previewPhases;
   window.addRow           = addRow;
   window.togglePMSection    = togglePMSection;
-  window.addPMRow           = addPMRow;
   window.rebuildPMChecklist = rebuildPMChecklist;
   window.applyPMPostPass    = applyPMPostPass;
   window.setDays          = setDays;
