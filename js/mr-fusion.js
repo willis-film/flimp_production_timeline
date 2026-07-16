@@ -13,7 +13,7 @@
 // line + one call site in main.js.
 // ─────────────────────────────────────────────────────────────────────────
 
-const TRIGGER_CHANCE = 1 / 50;
+const TRIGGER_CHANCE = 0 / 50;
 
 // Drive geometry — these must match the de-drive-across keyframe in the CSS:
 //   #deloreanCar starts at left:-160px and drives to calc(100% + 20px).
