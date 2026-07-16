@@ -17,6 +17,7 @@ import {
   renderTimelineTable, copyEmailTable, switchTab,
   previewPdf, downloadPdf, saveTimeline
 } from './output.js';
+import { maybeTriggerDelorean } from './mr-fusion.js';
 
 // ── Read phases from preview blocks ──────────────────────────────────────
 // Shared between generateTimeline() and the save handler.
@@ -135,6 +136,8 @@ function generateTimeline() {
   lastFingerprint = computeFingerprint();
   document.getElementById('staleWarning')?.classList.remove('visible');
   updateGenerateBtnLabel();
+
+  maybeTriggerDelorean();
 }
 
 // ── Clear All — reset the tool to a fresh state ───────────────────────────

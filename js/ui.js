@@ -347,9 +347,6 @@ export function rebuildPMChecklist() {
   refreshPMSelectors();
 }
 
-// ── Stub kept for backwards compat — replaced by rebuildPMChecklist ───────
-export function buildPMRow() { return document.createElement('div'); }
-
 // ── Refresh PM state — stamps data-pm-delivery on del-rows ────────────────
 // Called after checklist changes and after section 2 changes.
 export function refreshPMSelectors() {
@@ -651,10 +648,19 @@ export function rebuildPhaseTable(block, skipPhases) {
   }
 
   // Expand round groups — rounds is the outer loop, phases inner,
-  // so output is: Rd1Phase1, Rd1Phase2, Rd2Phase1, Rd2Phase2 (interleaved)
+  // so output is: Rd1Phase1, Rd1Phase2, Rd2Phase1, Rd2Phase2 (interleaved).
+  // Round numbering runs CONTINUOUSLY across groups for new Premium/Custom
+  // Guides (bg_initial numbers Rd 1..N, then bg_round continues from Rd N+1),
+  // matching the initial render in the deliverable-row builder. Renewals and
+  // all other products number each group from Rd 1. Keep this in sync with the
+  // equivalent block in the deliverable-row builder above.
   const expanded = [];
   const roundGroupDefs = ROUND_GROUPS[product] || [];
   const usedGroups = new Set();
+
+  const CONTINUOUS_ROUND_PRODUCTS = ['Premium Guide', 'Custom Guide'];
+  const continuousRounds = !isRenewal && CONTINUOUS_ROUND_PRODUCTS.includes(product);
+  let runningRound = 1;
 
   phases.forEach(p => {
     if (!p.round_group_name) { expanded.push(p); return; }
@@ -668,12 +674,14 @@ export function rebuildPhaseTable(block, skipPhases) {
       : Math.max(1, rounds - fixedTotal);
 
     const groupPhases = phases.filter(gp => gp.round_group_name === p.round_group_name);
-    for (let r = 1; r <= rCount; r++) {
+    const startRound = continuousRounds ? runningRound : 1;
+    for (let r = startRound; r < startRound + rCount; r++) {
       groupPhases.forEach(gp => {
-        const baseName = rCount > 1 ? `${gp.name} Rd ${r}` : gp.name;
+        const baseName = (rCount > 1 || startRound > 1) ? `${gp.name} Rd ${r}` : gp.name;
         expanded.push({ ...gp, name: baseName });
       });
     }
+    runningRound = startRound + rCount;
   });
 
   const tbody = block.querySelector('.phase-table tbody');
@@ -789,10 +797,22 @@ export function previewPhases() {
         return p;
       });
 
-    // Expand round groups — rounds outer, phases inner for correct interleaving
+    // Expand round groups — rounds outer, phases inner for correct interleaving.
+    // Round numbering runs CONTINUOUSLY across groups for new Premium/Custom
+    // Guides: the fixed background group (bg_initial) numbers Rd 1..N, then the
+    // visible group (bg_round) continues from Rd N+1 rather than restarting at 1.
+    // phases is pre-sorted by phase_order, so bg_initial is processed before
+    // bg_round and the counter accumulates in the right sequence. Renewals and
+    // all other products number each group from Rd 1 independently.
     const roundGroupDefs = ROUND_GROUPS[del.product] || [];
     const expanded = [];
     const usedGroups = new Set();
+
+    // Products whose new (non-renewal) timelines carry prior background rounds,
+    // so their round numbering continues across groups instead of resetting.
+    const CONTINUOUS_ROUND_PRODUCTS = ['Premium Guide', 'Custom Guide'];
+    const continuousRounds = !del.isRenewal && CONTINUOUS_ROUND_PRODUCTS.includes(del.product);
+    let runningRound = 1;  // next round number to assign when numbering continuously
 
     phases.forEach(p => {
       if (!p.round_group_name) { expanded.push(p); return; }
@@ -806,18 +826,16 @@ export function previewPhases() {
         : Math.max(1, del.rounds - fixedTotal);
 
       const groupPhases = phases.filter(gp => gp.round_group_name === p.round_group_name);
-      const OFFSET_GROUPS   = ['bground', 'cust bg round'];
-      const OFFSET_PRODUCTS = ['Premium Guide', 'Custom Guide'];
-      // The +2 round-number offset (visible rounds start at "Rd 3") reflects the two
-      // prior background rounds baked into a NEW Premium/Custom Guide. Renewals don't
-      // carry those, so they number from Rd 1 like every other product.
-      const startRound = (!del.isRenewal && OFFSET_GROUPS.includes(p.round_group_name) && OFFSET_PRODUCTS.includes(del.product)) ? 3 : 1;
+      // Continuous numbering picks up where the previous group left off; otherwise
+      // each group starts at Rd 1.
+      const startRound = continuousRounds ? runningRound : 1;
       for (let r = startRound; r < startRound + rCount; r++) {
         groupPhases.forEach(gp => {
           const baseName = (rCount > 1 || startRound > 1) ? `${gp.name} Rd ${r}` : gp.name;
           expanded.push({ ...gp, name: baseName });
         });
       }
+      runningRound = startRound + rCount;  // advance the counter for the next group
     });
 
     const block = document.createElement('div');

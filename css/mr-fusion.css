@@ -1,0 +1,89 @@
+/* ── mr-fusion.css ───────────────────────────────────────────────────────
+   DeLorean easter egg. Fired from js/mr-fusion.js on a 1-in-50 chance per
+   successful Generate. Invisible at rest — no layout impact, no visual
+   footprint until it fires.
+
+   The car drives across the FACE of the Generate button, riding its bottom
+   line, over the label (which no longer matters once the button's been
+   pressed). Tire tracks emerge from behind the rear wheel and cool
+   left-to-right; the per-dot timing is computed in js/mr-fusion.js so it
+   stays glued to the car regardless of button width.
+
+   Fully removable: delete this file, its <link> in index.html, the
+   .de-stage markup block in index.html, and the one import line in main.js.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Positioning context so the stage can overlay the button. The base
+   .generate-wrap rule (margin only) lives in styles.css — this adds the
+   anchor without touching that file. */
+.generate-wrap{ position:relative; }
+
+/* Stage overlays the button itself. border-radius + overflow clip the car to
+   the button's rounded corners so nothing spills past the edge. The button is
+   ~48px tall and the car is 26px, so the car clears the box with room to
+   spare — no vertical clipping. */
+.de-stage{
+  position:absolute;
+  inset:0;
+  border-radius:12px;
+  overflow:hidden;
+  pointer-events:none;
+  z-index:2;
+}
+
+/* Car rides the bottom line of the button (wheels on the seam). */
+#deloreanCar{
+  position:absolute;
+  bottom:1px; left:-160px;
+  height:26px; width:auto;
+  image-rendering:pixelated;
+  z-index:2;
+}
+@keyframes de-drive-across{
+  0%   { left:-160px; }
+  100% { left:calc(100% + 20px); }
+}
+.de-driving{ animation:de-drive-across 1.05s linear forwards; }
+
+/* Tire tracks ride the same bottom line, behind the car. Dots are positioned
+   and timed individually in JS (see mr-fusion.js): each one is delayed to
+   appear as the car's rear wheel reaches it, then fades over its own life,
+   producing a trail that emerges behind the car and cools left-to-right. */
+.de-track-container{
+  position:absolute;
+  left:0; right:0; bottom:1px;
+  height:4px;
+  z-index:1;
+}
+.de-dot{
+  position:absolute;
+  bottom:0;
+  border-radius:50%;
+  opacity:0;
+}
+.de-firing .de-dot{ animation:de-dot-life var(--life,1050ms) ease-out forwards; }
+@keyframes de-dot-life{
+  0%   { opacity:0; }
+  8%   { opacity:.95; }
+  30%  { opacity:.9; }
+  100% { opacity:0; }
+}
+
+.de-flux{
+  position:absolute;
+  top:4px; right:10px;
+  font-family:Verdana,sans-serif;
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.05em;
+  color:var(--dark);
+  opacity:0;
+  z-index:3;
+}
+@keyframes de-flash-in-out{
+  0%   { opacity:0; }
+  20%  { opacity:1; }
+  80%  { opacity:1; }
+  100% { opacity:0; }
+}
+.de-flashing{ animation:de-flash-in-out 1.05s ease forwards; }

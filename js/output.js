@@ -886,11 +886,6 @@ export async function copyEmailTable(tab) {
   }
 }
 
-// ── Print / PDF ───────────────────────────────────────────────────────────
-export function printTimeline() {
-  window.print();
-}
-
 // ── Save timeline to Supabase ─────────────────────────────────────────────
 export async function saveTimeline({ pm, client, project, startDate, dueDate, milestoneGroups, deliverables, projectSpanDays }) {
   if (!pm)      { alert('Please select a PM before saving.'); return; }
