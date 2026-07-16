@@ -686,6 +686,21 @@ export function rebuildPhaseTable(block, skipPhases) {
 
   const tbody = block.querySelector('.phase-table tbody');
   if (!tbody) return;
+
+  // Snapshot any user-edited durations before we tear down the tbody, keyed by
+  // the phase's displayed name (e.g. "Client Review Rd 3"). A rebuild (triggered
+  // by a round-count change) otherwise re-renders every duration from the DB
+  // default, silently discarding edits. Surviving phases match by name and keep
+  // their edit; rounds that no longer exist (e.g. Rd 5 after dropping to 3
+  // rounds) simply have no matching row, so their edits fall away — which is the
+  // correct behavior. Only capture values that differ from an unedited input.
+  const durEdits = new Map();
+  tbody.querySelectorAll('tr').forEach(tr => {
+    const nm  = tr.querySelector('.pt-name')?.value;
+    const dur = tr.querySelector('.pt-dur')?.value;
+    if (nm && dur !== undefined && dur !== '') durEdits.set(nm, dur);
+  });
+
   tbody.innerHTML = '';
 
   // Drop phases the user explicitly deleted from the review table (matched on the
@@ -701,11 +716,14 @@ export function rebuildPhaseTable(block, skipPhases) {
     const tr = document.createElement('tr');
     const ownerClass = phase.owner === 'Client' ? 'owner-client' : 'owner-flimp';
     tr.dataset.isMilestone = phase.is_milestone ? 'true' : 'false';
+    // Prefer a preserved user edit for this phase's duration; fall back to the
+    // DB default. Keyed on the displayed name so it survives round-count changes.
+    const durVal = durEdits.has(phase.name) ? durEdits.get(phase.name) : phase.dur;
     tr.innerHTML = `
       <td class="phase-drag-handle" title="Drag to reorder">⠿</td>
       <td><input class="pt-name" type="text" value="${esc(phase.name)}"></td>
       <td style="text-align:center"><span class="owner-badge ${ownerClass}">${esc(phase.owner)}</span></td>
-      <td style="text-align:center"><input class="pt-dur" type="number" min="1" max="120" value="${phase.dur}"></td>
+      <td style="text-align:center"><input class="pt-dur" type="number" min="1" max="120" value="${durVal}"></td>
       <td class="phase-end-date" style="text-align:center;font-size:11px;color:var(--text-secondary);white-space:nowrap">—</td>
       <td style="text-align:center"><button class="phase-rm-btn" title="Remove phase">&times;</button></td>`;
 
